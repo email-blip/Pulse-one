@@ -28,7 +28,7 @@ private struct MemoryStore {
     var rows: [String: HealthSample] = [:]
 
     @discardableResult
-    mutating func ingest(_ batch: SyncBatch, profile: UUID = owner, at time: Date = t0) -> SyncPlan {
+    mutating func ingest(_ batch: SyncBatch, profile: UUID = owner, at time: Date = t0.addingTimeInterval(3_600)) -> SyncPlan {
         let plan = SyncCoordinator.plan(batch: batch, existing: rows, profileID: profile, importedAt: time)
         for s in plan.inserts + plan.updates { rows[s.deduplicationKey] = s }
         for id in plan.deletions { rows = rows.filter { $0.value.id != id } }
