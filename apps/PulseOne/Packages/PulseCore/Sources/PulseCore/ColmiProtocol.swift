@@ -115,6 +115,11 @@ public enum ColmiProtocol {
     public struct Battery: Equatable, Sendable {
         public let level: Int
         public let charging: Bool
+
+        public init(level: Int, charging: Bool) {
+            self.level = level
+            self.charging = charging
+        }
     }
 
     public enum RealTimeReading: Equatable, Sendable {
