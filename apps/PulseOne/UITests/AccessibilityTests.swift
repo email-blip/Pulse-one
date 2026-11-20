@@ -14,6 +14,8 @@ final class AccessibilityTests: XCTestCase {
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15))
+        // Let the launch transition finish: run 4 reported contrast on text that is still fading in.
+        Thread.sleep(forTimeInterval: 1.5)
         // Rendered visuals (orb canvas, 3D heart) carry their own label and value; contrast of text drawn
         // over a gradient is not measurable there.
         let visualFrames = ["orb", "heart3d"].compactMap { id -> CGRect? in

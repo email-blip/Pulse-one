@@ -143,16 +143,23 @@ struct HeartChamberView: View {
         .background(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous).fill(Palette.surfaceRaised))
     }
 
+    /// Toggle as a full-width button: the system button-style toggle keeps a hit area of only the label.
     private func toggle(_ title: String, systemImage: String, isOn: Binding<Bool>, id: String) -> some View {
-        Toggle(isOn: isOn) {
+        Button { isOn.wrappedValue.toggle() } label: {
             Label(title, systemImage: systemImage)
                 .font(Typography.label)
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(isOn.wrappedValue ? Palette.obsidian : Palette.ink)
                 .wraps()
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(isOn.wrappedValue ? Palette.bioCyan : Palette.surfaceButton)
+                )
+                .contentShape(Rectangle())
         }
-        .toggleStyle(.button)
-        .tint(Palette.bioCyan)
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(isOn.wrappedValue ? "an" : "aus")
         .accessibilityIdentifier(id)
     }
 
