@@ -6,12 +6,14 @@ import SwiftUI
 struct PulseOneApp: App {
     private let options = LaunchOptions.current
     private let container: ModelContainer
+    /// Set when the on-disk store could not be opened; the app then runs without saving and says so.
+    private let storeProblem: String?
     @State private var ring: RingStore
     @State private var sources: SourcesStore
 
     init() {
         let options = LaunchOptions.current
-        let container = Self.makeContainer(inMemory: options.isUITesting)
+        let (container, storeProblem) = Self.makeContainer(inMemory: options.isUITesting)
         let ring: RingStore
         let sources: SourcesStore
         if options.usesTestScenario, let scenario = options.scenario {
@@ -30,13 +32,14 @@ struct PulseOneApp: App {
             sources.ingest(measurement)
         }
         self.container = container
+        self.storeProblem = storeProblem
         _ring = State(initialValue: ring)
         _sources = State(initialValue: sources)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(options: options)
+            RootView(options: options, storeProblem: storeProblem)
                 .environment(ring)
                 .environment(sources)
                 .modelContainer(container)
@@ -46,15 +49,22 @@ struct PulseOneApp: App {
         }
     }
 
-    private static func makeContainer(inMemory: Bool) -> ModelContainer {
+    /// Opens the store. If the file cannot be opened, the ring still works on a temporary store,
+    /// but the user is told that nothing is saved (no silent data loss, architecture 5.0 §6).
+    private static func makeContainer(inMemory: Bool) -> (ModelContainer, String?) {
         let schema = Schema([StoredMeasurement.self, StoredSample.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
-        if let container = try? ModelContainer(for: schema, configurations: configuration) {
-            return container
-        }
-        // A broken store must not stop the app from connecting to the ring.
+        let failure: Error
         do {
-            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true))
+            return (try ModelContainer(for: schema, configurations: configuration), nil)
+        } catch {
+            failure = error
+        }
+        let message = "Die Datenbank konnte nicht geöffnet werden. Neue Messungen werden in dieser Sitzung nicht gespeichert. "
+            + "Bitte App neu starten; wenn das bleibt, Claude Bescheid geben. (\(String(describing: failure).prefix(160)))"
+        do {
+            let temporary = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            return (try ModelContainer(for: schema, configurations: temporary), message)
         } catch {
             fatalError("SwiftData unavailable: \(error)")
         }
@@ -64,7 +74,9 @@ struct PulseOneApp: App {
 /// Applies the system Reduce Motion setting or a UI-test override as one environment value.
 struct RootView: View {
     let options: LaunchOptions
+    var storeProblem: String?
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(RingStore.self) private var ring
     @Environment(SourcesStore.self) private var sources
 
@@ -83,6 +95,21 @@ struct RootView: View {
             .environment(\.freezeAnimations, options.usesTestScenario)
             .transaction { if options.usesTestScenario { $0.disablesAnimations = true } }
             .onChange(of: ring.snapshot, initial: true) { _, snapshot in sources.noteRing(snapshot) }
+            // Apple Health is read on launch and on every return to the foreground (throttled in the store).
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                if phase == .active { Task { await sources.syncHealthIfDue() } }
+            }
+            .safeAreaInset(edge: .top) {
+                if let storeProblem {
+                    Label(storeProblem, systemImage: "exclamationmark.triangle.fill")
+                        .font(Typography.caption)
+                        .foregroundStyle(Palette.obsidian)
+                        .padding(Spacing.m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Palette.pulseCoral)
+                        .accessibilityIdentifier("storeProblem")
+                }
+            }
     }
 }
 

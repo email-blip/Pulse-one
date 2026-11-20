@@ -44,15 +44,19 @@ public enum AdapterCatalog {
 
     public static let appleHealth = AdapterDescriptor(
         id: "apple.health", title: "Apple Health", category: .phone,
-        supportedDevices: ["iPhone", "Apple Watch und andere Quellen in Apple Health"],
+        supportedDevices: ["iPhone", "Apps und Geräte, die in Apple Health schreiben"],
         connection: .healthKit, requiredPermissions: ["Health (je Datentyp)"], needsPairing: false,
         kinds: [
-            .heartRate: .planned, .restingHeartRate: .planned, .heartRateVariability: .planned,
-            .oxygenSaturation: .planned, .steps: .planned, .activeEnergy: .planned, .distance: .planned,
-            .sleepDuration: .planned, .trainingDuration: .planned, .elevationGain: .planned,
-            .bodyTemperature: .planned, .skinTemperatureDeviation: .planned
+            .heartRate: .implementedUntested, .restingHeartRate: .implementedUntested,
+            .heartRateVariability: .implementedUntested, .oxygenSaturation: .implementedUntested,
+            .steps: .implementedUntested, .activeEnergy: .implementedUntested, .basalEnergy: .implementedUntested,
+            .distance: .implementedUntested, .sleepDuration: .implementedUntested,
+            .trainingDuration: .implementedUntested, .elevationGain: .planned,
+            .bodyTemperature: .implementedUntested, .skinTemperatureDeviation: .implementedUntested,
+            .respiratoryRate: .implementedUntested, .vo2Max: .implementedUntested,
+            .bodyMass: .implementedUntested, .height: .implementedUntested
         ],
-        supportsHistory: .planned, supportsLive: .unsupported, reconnects: false,
+        supportsHistory: .implementedUntested, supportsLive: .unsupported, reconnects: false,
         firmwareNote: "–",
         knownLimitations: ["Nur für das Profil der iPhone-Besitzerin bzw. des Besitzers.",
                            "Lesezugriff verweigert ist für die App nicht von „keine Daten“ unterscheidbar."]

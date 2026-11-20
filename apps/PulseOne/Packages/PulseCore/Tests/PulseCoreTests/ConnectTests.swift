@@ -181,3 +181,31 @@ struct DeviceRegistryTests {
         #expect(Set(AdapterCatalog.all.map(\.id)).count == AdapterCatalog.all.count)
     }
 }
+
+@Suite("Per-type sync reports")
+struct SyncTypeReportTests {
+    @Test func summarisesEachOutcome() {
+        #expect(SyncTypeReport(kind: .steps, added: 0, deleted: 0, at: t0).summary == "keine neuen Werte")
+        #expect(SyncTypeReport(kind: .steps, added: 12, deleted: 0, at: t0).summary == "12 neu")
+        #expect(SyncTypeReport(kind: .steps, added: 3, deleted: 1, at: t0).summary == "3 neu, 1 entfernt")
+        #expect(SyncTypeReport(kind: .vo2Max, added: 0, deleted: 0, at: t0, error: "locked").summary == "Fehler: locked")
+    }
+
+    @Test func newestRunWinsPerTypeAndOthersStay() throws {
+        var device = RegisteredDevice(adapterID: "apple.health", sourceIdentifier: "healthkit", name: "Apple Health")
+        device.record([SyncTypeReport(kind: .steps, added: 5, deleted: 0, at: t0),
+                       SyncTypeReport(kind: .heartRate, added: 2, deleted: 0, at: t0)])
+        device.record([SyncTypeReport(kind: .steps, added: 0, deleted: 0, at: t0.addingTimeInterval(60), error: "x")])
+        #expect(device.typeReports.count == 2)
+        #expect(device.typeReports.first { $0.kind == .steps }?.error == "x")
+        #expect(device.typeReports.first { $0.kind == .heartRate }?.added == 2)
+        let decoded = try JSONDecoder().decode(RegisteredDevice.self, from: JSONEncoder().encode(device))
+        #expect(decoded.typeReports == device.typeReports)
+    }
+
+    @Test func newHealthKindsHaveUnitsAndRanges() {
+        #expect(SampleKind.vo2Max.canonicalUnit == .millilitersPerKilogramMinute)
+        #expect(SampleKind.bodyMass.canonicalUnit == .kilograms)
+        #expect(SampleKind.respiratoryRate.canonicalUnit == .breathsPerMinute)
+    }
+}
