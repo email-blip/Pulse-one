@@ -11,6 +11,8 @@ Ersetzt die Vorauswahl aus `CREATIVE-LAB.md` (dort verworfene Ideen sind hier wi
 
 ---
 
+> **Korrektur P1-004 (2026-11-20):** Reiten war hier zu oft das Standardbeispiel. Maßgeblich für Sportbezug ist jetzt `SPORT-UND-ALLTAG.md` (sportneutraler Kern, Sportmodule, Abnahmematrix). Beispiele unten sind neutralisiert (markiert „P1-004“); IDs und Ideen bleiben unverändert. Reiten bleibt eine freiwillige Sportwelt, Tierdaten getrennt. **P1-004-N1:** Die App betreut Menschen und verschiedene Tiere (Hund, Katze, Pferd, Kleintiere, Geflügel, weitere) als eigene Subjekte; Pferd/Reiter ist nur ein optionaler Fall (`SPORT-UND-ALLTAG.md` §4).
+
 ## 0. Kurzfassung (für das Handy)
 
 **Belastbarkeits-Etikett für jede Idee**
@@ -30,12 +32,12 @@ Ersetzt die Vorauswahl aus `CREATIVE-LAB.md` (dort verworfene Ideen sind hier wi
 | 2 | **Morgen-Vorhersage** | Abends sagt dir die App, wie dein Ruhepuls und deine Erholung morgen früh voraussichtlich aussehen, und morgens siehst du, ob sie recht hatte. | B |
 | 3 | **Persönlicher Wetterbericht des Körpers** | Die App verbindet Wetter, Pollen und Luft mit deinen Nächten und sagt: „Schwüle Nacht angekündigt, bei dir waren solche Nächte meist unruhiger.“ | B |
 | 4 | **Infekt-Frühwarnung** | Steigen Ruhepuls und (mit R09) Fingertemperatur über mehrere Nächte, sagt die App: „So sah es bei dir vor deiner letzten Erkältung aus.“ | B |
-| 5 | **Tageskoch** | Jeden Tag drei Gerichte, abgestimmt auf deine letzte Nacht, dein Training (z. B. Reiten um 17 Uhr), die Jahreszeit und was im Kühlschrank ist (Foto genügt). | B |
+| 5 | **Tageskoch** | Jeden Tag drei Gerichte, abgestimmt auf deine letzte Nacht, dein Training (z. B. Lauf um 17 Uhr, Krafttraining, Fußballspiel; P1-004), die Jahreszeit und was im Kühlschrank ist (Foto genügt). | B |
 | 6 | **Alkohol- und Koffein-Fingerabdruck** | Du siehst schwarz auf weiß, wie stark ein Glas Wein oder ein später Kaffee deinen Nachtpuls und Schlaf verschiebt, nur bei dir. | A/B |
 | 7 | **Körper-Tempo („biologisches Alter“ als Trend)** | Ein spielerischer Wert, ob dein Körper gerade „jünger oder älter läuft“ als dein Kalenderalter, mit klarer Warnung, dass es nur eine Annäherung ist. | C |
 | 8 | **Ärzte-Konferenz-Simulation** | Vier KI-Rollen (Herz, Schlaf, Sport, Ernährung) diskutieren deinen Monat und einigen sich auf eine Empfehlung, und du kannst die Diskussion mitlesen. | B |
-| 9 | **Morgen-Podcast** | Zwei Minuten gesprochenes Briefing über deine Nacht und deinen Tag, auf dem Weg zum Stall anhörbar. | A |
-| 10 | **Reiter-Pferd-Herzkopplung** | Mit einem Pulsgurt am Pferd siehst du nach dem Ritt, wann eure Herzen im Gleichklang waren und wer zuerst angespannt war. | B (braucht H10 + Equine-Gurt) |
+| 9 | **Morgen-Podcast** | Zwei Minuten gesprochenes Briefing über deine Nacht und deinen Tag, auf dem Weg zur Arbeit, zum Training oder zum Stall anhörbar (P1-004). | A |
+| 10 | **Reiter-Pferd-Herzkopplung** (freiwillige Sportwelt; P1-004) | Mit einem Pulsgurt am Pferd siehst du nach dem Ritt, in welchen Phasen eure Herzfrequenzen zeitlich nah beieinanderlagen. „Wer zuerst angespannt war“ ist eine ungeprüfte Hypothese, keine Ausgabe. | B (braucht H10 + Equine-Gurt) |
 
 **Was heute schon ginge, ohne neue Hardware:** 1, 2, 3, 5, 6, 8, 9 (und 4 schwächer, ohne Temperatur).
 
@@ -56,7 +58,7 @@ Ersetzt die Vorauswahl aus `CREATIVE-LAB.md` (dort verworfene Ideen sind hier wi
 | Psychologe / Psychiater | Stimmung, Stress, Gewohnheiten, Motivation |
 | Ernährungswissenschaftlerin + Koch | Gerichte, Timing, Saison, Einkauf |
 | Sportwissenschaftler | Belastung, Schwellen, Übertraining |
-| Pferdewissenschaftlerin | Pferd als zweites Lebewesen in der App |
+| Pferdewissenschaftlerin | Pferd als zweites Lebewesen in der App (eine von mehreren Sportperspektiven; P1-004) |
 | Maker / Hardware-Hacker | Rohdaten, günstige Zusatzsensoren |
 | Game Designer | Motivation ohne Zwang |
 | Storyteller | Daten als Geschichte, Audio, Briefe |
@@ -88,8 +90,8 @@ Ersetzt die Vorauswahl aus `CREATIVE-LAB.md` (dort verworfene Ideen sind hier wi
 | Schlaf + Wetter + Raumklima | persönliche Wetterfühligkeit |
 | Schlaf + Mahlzeit-Zeitpunkt + Koffein | dein Schlafrezept |
 | Puls in Ruhe + Schritte + Alter | Fitness-Schätzung, Körper-Tempo |
-| GPS + Puls + Beschleunigung (iPhone) | Ritt-Analyse, Gangarten, Belastung je Abschnitt |
-| H10 Mensch + H10 Pferd | Herzkopplung Reiter–Pferd |
+| GPS + Puls + Beschleunigung (iPhone) | Sessionbericht je Sportart: Pace beim Lauf, Höhenmeter beim Wandern, Gangarten beim Reiten (P1-004) |
+| H10 + H10 (zwei Sensorströme) | zeitlicher Gleichlauf, z. B. Reiter–Pferd, Ruderer–Ruderer (keine Stressdeutung; P1-004) |
 | Kalender + Puls tagsüber | Stress-Signaturen bestimmter Termintypen |
 | Sprachnotiz + alles | die „Warum“-Ebene, die Sensoren nicht kennen |
 | Gangbild (iPhone) über Monate | schleichende Veränderungen der Beweglichkeit |
@@ -129,12 +131,12 @@ Spalten: **Alltag** (ein Satz), **Daten**, **Wie** (lokal = auf dem iPhone, Clau
 |---|---|---|---|---|---|---|
 | I1 | **Nachtschicht-Forscher** | Monatlich rechnet Claude mit echtem Code Hunderte Zusammenhänge durch und bringt die stärksten mit Diagramm und Gegenprobe. | Claude **Code Execution** (Python-Sandbox) + **Files API** auf anonymisierter Tabelle (Tageswerte, ohne Namen/Orte), Korrektur für Mehrfachtests | B | M | Schätzung 0,50–3 $ je Lauf (Token + Container-Gebühr laut Preisliste prüfen) |
 | I2 | **Körper-Detektiv mit Analogtagen** | (aus Lab 1) frühere, ähnliche Tage und was danach kam. | lokal + Claude | B | M | ca. 0,05 $/Fall |
-| I3 | **Signaturen-Bibliothek** | Die App lernt, wie Reiten, Streit, Sauna, Wein, lange Autofahrten in deiner Nacht „aussehen“, und erkennt sie wieder. | Ereignis-Notizen + Nachtkurven, Mustervergleich | B | M | 0 € |
+| I3 | **Signaturen-Bibliothek** | Die App lernt, wie ein Intervalllauf, Krafttraining, Streit, Sauna, Wein, lange Autofahrten in deiner Nacht „aussehen“, und erkennt sie wieder. | Ereignis-Notizen + Nachtkurven, Mustervergleich | B | M | 0 € |
 | I4 | **Alkohol-Fingerabdruck** | Dosis-Wirkungs-Kurve: Glas 1, 2, 3 → so stark steigt dein Nachtpuls, so sinkt HRV. | lokal | A/B (Studie mit ca. 21 000 Personen: dosisabhängig höherer Nachtpuls, niedrigere HRV) | S | 0 € |
 | I5 | **Koffein-Rechner** | Halbwertszeit-Modell: „Um 22 Uhr sind noch ca. X mg im Blut“, gekoppelt an deine Einschlafzeit. | lokal | B | S | 0 € |
 | I6 | **Wetterfühligkeits-Profil** | Persönliche Empfindlichkeit für Hitze, Luftdruck-Sprünge, Pollen, Feinstaub. | Open-Meteo Wetter + Luft + Pollen (Europa), lokal korreliert | B (Temperatur, Luftverschmutzung belegt; Luftdruck kaum untersucht) | M | 0 € (kostenlos, nicht kommerziell, Quellenangabe nötig) |
 | I7 | **Stress-Signaturen im Kalender** | „Termine mit ‚Bank‘ im Titel erhöhen deinen Puls tagsüber messbar.“ | EventKit lokal, Titel bleiben auf dem iPhone | C | M | 0 € |
-| I8 | **Gangbild-Wächter** | Langsame Veränderung von Gehtempo, Schrittlänge, Asymmetrie (iPhone in der Tasche), z. B. nach Sturz vom Pferd. | Health-Gangdaten | B | S | 0 € |
+| I8 | **Gangbild-Wächter** | Langsame Veränderung von Gehtempo, Schrittlänge, Asymmetrie (iPhone in der Tasche), z. B. nach einer Knieverletzung, einem Sturz oder langer Krankheit (P1-004). | Health-Gangdaten | B | S | 0 € |
 | I9 | **Körperkalender-Heatmap** | Ein Jahr auf einen Blick, jedes Kästchen eine Nacht; Claude markiert Muster wie „Montagsdelle“. | lokal + Claude Vision liest die Heatmap | B | S | Cent |
 | I10 | **Körper-Wörterbuch** | Claude baut ein persönliches Lexikon: „Wenn Muster X auftritt, folgte bei dir meist Y.“ | Insight-Karten mit Verfallsdatum (Lab 1) | B | M | 0 € |
 | I11 | **Ärzte-Konferenz-Simulation** | Herz-, Schlaf-, Sport- und Ernährungs-Agent diskutieren, dann Synthese; Diskussion lesbar. | Multi-Agent wie Google Personal Health Agent (Datenwissenschaft, Fachexperte, Coach) | B | M | Schätzung 0,30–0,80 $ je Konferenz |
@@ -149,14 +151,14 @@ Spalten: **Alltag** (ein Satz), **Daten**, **Wie** (lokal = auf dem iPhone, Clau
 | I20 | **Aerobe Schwelle ohne Labor** | Beim lockeren Lauf mit H10 erkennt die App, wo deine aerobe Schwelle liegt (DFA-α1 ≈ 0,75). | H10 RR, lokal | B (validiert vor allem bei Läufern auf dem Laufband; Artefakte beachten) | M | 0 € |
 | I21 | **Herzfrequenz-Erholung** | Nach jeder Belastung: Wie schnell fällt dein Puls in der ersten Minute? Trend über Monate. | H10 (oder Ring-Live, ungenauer) | B | S | 0 € |
 | I22 | **Atemfrequenz aus dem EKG** | Atemzüge pro Minute im Schlaf/Training aus der EKG-Kurve des H10. | lokal | B | M | 0 € |
-| I23 | **„Frag & Zeig“** | Du fragst „Wie hängen Reiten und Schlaf zusammen?“, Claude entwirft das passende Diagramm, die App zeichnet es mit echten Daten. | Claude liefert Diagramm-Spezifikation (JSON), Swift Charts rendert lokal | A | M | Cent |
+| I23 | **„Frag & Zeig“** | Du fragst „Wie hängen Krafttraining und Schlaf zusammen?“ (oder Laufen, Reiten, Schichtarbeit; P1-004), Claude entwirft das passende Diagramm, die App zeichnet es mit echten Daten. | Claude liefert Diagramm-Spezifikation (JSON), Swift Charts rendert lokal | A | M | Cent |
 | I24 | **Selbstlernende Regeln** | Claude schlägt neue lokale Hinweisregeln vor („Wenn Nachtpuls > X und Notiz ‚Wein‘ …“), du bestätigst, dann laufen sie ohne Claude. | Regel-Schema, lokaler Interpreter | B | M | Cent |
 
 ### 3.3 Lebensanleitung: vom Wissen zum Tun
 
 | # | Idee | Alltag | Stufe | Aufwand | Kosten |
 |---|---|---|---|---|---|
-| L1 | **Tagesdrehbuch** | Morgens ein Plan in 5 Zeilen: Energie-Erwartung, bester Moment für Training/Reiten, Essen, Licht, Zubettgehzeit. | B | M | ca. 0,02 $/Tag (Sonnet) oder 0 € (Apple-KI) |
+| L1 | **Tagesdrehbuch** | Morgens ein Plan in 5 Zeilen: Energie-Erwartung, bester Moment für Training (welcher Sport auch immer; P1-004), Essen, Licht, Zubettgehzeit. | B | M | ca. 0,02 $/Tag (Sonnet) oder 0 € (Apple-KI) |
 | L2 | **Energie-Konto** | Ein Akku-Bild aus Schlaf, Nachtpuls und Tagesbelastung, das zeigt, wie viel „Reserve“ heute da ist. | C (ähnlich Garmin Body Battery; Methode nicht offen validiert) | M | 0 € |
 | L3 | **Wenn-Dann-Pläne zum richtigen Moment** | (Lab 1) kleine Pläne, die ausgelöst werden, wenn sie helfen. | B | M | Cent |
 | L4 | **Schlafrezept** | Deine persönliche Liste: welche Abende zu deinen besten Nächten führten (Essen, Training, Bildschirm, Zimmer). | B | S | 0 € |
@@ -176,12 +178,12 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 
 | # | Idee | Alltag | Daten | Stufe | Aufwand | Kosten |
 |---|---|---|---|---|---|---|
-| E1 | **Tageskoch: 3 Gerichte am Morgen** | Frühstück, Mittag, Abend passend zu: letzter Nacht, heutigem Training (z. B. Reiten 17 Uhr → kohlenhydratreicher Mittag, leichter Abend), Proteinziel, Saison (November: Kohl, Kürbis, Rote Bete, Äpfel), Vorlieben, Kochzeit. | Schlaf, Kalender, Ziele, Coach Memory | B | M | ca. 0,03 $/Tag (Sonnet, Schätzung) |
+| E1 | **Tageskoch: 3 Gerichte am Morgen** | Frühstück, Mittag, Abend passend zu: letzter Nacht, heutigem Training (z. B. langer Lauf 17 Uhr → kohlenhydratreicher Mittag, leichter Abend; Krafttraining → Proteinfokus; P1-004), Proteinziel, Saison (November: Kohl, Kürbis, Rote Bete, Äpfel), Vorlieben, Kochzeit. | Schlaf, Kalender, Ziele, Coach Memory | B | M | ca. 0,03 $/Tag (Sonnet, Schätzung) |
 | E2 | **Kühlschrank-Foto** | Foto vom offenen Kühlschrank → drei Gerichte nur mit dem, was da ist. | Claude Vision | B | S | ca. 0,02 $/Foto |
 | E3 | **Speisekarten-Foto** | Im Restaurant: Foto der Karte → „heute für dich passend: …“ mit Begründung aus deinem Tag. | Vision | B | S | ca. 0,02 $/Foto |
 | E4 | **Schlaf-Abendessen** | Abends Gerichte, die zu deinen besten Nächten passten (Zeitpunkt, Menge), plus Ideen mit kleiner Studienlage (z. B. Kiwi am Abend, Sauerkirsche, beides nur kleine Studien). | Ernährungstagebuch + Schlaf | C | S | Cent |
 | E5 | **Wochenplan + Einkaufsliste** | Sonntags Plan für die Woche, die Einkaufsliste landet in der Erinnerungen-App. | EventKit Reminders | A | M | ca. 0,10 $/Woche |
-| E6 | **Training-Ernährung** | Vor/nach Reiten oder Kraft: was, wann, wie viel; danach Abgleich, wie du dich gefühlt hast. | Coach | B | S | Cent |
+| E6 | **Training-Ernährung** | Vor/nach Ausdauer, Kraft oder Spiel (P1-004): was, wann, wie viel; danach Abgleich, wie du dich gefühlt hast. | Coach | B | S | Cent |
 | E7 | **Persönliches Essens-Reaktions-Profil** | Über Wochen lernt die App: Nach Pasta abends ist dein Nachtpuls höher, nach Fisch nicht. | Mahlzeiten + Nachtpuls (I18), optional CGM (I19) | C (B mit CGM) | M | 0 € |
 | E8 | **Koch-Assistent per Sprache** | Schritt für Schritt vorlesen, „weiter“ sagen, Timer setzen. | AVSpeechSynthesizer, lokal | A | M | 0 € |
 | E9 | **Rest-Retter** | Was übrig ist, wird zu einem Gericht für morgen, damit nichts wegkommt. | Vision/Text | A | S | Cent |
@@ -189,7 +191,9 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 | E11 | **Gäste-Modus** | „Samstag 4 Personen, einer vegetarisch“ → Menü, das trotzdem zu deinem Plan passt. | Text | A | S | Cent |
 | E12 | **Fasten- und Essensfenster-Experiment** | Selbstversuch: Wie verändern 10 h Essensfenster deinen Nachtpuls und Schlaf? | Experiment-Labor | B | S | Cent |
 
-### 3.5 Pferd und Reiten
+### 3.5 Pferd und Reiten (freiwillige Sportwelt; tierspezifische Hypothesen getrennt gekennzeichnet; P1-004)
+
+> P1-004: H3 ist als allgemeiner **Sessionbericht** und H5 als allgemeines **Aktivitätstagebuch** in den sportneutralen Kern übernommen (`SPORT-UND-ALLTAG.md` §2). H1, H4, H6 und P18 sind tierspezifische Hypothesen. Tierdaten bleiben getrennt; menschliche Basislinien und HealthKit gelten nie für das Tier.
 
 | # | Idee | Alltag | Stufe | Aufwand | Kosten |
 |---|---|---|---|---|---|
@@ -197,7 +201,7 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 | H2 | **Gangarten-Erkennung** | iPhone in der Tasche erkennt Schritt/Trab/Galopp aus der Beschleunigung, Karte färbt die Route nach Gangart. | C (Gangart-Erkennung aus Bewegungssensoren ist erforscht, am iPhone in der Reithosen-Tasche ungeprüft) | M | 0 € |
 | H3 | **Ritt-Bericht** | GPS + Puls + Gangart → Claude schreibt eine kurze Ritt-Geschichte mit Belastungskurve. | B | M | Cent |
 | H4 | **Pferde-Fitness** | Ruhepuls und Erholung des Pferdes nach festem Trainingsstück über Monate. | B (H10 am stehenden Pferd gut validiert, in Bewegung vorsichtig) | M | H10 |
-| H5 | **Stalltagebuch** | Sprachnotiz „Hufschmied, Wurmkur, Weidegang“ → Pferdeprofil mit Ereignissen. | A | S | 0 € |
+| H5 | **Stalltagebuch** → **Tiertagebuch** (P1-004-N1) | Sprachnotiz z. B. „Hufschmied, Wurmkur, Weidegang“ (Pferd), „Futter gewechselt, frisst wenig“ (Katze), „12 Eier, ein Huhn mausert“ (Geflügel) → Tierprofil mit Ereignissen. | A | S | 0 € |
 | H6 | **Reiter-Körper** | Sitz und Rücken: Wie verändern Reittage deinen Gang (I8) und Schlaf? | C | S | 0 € |
 
 ### 3.6 Erlebnis, Klang, Spiel
@@ -210,7 +214,7 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 | X4 | **Hör deine Woche** | 20-Sekunden-Sonifikation. | A | S | 0 € |
 | X5 | **Prognose-Turnier** | siehe P17. | B | S | ~1 $/Monat |
 | X6 | **Jahres-Chronik** | Buch zum Durchblättern, inkl. Experimente und Erkenntnisse. | A | M | im Monatsbudget |
-| X7 | **Siri und Widgets** | „Hey Siri, wie war meine Nacht?“, Live-Puls beim Reiten auf dem Sperrbildschirm. | A | M | 0 € |
+| X7 | **Siri und Widgets** | „Hey Siri, wie war meine Nacht?“, Live-Puls beim Training (Lauf, Rad, Ritt) auf dem Sperrbildschirm (P1-004). | A | M | 0 € |
 | X8 | **Living Twin reagiert** | Das 3D-Herz/der Körper zeigt Erholung und Prognose (z. B. etwas „gedämpfter“ bei Infekt-Muster). | A (Darstellung), Inhalt wie P3 | L | 0 € |
 
 ### 3.7 KI-Superkräfte (technische Hebel, die alles oben möglich machen)
@@ -250,9 +254,9 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 | G6 | **Laborwerte × Wearables** | Fotos alter Blutbilder (Ferritin, Vitamin D, Schilddrüse …) werden mit Puls-, HRV- und Schlaftrends daneben gelegt: „Dein HRV-Tief im Februar fiel mit niedrigem Ferritin zusammen.“ | C (Zusammenhang, keine Ursache) | M | Cent/Foto |
 | G7 | **Gen-Rohdaten-Import** | Falls du je einen DNA-Test machst: Chronotyp-, Koffein- und Laktose-Varianten als zusätzliche Hypothesen, die die App mit deinen echten Daten gegenprüft („Gen sagt schneller Koffein-Abbau, deine Nächte sagen: eher nicht“). | C | M | Test extern, App 0 € |
 | G8 | **Musik, die dich beruhigt** | Welche Lieder (Apple Music, zuletzt gespielt) gingen mit sinkendem Puls einher? Eigene „Puls-runter-Playlist“. | C | M | 0 € |
-| G9 | **Orte, die dir guttun** | Wo (Stall, Wald, Büro, Zuhause) ist dein Puls in Ruhe am niedrigsten? Karte deiner Ruheorte, Koordinaten bleiben auf dem iPhone. | C | M | 0 € |
+| G9 | **Orte, die dir guttun** | Wo (Wald, Büro, Zuhause, Studio, Stall; P1-004) ist dein Puls in Ruhe am niedrigsten? Karte deiner Ruheorte, Koordinaten bleiben auf dem iPhone. | C | M | 0 € |
 | G10 | **Paar- oder Familien-Sync** | Zweiter Ring beim Partner (mit dessen Einverständnis): Schlafen eure Nächte im Gleichtakt? Wer weckt wen? | C | M | zweiter Ring ca. 20–40 € (prüfen) |
-| G11 | **Lebensereignis-Erkennung** | Die App merkt aus Daten, dass sich etwas Großes verändert hat (Umzug, Trauer, neues Pferd, neuer Job), und fragt behutsam nach. | C | M | 0 € |
+| G11 | **Lebensereignis-Erkennung** | Die App merkt aus Daten, dass sich etwas Großes verändert hat (Umzug, Trauer, neuer Job, Verletzung, Saisonbeginn; P1-004), und fragt behutsam nach. | C | M | 0 € |
 | G12 | **Mondphase und Schlaf** | Spielerischer Selbsttest einer umstrittenen Hypothese: schläfst **du** bei Vollmond anders? Nach einem Jahr gibt es eine Antwort nur für dich. | C | S | 0 € |
 | G13 | **Kälte-, Sauna-, Eisbad-Profil** | Wie reagieren Nachtpuls und HRV auf Sauna oder kaltes Duschen, persönliche Dosis-Wirkungs-Kurve. | B | S | 0 € |
 | G14 | **Meditationstiefe live** | Mit H10: Atem und HRV während einer Meditation; Klang wird ruhiger, je kohärenter dein Herzrhythmus wird. | B | M | H10 |
@@ -269,11 +273,11 @@ Grundsatz: **Claude erfindet Rezepte und Kombinationen, die Nährwerte rechnet d
 
 ## 4. Die „Mind-Blow“-Kombinationen
 
-1. **Wetter × Schlaf × Alkohol × Reiten:** Die App weiß, dass du nach Reittagen besser schläfst, nach Wein schlechter, bei Schwüle unruhig. Sie sagt abends: „Morgen schwül, heute Reiten: Wein eher weglassen, dann ist deine Nacht wahrscheinlich normal.“ (P2 + I4 + I6)
+1. **Wetter × Schlaf × Alkohol × Training** (P1-004): Die App weiß, dass du nach Trainingstagen besser schläfst, nach Wein schlechter, bei Schwüle unruhig. Sie sagt abends: „Morgen schwül, heute Training: Wein eher weglassen, dann ist deine Nacht wahrscheinlich normal.“ (P2 + I4 + I6)
 2. **Kalender × Puls × Essen:** „Am Donnerstag drei Termine hintereinander, deine Puls-Signatur für solche Tage ist hoch. Mittags etwas Leichtes, um 15 Uhr 2 Minuten Atmung, abends Fisch statt Pasta.“ (I7 + L11 + E7)
 3. **Prognose mit Gegenwette:** Lokales Modell, Claude und du tippen; die App zeigt nach 3 Monaten, wer deinen Körper am besten vorhersagt. Das trainiert dein Körpergefühl. (P17)
 4. **Nachtschicht-Forscher findet Unerwartetes:** z. B. „Deine besten Nächte folgten Tagen mit über 2 h draußen, unabhängig vom Training.“ und baut sofort ein Experiment daraus. (I1 + L6)
-5. **Pferd als Spiegel:** Herzkopplung + Gangart + dein Stresswert vom Tag: „Nach Bürotagen mit hohem Puls reagierte dein Pferd im Trab früher.“ (H1 + H2 + I7)
+5. **Pferd als Spiegel** (tierspezifische Hypothese, ungeprüft; P1-004): Herzkopplung + Gangart + dein Stresswert vom Tag: „Nach Bürotagen mit hohem Puls reagierte dein Pferd im Trab früher.“ (H1 + H2 + I7)
 6. **Infekt-Frühwarnung × Tageskoch × Training:** Muster wie vor einer Erkältung → Training wird automatisch leichter vorgeschlagen, Gerichte wärmend, früher ins Bett. (P3 + E1 + L1)
 
 ---
@@ -341,7 +345,7 @@ Kosten bei voller Nutzung (Schätzung): Tageskoch, Tagesdrehbuch, Podcast tägli
 | R5 Ernährung | E1–E12 Tageskoch |
 | R6 Unified Coach | X1 Morgen-Podcast, L7, I12 Jahresblick |
 | R8 Premium | X2–X4, X8 |
-| Sportwelt Reiten | H1–H6 |
+| Sportmodule (Laufen, Rad, Kraft, Rudern, Fußball, Outdoor, Reiten, eigene) | siehe `SPORT-UND-ALLTAG.md`; Reiten: H1, H2, H4, H6; H3/H5 im Kern |
 
 ---
 

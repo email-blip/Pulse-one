@@ -36,7 +36,7 @@ Erfasst, jeweils überspringbar und später änderbar; jede Angabe hat einen sic
 | Ziele | Ausdauer, Kraft, Beweglichkeit, Gewicht, Wohlbefinden, Sportart-spezifisch (max. 2 Hauptziele) | Wochenstruktur |
 | Lieblingssportarten | Liste §4 | Auswahl der Hauptaktivität |
 | Verfügbare Zeit | Tage pro Woche, Minuten pro Tag, bevorzugte Tageszeit | Planlänge |
-| Trainingsmöglichkeiten | zu Hause, Studio, draußen, Stall/Reithalle, Verein | Übungsfilter |
+| Trainingsmöglichkeiten | zu Hause, Studio, draußen, Verein, Bahn/Strecke, Wasser, Stall/Reithalle (Auswahl im Profil, kein Default; P1-004) | Übungsfilter |
 | Ausrüstung | keine, Matte, Kurzhanteln, Kettlebell, Langhantel, Klimmzugstange, Widerstandsbänder, Rudergerät, Fahrrad/Ergometer | Übungsfilter |
 | Gesundheitliche Einschränkungen | Körperregion + Art (Schmerz, OP, ärztlich begrenzt) + freie Notiz; ärztliche Grenzen aus Release 7 | **harte Ausschlüsse** |
 | Coaching-Intensität | ruhig / ausgewogen / fordernd; Ton: knapp / erklärend | Formulierung, Progressionstempo |
