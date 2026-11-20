@@ -94,3 +94,7 @@ Hardware: nichts getestet (TestFlight wird gerade eingerichtet).
 3. Kein Blocker mehr bei Apple-Konto oder Signierung.
 
 **Freigaben:** unverändert. Kosten, Geheimnisse, App-Store und externe Verarbeitung echter Gesundheitsdaten nur mit Johannes' Freigabe im Thread.
+
+## Antwort 6 – P1-003 Reviewpaket und R03-Diagnose (2026-11-20)
+
+Reviewpaket als Anhänge im Chat (Quellarchiv `1f6c701`, Git-Bundle mit Historie, `KEY-FILES.md`, Patch der ungesicherten Arbeit, 18 Screenshots). Inhalt und Belege: `REVIEW-P1-003.md` in diesem Ordner. Verifiziert ist nur, was dort mit Lauf-URL steht; keine R03-Funktion ist am Gerät bestätigt außer der Verbindung (Aussage Johannes). Nächster Schritt: PR #14 mergen, TestFlight, Prüfung des Pulspfads in `ColmiCentral.swift`, minimaler Gerätetest (REVIEW-P1-003 §5).
