@@ -12,6 +12,7 @@ struct HeartChamberView: View {
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Query(filter: #Predicate<StoredMeasurement> { $0.metricRaw == "heart_rate" },
            sort: \StoredMeasurement.timestamp, order: .reverse) private var heartRates: [StoredMeasurement]
 
@@ -50,7 +51,8 @@ struct HeartChamberView: View {
                     content.add(scene.build())
                     let camera = PerspectiveCamera()
                     camera.camera.fieldOfViewInDegrees = 38
-                    camera.look(at: [0, 0.05, 0], from: [0, 0.15, 3.0], relativeTo: nil)
+                    // Aim below the heart so it sits in the upper half, clear of the controls.
+                    camera.look(at: [0, -0.35, 0], from: [0, -0.2, 4.4], relativeTo: nil)
                     content.add(camera)
                 } update: { _ in
                     scene.apply(look)
@@ -68,6 +70,15 @@ struct HeartChamberView: View {
             .accessibilityValue(source.map { "schlägt mit \($0.bpm) Schlägen pro Minute" } ?? "ruht, kein Pulswert")
             .accessibilityHint("Mit einem Finger drehen, mit zwei Fingern zoomen")
             .accessibilityIdentifier("heart3d")
+
+            // Scrim keeps the headline readable when the heart is rotated under it.
+            LinearGradient(colors: [Palette.obsidian.opacity(0.9), Palette.obsidian.opacity(0)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 240)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
             overlay(source)
         }
@@ -129,7 +140,8 @@ struct HeartChamberView: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("lookPicker")
-            HStack(spacing: Spacing.m) {
+            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: Spacing.s)) : AnyLayout(HStackLayout(spacing: Spacing.m))
+            layout {
                 toggle("Haptik", systemImage: "hand.tap", isOn: $hapticsOn, id: "toggleHaptics")
                 toggle("Ton", systemImage: "speaker.wave.2", isOn: $soundOn, id: "toggleSound")
             }

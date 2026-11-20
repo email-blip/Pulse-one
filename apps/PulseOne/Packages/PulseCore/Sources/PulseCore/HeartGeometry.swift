@@ -48,18 +48,18 @@ public enum HeartGeometry {
     public static func make(detail: Int = 48) -> [Part: TriangleMesh] {
         let d = max(12, detail)
         var atria = TriangleMesh()
-        atria.append(ellipsoid(center: [0.28, 0.42, -0.08], radii: [0.26, 0.22, 0.24], detail: d / 2))   // right atrium
-        atria.append(ellipsoid(center: [-0.24, 0.46, -0.18], radii: [0.24, 0.20, 0.22], detail: d / 2)) // left atrium
+        atria.append(ellipsoid(center: [0.26, 0.36, -0.10], radii: [0.24, 0.20, 0.22], detail: d / 2))   // right atrium
+        atria.append(ellipsoid(center: [-0.22, 0.40, -0.20], radii: [0.22, 0.18, 0.20], detail: d / 2)) // left atrium
         var vessels = TriangleMesh()
         // Aorta: rises from the centre, arches over to the left and descends behind.
-        vessels.append(tube(along: [[0.02, 0.35, 0.02], [0.05, 1.05, 0.05], [-0.45, 1.10, -0.10], [-0.42, 0.55, -0.30]],
-                            radius: 0.11, segments: d, sides: d / 3))
+        vessels.append(tube(along: [[0.0, 0.28, 0.0], [0.03, 0.80, 0.03], [-0.36, 0.88, -0.10], [-0.34, 0.45, -0.30]],
+                            radius: 0.085, segments: d, sides: d / 3))
         // Pulmonary trunk: in front, rising to the left.
-        vessels.append(tube(along: [[-0.08, 0.30, 0.18], [-0.12, 0.75, 0.25], [-0.30, 0.90, 0.10], [-0.48, 0.92, 0.0]],
-                            radius: 0.09, segments: d, sides: d / 3))
+        vessels.append(tube(along: [[-0.10, 0.24, 0.18], [-0.14, 0.60, 0.24], [-0.30, 0.72, 0.12], [-0.50, 0.70, 0.0]],
+                            radius: 0.072, segments: d, sides: d / 3))
         // Superior vena cava: right side, straight up.
-        vessels.append(tube(along: [[0.36, 0.50, -0.10], [0.37, 0.75, -0.10], [0.38, 0.95, -0.10], [0.38, 1.10, -0.10]],
-                            radius: 0.07, segments: d / 2, sides: d / 3))
+        vessels.append(tube(along: [[0.34, 0.42, -0.12], [0.35, 0.62, -0.12], [0.36, 0.78, -0.12], [0.36, 0.92, -0.12]],
+                            radius: 0.055, segments: d / 2, sides: d / 3))
         return [.ventricles: ventricles(detail: d), .atria: atria, .vessels: vessels]
     }
 

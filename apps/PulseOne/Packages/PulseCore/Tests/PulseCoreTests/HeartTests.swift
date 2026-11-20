@@ -63,9 +63,11 @@ struct HeartGeometryTests {
         #expect(bottomX < topX)
     }
 
-    @Test func vesselsLeaveTheTopOfTheHeart() {
-        let vessels = HeartGeometry.make(detail: 24)[.vessels]!
-        #expect(vessels.bounds.max.y > 1.0)
+    @Test func vesselsLeaveTheTopOfTheHeart() throws {
+        let parts = HeartGeometry.make(detail: 24)
+        let vessels = try #require(parts[.vessels])
+        let atria = try #require(parts[.atria])
+        #expect(vessels.bounds.max.y > atria.bounds.max.y + 0.2)
     }
 }
 
