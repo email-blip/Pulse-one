@@ -7,28 +7,36 @@ struct PulseOneApp: App {
     private let options = LaunchOptions.current
     private let container: ModelContainer
     @State private var ring: RingStore
+    @State private var sources: SourcesStore
 
     init() {
         let options = LaunchOptions.current
         let container = Self.makeContainer(inMemory: options.isUITesting)
         let ring: RingStore
+        let sources: SourcesStore
         if options.usesTestScenario, let scenario = options.scenario {
             ring = RingStore.preview(TestScenario.snapshot(for: scenario))
+            sources = SourcesStore.preview(TestScenario.registry(for: scenario), owner: TestScenario.owner)
             TestScenario.insertSampleHistory(for: scenario, into: container.mainContext)
         } else {
             ring = RingStore.live()
+            sources = SourcesStore.live()
         }
+        sources.modelContext = container.mainContext
         ring.onMeasurement = { measurement in
             container.mainContext.insert(StoredMeasurement(measurement))
+            sources.ingest(measurement)
         }
         self.container = container
         _ring = State(initialValue: ring)
+        _sources = State(initialValue: sources)
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(options: options)
                 .environment(ring)
+                .environment(sources)
                 .modelContainer(container)
                 // Cinematic dark is the PULSE ONE base; "Clinical Light" arrives with the design profiles.
                 .preferredColorScheme(.dark)
@@ -37,7 +45,7 @@ struct PulseOneApp: App {
     }
 
     private static func makeContainer(inMemory: Bool) -> ModelContainer {
-        let schema = Schema([StoredMeasurement.self])
+        let schema = Schema([StoredMeasurement.self, StoredSample.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         if let container = try? ModelContainer(for: schema, configurations: configuration) {
             return container
@@ -55,12 +63,16 @@ struct PulseOneApp: App {
 struct RootView: View {
     let options: LaunchOptions
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(RingStore.self) private var ring
+    @Environment(SourcesStore.self) private var sources
 
     var body: some View {
         Group {
             // The heart scenario renders the chamber directly so the screenshot needs no tap.
             if options.usesTestScenario, options.scenario == "heart" {
                 HeartChamberView()
+            } else if options.usesTestScenario, options.scenario == "devices" {
+                DevicesScreen(showsClose: false)
             } else {
                 ConnectScreen(options: options)
             }
@@ -68,6 +80,7 @@ struct RootView: View {
             .environment(\.reduceMotionEffective, options.reduceMotion ?? systemReduceMotion)
             .environment(\.freezeAnimations, options.usesTestScenario)
             .transaction { if options.usesTestScenario { $0.disablesAnimations = true } }
+            .onChange(of: ring.snapshot, initial: true) { _, snapshot in sources.noteRing(snapshot) }
     }
 }
 

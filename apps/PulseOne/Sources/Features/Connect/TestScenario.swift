@@ -6,7 +6,7 @@ import SwiftData
 /// `-uiTesting YES`; the screen then shows a "Testansicht" banner. These values are not
 /// measurements and are never written to the real store (UI tests use an in-memory store).
 enum TestScenario {
-    static let all = ["start", "scanning", "connected", "live", "reconnecting", "heart"]
+    static let all = ["start", "scanning", "connected", "live", "reconnecting", "heart", "devices"]
 
     static func snapshot(for name: String) -> RingSnapshot {
         var s = RingSnapshot()
@@ -38,6 +38,33 @@ enum TestScenario {
             s.rememberedRing = nil
         }
         return s
+    }
+
+    static let owner = UUID(uuidString: "00000000-0000-0000-0000-0000000000A1") ?? UUID()
+
+    /// Registry for the devices screenshot: a ring that delivered data and Apple Health after a sync.
+    static func registry(for name: String) -> DeviceRegistry {
+        var registry = DeviceRegistry(ownerProfileID: owner)
+        guard name == "devices" else { return registry }
+        let base = Date(timeIntervalSince1970: 1_795_188_773)
+        if let ring = try? registry.add(adapterID: AdapterCatalog.colmiR03.id, sourceIdentifier: "test-ring",
+                                        name: "R03_1A2B", profileID: owner) {
+            try? registry.update(ring.id) {
+                $0.reach(.synced)
+                $0.batteryPercent = 82
+                $0.firmware = "3.00.10"
+                $0.lastSuccessfulSync = base
+                $0.lastSampleAt = base
+            }
+        }
+        if let health = try? registry.add(adapterID: AdapterCatalog.appleHealth.id, sourceIdentifier: "healthkit",
+                                          name: "Apple Health") {
+            try? registry.update(health.id) {
+                $0.reach(.connected)
+                $0.log("Testansicht: noch nicht synchronisiert")
+            }
+        }
+        return registry
     }
 
     @MainActor

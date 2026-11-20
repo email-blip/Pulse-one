@@ -31,6 +31,13 @@ public struct RawObservation: Equatable, Sendable {
     }
 }
 
+extension RawObservation {
+    /// Same key the normalised sample will have; lets the store look up existing rows before syncing.
+    public var deduplicationKey: String {
+        HealthSample.deduplicationKey(source: source, deviceID: deviceID, kind: kind, originalSampleID: originalSampleID)
+    }
+}
+
 public enum NormalizationError: Error, Equatable, Sendable {
     case incompatibleUnit(SampleKind, SampleUnit)
     case notANumber

@@ -12,6 +12,8 @@ struct ConnectScreen: View {
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @State private var showHeart = false
+    @State private var showDevices = false
+    @Environment(SourcesStore.self) private var sources
 
     var body: some View {
         let snapshot = ring.snapshot
@@ -31,6 +33,7 @@ struct ConnectScreen: View {
                     StatusCard(snapshot: snapshot)
                     actions(snapshot)
                     heartEntry
+                    devicesEntry
                     if snapshot.connection.isConnected || snapshot.deviceName != nil, snapshot.connection != .scanning {
                         DeviceCard(snapshot: snapshot)
                     }
@@ -49,6 +52,15 @@ struct ConnectScreen: View {
             HeartChamberView()
                 .environment(ring)
                 .modelContext(modelContext)
+                .environment(\.reduceMotionEffective, reduceMotion)
+                .environment(\.freezeAnimations, freeze)
+                .preferredColorScheme(.dark)
+                .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
+        }
+        .sheet(isPresented: $showDevices) {
+            DevicesScreen()
+                .environment(ring)
+                .environment(sources)
                 .environment(\.reduceMotionEffective, reduceMotion)
                 .environment(\.freezeAnimations, freeze)
                 .preferredColorScheme(.dark)
@@ -140,6 +152,12 @@ struct ConnectScreen: View {
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityHint("Zeigt ein 3D-Herz im Takt deines Pulses")
             .accessibilityIdentifier("openHeart")
+    }
+
+    private var devicesEntry: some View {
+        Button("Geräte & Datenquellen", systemImage: "sensor.tag.radiowaves.forward") { showDevices = true }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("openDevices")
     }
 
     private var footer: some View {

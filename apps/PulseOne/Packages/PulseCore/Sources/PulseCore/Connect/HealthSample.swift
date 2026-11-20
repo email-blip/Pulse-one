@@ -169,6 +169,11 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
 
     /// Identity across repeated syncs: the same source sample always maps to the same key.
     public var deduplicationKey: String {
+        Self.deduplicationKey(source: source, deviceID: deviceID, kind: kind, originalSampleID: originalSampleID)
+    }
+
+    public static func deduplicationKey(source: DataSourceKind, deviceID: String, kind: SampleKind,
+                                        originalSampleID: String) -> String {
         [source.rawValue, deviceID, kind.rawValue, originalSampleID].joined(separator: "|")
     }
 }
