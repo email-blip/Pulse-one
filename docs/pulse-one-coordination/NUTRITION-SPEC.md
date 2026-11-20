@@ -57,6 +57,7 @@ Es gibt noch kein Ernährungsmodell. Vorhanden und nutzbar: `HealthSample` (Herk
 | Kommerzielle Datenbanken (z. B. Nutritionix, Edamam) | API | – | kostenpflichtig | **verwerfen** ohne Freigabe von Johannes |
 
 Kosten: 0 € (OFF, USDA). Datenschutz: Barcode- und Suchanfragen verraten, was jemand isst; sie gehen ohne Profil- oder Gesundheitsdaten an OFF/USDA. Hinweis in den Einstellungen; Schalter „Online-Suche“ (Standard an, nur Barcode/Suchbegriff).
+**Entschieden (Johannes, 2026-11-20):** Die App darf beim Barcode-Scannen und Suchen Open Food Facts und USDA abfragen; dass diese Dienste das Produkt sehen, ist akzeptiert. Der Schalter bleibt zum Abschalten erhalten.
 
 ## 5. KI-Fotoanalyse
 

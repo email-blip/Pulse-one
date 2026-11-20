@@ -36,6 +36,8 @@ mit „prüfen“ markierte Punkte vor Release 7 am Original verifizieren und in
 
 ## 3. Persönliches Gesundheitsprofil
 
+**Entschieden (Johannes, 2026-11-20):** Bekannte Diagnosen trägt der Nutzer selbst ein. Sie werden angezeigt und, nur mit Freigabe, als Kontext für Analysen genutzt. Keine weitere Verwendung.
+
 ### 3.1 Datenmodell `ClinicalEntry`
 
 | Feld | Bemerkung |
@@ -53,6 +55,7 @@ mit „prüfen“ markierte Punkte vor Release 7 am Original verifizieren und in
 
 **Getrennte Speicherung:** eigener SwiftData-`ModelContainer` mit eigener Datei `Clinical.store` (Dateischutz `complete`), nicht im Messwert-Store.
 Kein automatischer Fluss aus Sensordaten in dieses Profil und umgekehrt. Export und Löschen getrennt („Gesundheitsprofil löschen“).
+Backup: Die Datenbank darf ins iCloud-Backup (Johannes, 2026-11-19); das gilt auch für `Clinical.store`. API-Schlüssel bleiben `ThisDeviceOnly` und sind nicht im Backup.
 Optional: Zugriff auf diesen Bereich nur nach Face ID (`LocalAuthentication`), Standard an.
 
 ### 3.2 Was es nicht gibt
