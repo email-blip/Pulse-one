@@ -81,6 +81,8 @@ public struct SourcePolicy: Equatable, Sendable {
         case .skinTemperatureDeviation: listed = [.ouraCloud, .appleHealth, .colmiRing]
         case .bodyTemperature: listed = [.manual, .appleHealth]
         case .deviceBattery: listed = []
+        case .respiratoryRate, .vo2Max: listed = [.appleHealth, .ouraCloud]
+        case .basalEnergy, .bodyMass, .height: listed = [.appleHealth, .manual]
         }
         let rest: [DataSourceKind] = [.bluetoothStandard, .colmiRing, .ouraCloud, .appleHealth, .manual]
         return listed + rest.filter { !listed.contains($0) }

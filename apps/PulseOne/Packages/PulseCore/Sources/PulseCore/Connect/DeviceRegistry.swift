@@ -18,6 +18,8 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
     public var lastSampleAt: Date?
     public var syncCursor: String?
     public private(set) var diagnostics: [String]
+    /// Latest import result per data type (Apple Health), newest run wins per type.
+    public private(set) var typeReports: [SyncTypeReport]
 
     public init(id: UUID = UUID(), adapterID: String, sourceIdentifier: String, name: String,
                 profileID: UUID? = nil, stage: IntegrationStage = .discovered) {
@@ -33,11 +35,12 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
                                              recordedAt: .now)]
         self.stage = stage
         self.diagnostics = []
+        self.typeReports = []
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, adapterID, sourceIdentifier, name, profileID, assignments, stage, batteryPercent, firmware
-        case lastSuccessfulSync, lastSampleAt, syncCursor, diagnostics
+        case lastSuccessfulSync, lastSampleAt, syncCursor, diagnostics, typeReports
     }
 
     public init(from decoder: Decoder) throws {
@@ -58,6 +61,7 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
         lastSampleAt = try c.decodeIfPresent(Date.self, forKey: .lastSampleAt)
         syncCursor = try c.decodeIfPresent(String.self, forKey: .syncCursor)
         diagnostics = try c.decodeIfPresent([String].self, forKey: .diagnostics) ?? []
+        typeReports = try c.decodeIfPresent([SyncTypeReport].self, forKey: .typeReports) ?? []
     }
 
     public var timeline: ProfileTimeline { ProfileTimeline(assignments) }
@@ -71,6 +75,15 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
 
     public mutating func reset(to newStage: IntegrationStage = .discovered) {
         stage = newStage
+    }
+
+    /// Replaces the report of each type in `reports`; types not in this run keep their last report.
+    public mutating func record(_ reports: [SyncTypeReport]) {
+        for report in reports {
+            typeReports.removeAll { $0.kind == report.kind }
+            typeReports.append(report)
+        }
+        typeReports.sort { $0.kind.rawValue < $1.kind.rawValue }
     }
 
     /// Keeps the latest 50 diagnosis lines.

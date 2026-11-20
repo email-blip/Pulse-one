@@ -28,7 +28,14 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
         .init(identifier: .activeEnergyBurned, kind: .activeEnergy, unit: .kilocalorie(), sampleUnit: .kilocalories),
         .init(identifier: .distanceWalkingRunning, kind: .distance, unit: .meter(), sampleUnit: .meters),
         .init(identifier: .bodyTemperature, kind: .bodyTemperature, unit: .degreeCelsius(), sampleUnit: .celsius),
-        .init(identifier: .appleSleepingWristTemperature, kind: .skinTemperatureDeviation, unit: .degreeCelsius(), sampleUnit: .celsius)
+        .init(identifier: .appleSleepingWristTemperature, kind: .skinTemperatureDeviation, unit: .degreeCelsius(), sampleUnit: .celsius),
+        .init(identifier: .respiratoryRate, kind: .respiratoryRate, unit: HKUnit.count().unitDivided(by: .minute()), sampleUnit: .breathsPerMinute),
+        .init(identifier: .basalEnergyBurned, kind: .basalEnergy, unit: .kilocalorie(), sampleUnit: .kilocalories),
+        .init(identifier: .vo2Max, kind: .vo2Max,
+              unit: HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: .minute())),
+              sampleUnit: .millilitersPerKilogramMinute),
+        .init(identifier: .bodyMass, kind: .bodyMass, unit: .gramUnit(with: .kilo), sampleUnit: .kilograms),
+        .init(identifier: .height, kind: .height, unit: .meter(), sampleUnit: .meters)
     ] }
 
     static var available: Bool { HKHealthStore.isHealthDataAvailable() }
@@ -46,13 +53,27 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
         try await store.requestAuthorization(toShare: [], read: Self.readTypes)
     }
 
-    /// `cursor` is a JSON map of type identifier → archived `HKQueryAnchor`.
+    /// `cursor` is a JSON map of type identifier → archived `HKQueryAnchor`. A type that fails
+    /// (for example while the device is locked) keeps its old anchor and is reported; the others
+    /// are imported anyway, so one bad type never blocks the whole sync.
     func sync(deviceID: String, cursor: String?) async throws -> SyncBatch {
         guard Self.available else { throw AdapterError.notAvailable }
         var anchors = Self.decodeAnchors(cursor)
         var batch = SyncBatch()
         let since = Date(timeIntervalSinceNow: -initialWindow)
         let timeZone = TimeZone.current.identifier
+
+        func observation(_ kind: SampleKind, _ value: Double, _ unit: SampleUnit, _ sample: HKSample) -> RawObservation {
+            RawObservation(
+                kind: kind, value: value, unit: unit,
+                start: sample.startDate, end: sample.endDate, timeZoneIdentifier: timeZone,
+                source: .appleHealth, deviceID: deviceID, originalSampleID: sample.uuid.uuidString,
+                method: .healthStore, rawDataReference: "healthkit:\(sample.sourceRevision.source.bundleIdentifier)")
+        }
+        func record(_ kind: SampleKind, added: Int, deleted: Int, error: Error? = nil) {
+            batch.reports.append(SyncTypeReport(kind: kind, added: added, deleted: deleted, at: .now,
+                                                error: error.map { String(describing: $0).prefix(120).description }))
+        }
 
         for mapping in Self.quantities {
             let key = mapping.identifier.rawValue
@@ -61,16 +82,18 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
             let query = HKAnchoredObjectQueryDescriptor(
                 predicates: [.quantitySample(type: HKQuantityType(mapping.identifier), predicate: predicate)],
                 anchor: anchor)
-            let result = try await query.result(for: store)
-            for sample in result.addedSamples {
-                batch.observations.append(RawObservation(
-                    kind: mapping.kind, value: sample.quantity.doubleValue(for: mapping.unit), unit: mapping.sampleUnit,
-                    start: sample.startDate, end: sample.endDate, timeZoneIdentifier: timeZone,
-                    source: .appleHealth, deviceID: deviceID, originalSampleID: sample.uuid.uuidString,
-                    method: .healthStore, rawDataReference: "healthkit:\(sample.sourceRevision.source.bundleIdentifier)"))
+            do {
+                let result = try await query.result(for: store)
+                for sample in result.addedSamples {
+                    batch.observations.append(observation(
+                        mapping.kind, sample.quantity.doubleValue(for: mapping.unit), mapping.sampleUnit, sample))
+                }
+                batch.deletedOriginalIDs += result.deletedObjects.map { $0.uuid.uuidString }
+                anchors[key] = Self.archive(result.newAnchor)
+                record(mapping.kind, added: result.addedSamples.count, deleted: result.deletedObjects.count)
+            } catch {
+                record(mapping.kind, added: 0, deleted: 0, error: error)
             }
-            batch.deletedOriginalIDs += result.deletedObjects.map { $0.uuid.uuidString }
-            anchors[key] = Self.archive(result.newAnchor)
         }
 
         // Sleep: one duration sample per "asleep" interval; in-bed and awake intervals are not sleep.
@@ -80,20 +103,42 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
             predicates: [.categorySample(type: HKCategoryType(.sleepAnalysis),
                                          predicate: sleepAnchor == nil ? HKQuery.predicateForSamples(withStart: since, end: nil) : nil)],
             anchor: sleepAnchor)
-        let sleep = try await sleepQuery.result(for: store)
         let asleep: Set<Int> = [HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
                                 HKCategoryValueSleepAnalysis.asleepCore.rawValue,
                                 HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
                                 HKCategoryValueSleepAnalysis.asleepREM.rawValue]
-        for sample in sleep.addedSamples where asleep.contains(sample.value) {
-            batch.observations.append(RawObservation(
-                kind: .sleepDuration, value: sample.endDate.timeIntervalSince(sample.startDate), unit: .seconds,
-                start: sample.startDate, end: sample.endDate, timeZoneIdentifier: timeZone,
-                source: .appleHealth, deviceID: deviceID, originalSampleID: sample.uuid.uuidString,
-                method: .healthStore, rawDataReference: "healthkit:\(sample.sourceRevision.source.bundleIdentifier)"))
+        do {
+            let sleep = try await sleepQuery.result(for: store)
+            let added = sleep.addedSamples.filter { asleep.contains($0.value) }
+            for sample in added {
+                batch.observations.append(observation(
+                    .sleepDuration, sample.endDate.timeIntervalSince(sample.startDate), .seconds, sample))
+            }
+            batch.deletedOriginalIDs += sleep.deletedObjects.map { $0.uuid.uuidString }
+            anchors[sleepKey] = Self.archive(sleep.newAnchor)
+            record(.sleepDuration, added: added.count, deleted: sleep.deletedObjects.count)
+        } catch {
+            record(.sleepDuration, added: 0, deleted: 0, error: error)
         }
-        batch.deletedOriginalIDs += sleep.deletedObjects.map { $0.uuid.uuidString }
-        anchors[sleepKey] = Self.archive(sleep.newAnchor)
+
+        // Workouts: one training-duration sample per workout. Sport type and route follow with the
+        // movement recording (HEALTH-DATA-SPEC §0); here only the duration counts.
+        let workoutKey = "HKWorkoutTypeIdentifier"
+        let workoutAnchor = anchors[workoutKey].flatMap(Self.unarchive)
+        let workoutQuery = HKAnchoredObjectQueryDescriptor(
+            predicates: [.workout(workoutAnchor == nil ? HKQuery.predicateForSamples(withStart: since, end: nil) : nil)],
+            anchor: workoutAnchor)
+        do {
+            let workouts = try await workoutQuery.result(for: store)
+            for workout in workouts.addedSamples {
+                batch.observations.append(observation(.trainingDuration, workout.duration, .seconds, workout))
+            }
+            batch.deletedOriginalIDs += workouts.deletedObjects.map { $0.uuid.uuidString }
+            anchors[workoutKey] = Self.archive(workouts.newAnchor)
+            record(.trainingDuration, added: workouts.addedSamples.count, deleted: workouts.deletedObjects.count)
+        } catch {
+            record(.trainingDuration, added: 0, deleted: 0, error: error)
+        }
 
         batch.nextCursor = Self.encodeAnchors(anchors)
         return batch

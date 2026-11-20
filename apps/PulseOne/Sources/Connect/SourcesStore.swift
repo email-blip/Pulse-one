@@ -199,12 +199,25 @@ final class SourcesStore {
                 if $0.stage >= .dataAccess { $0.reach(.synced) }
                 $0.syncCursor = batch.nextCursor
                 $0.lastSuccessfulSync = .now
+                $0.record(batch.reports)
                 if let latest = batch.observations.map(\.start).max() { $0.lastSampleAt = max(latest, $0.lastSampleAt ?? latest) }
                 $0.log("Sync: \(plan.inserts.count) neu, \(plan.updates.count) geändert, \(plan.deletions.count) gelöscht, \(plan.rejected.count) abgelehnt")
+                let failed = batch.reports.filter { $0.error != nil }.map { $0.kind.title }
+                if !failed.isEmpty { $0.log("Nicht lesbar: \(failed.joined(separator: ", "))") }
             }
         } catch {
             change(id) { $0.log("Sync fehlgeschlagen: \(error.localizedDescription)") }
         }
+    }
+
+    /// Syncs Apple Health when the app starts or returns to the foreground, at most every
+    /// `minimumInterval` seconds. Before this, Health data only arrived after tapping the sync button.
+    func syncHealthIfDue(now: Date = .now, minimumInterval: TimeInterval = 15 * 60) async {
+        guard !isTestScenario, healthAvailable,
+              let device = devices.first(where: { $0.adapterID == AdapterCatalog.appleHealth.id }),
+              device.stage >= .connected else { return }
+        if let last = device.lastSuccessfulSync, now.timeIntervalSince(last) < minimumInterval { return }
+        await sync(device.id)
     }
 
     // MARK: Profiles and preferences

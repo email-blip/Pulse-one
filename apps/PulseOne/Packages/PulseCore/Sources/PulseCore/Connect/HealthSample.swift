@@ -17,6 +17,11 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
     case trainingDuration = "training_duration"
     case elevationGain = "elevation_gain"
     case deviceBattery = "device_battery"
+    case respiratoryRate = "respiratory_rate"
+    case basalEnergy = "basal_energy"
+    case vo2Max = "vo2max"
+    case bodyMass = "body_mass"
+    case height
 
     /// The one unit every sample of this kind is stored in.
     public var canonicalUnit: SampleUnit {
@@ -29,6 +34,11 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
         case .activeEnergy: .kilocalories
         case .distance, .elevationGain: .meters
         case .sleepDuration, .trainingDuration: .seconds
+        case .respiratoryRate: .breathsPerMinute
+        case .basalEnergy: .kilocalories
+        case .vo2Max: .millilitersPerKilogramMinute
+        case .bodyMass: .kilograms
+        case .height: .meters
         }
     }
 
@@ -49,6 +59,11 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
         case .trainingDuration: 0...86_400
         case .elevationGain: 0...10_000
         case .deviceBattery: 0...100
+        case .respiratoryRate: 4...60
+        case .basalEnergy: 0...10_000
+        case .vo2Max: 10...95
+        case .bodyMass: 20...400
+        case .height: 0.5...2.6
         }
     }
 
@@ -58,10 +73,11 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
     /// How values of this kind combine over a day (Review 3.2 §6).
     public var aggregation: SampleAggregation {
         switch self {
-        case .heartRate, .heartRateVariability, .oxygenSaturation, .skinTemperature, .bodyTemperature, .deviceBattery: .point
+        case .heartRate, .heartRateVariability, .oxygenSaturation, .skinTemperature, .bodyTemperature, .deviceBattery,
+             .respiratoryRate, .bodyMass, .height: .point
         case .sleepDuration, .trainingDuration: .interval
-        case .steps, .activeEnergy, .distance, .elevationGain: .cumulative
-        case .restingHeartRate, .skinTemperatureDeviation: .derived
+        case .steps, .activeEnergy, .distance, .elevationGain, .basalEnergy: .cumulative
+        case .restingHeartRate, .skinTemperatureDeviation, .vo2Max: .derived
         }
     }
 
@@ -91,6 +107,11 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
         case .trainingDuration: "Trainingsdauer"
         case .elevationGain: "Höhenmeter"
         case .deviceBattery: "Geräte-Akku"
+        case .respiratoryRate: "Atemfrequenz"
+        case .basalEnergy: "Ruheenergie"
+        case .vo2Max: "VO₂max"
+        case .bodyMass: "Gewicht"
+        case .height: "Größe"
         }
     }
 }
@@ -126,6 +147,9 @@ public enum SampleUnit: String, Codable, CaseIterable, Sendable {
     case meters = "m"
     case kilometers = "km"
     case feet = "ft"
+    case breathsPerMinute = "breaths/min"
+    case kilograms = "kg"
+    case millilitersPerKilogramMinute = "ml/kg/min"
 }
 
 /// Which system a value came from.

@@ -157,6 +157,7 @@ private struct DeviceSourceCard: View {
             facts
             if device.syncedWithoutData && device.adapterID == AdapterCatalog.appleHealth.id { healthHint }
             storedData
+            if !device.typeReports.isEmpty { typeReports }
             if let adapter { kinds(adapter) }
             if !device.diagnostics.isEmpty {
                 Text(device.diagnostics.suffix(2).joined(separator: "\n"))
@@ -198,7 +199,7 @@ private struct DeviceSourceCard: View {
     }
 
     private var healthHint: some View {
-        Text("Apple Health hat keine Werte geliefert. Prüfe in der Health-App unter Teilen › Apps › PULSE ONE, ob das Lesen erlaubt ist, und synchronisiere dann erneut.")
+        Text("Apple Health hat keine Werte geliefert. Prüfe in der Health-App unter Teilen › Apps › PULSE ONE, ob das Lesen erlaubt ist, und synchronisiere dann erneut. Ohne Apple Watch liefert Health nur iPhone-Werte wie Schritte; Puls, SpO₂, HRV und Schlaf kommen vom Ring.")
             .font(Typography.caption)
             .foregroundStyle(Palette.ink)
             .padding(Spacing.m)
@@ -227,6 +228,21 @@ private struct DeviceSourceCard: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("storedData.\(device.adapterID)")
+    }
+
+    /// What the last sync read per data type, including types that could not be read.
+    private var typeReports: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("Letzter Abgleich je Datentyp")
+                .font(Typography.label)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+            ForEach(device.typeReports) { report in
+                fact(report.kind.title, report.summary)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("typeReports.\(device.adapterID)")
     }
 
     private var facts: some View {

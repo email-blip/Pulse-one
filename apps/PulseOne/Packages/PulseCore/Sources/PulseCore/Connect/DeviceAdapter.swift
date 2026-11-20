@@ -131,11 +131,42 @@ public struct SyncBatch: Equatable, Sendable {
     public var deletedOriginalIDs: [String]
     /// Opaque position (HealthKit anchor, ring cursor, API "next" token) for the next incremental sync.
     public var nextCursor: String?
+    /// One line per data type, so a single failing type is visible instead of failing the whole sync.
+    public var reports: [SyncTypeReport]
 
-    public init(observations: [RawObservation] = [], deletedOriginalIDs: [String] = [], nextCursor: String? = nil) {
+    public init(observations: [RawObservation] = [], deletedOriginalIDs: [String] = [], nextCursor: String? = nil,
+                reports: [SyncTypeReport] = []) {
         self.observations = observations
         self.deletedOriginalIDs = deletedOriginalIDs
         self.nextCursor = nextCursor
+        self.reports = reports
+    }
+}
+
+/// Result of importing one data type in one sync run (architecture 5.0, HealthKit per-type status).
+public struct SyncTypeReport: Equatable, Sendable, Codable, Identifiable {
+    public var id: String { kind.rawValue }
+    public let kind: SampleKind
+    public let added: Int
+    public let deleted: Int
+    public let at: Date
+    /// Set when this type could not be read; other types are still imported.
+    public let error: String?
+
+    public init(kind: SampleKind, added: Int, deleted: Int, at: Date, error: String? = nil) {
+        self.kind = kind
+        self.added = added
+        self.deleted = deleted
+        self.at = at
+        self.error = error
+    }
+
+    /// German one-line summary for the data sources screen.
+    public var summary: String {
+        if let error { return "Fehler: \(error)" }
+        if added == 0 && deleted == 0 { return "keine neuen Werte" }
+        if deleted == 0 { return "\(added) neu" }
+        return "\(added) neu, \(deleted) entfernt"
     }
 }
 
