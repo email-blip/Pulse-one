@@ -22,7 +22,7 @@ final class ScreenshotTests: XCTestCase {
 
     private func capture(scenario: String, dynamicType: String, reduceMotion: Bool) {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario,
+        app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario, "-AppleLanguages", "(de)", "-AppleLocale", "de_DE",
                                "-dynamicType", dynamicType, "-reduceMotion", reduceMotion ? "YES" : "NO"]
         app.launch()
         let screen = app.descendants(matching: .any)["screen.\(scenario)"]

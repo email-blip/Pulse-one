@@ -28,7 +28,9 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
         .init(identifier: .activeEnergyBurned, kind: .activeEnergy, unit: .kilocalorie(), sampleUnit: .kilocalories),
         .init(identifier: .distanceWalkingRunning, kind: .distance, unit: .meter(), sampleUnit: .meters),
         .init(identifier: .bodyTemperature, kind: .bodyTemperature, unit: .degreeCelsius(), sampleUnit: .celsius),
-        .init(identifier: .appleSleepingWristTemperature, kind: .skinTemperatureDeviation, unit: .degreeCelsius(), sampleUnit: .celsius),
+        // HealthKit stores the absolute wrist temperature; only the Health app shows it as a deviation
+        // from the personal baseline. A deviation is derived later from our own baseline, never imported.
+        .init(identifier: .appleSleepingWristTemperature, kind: .skinTemperature, unit: .degreeCelsius(), sampleUnit: .celsius),
         .init(identifier: .respiratoryRate, kind: .respiratoryRate, unit: HKUnit.count().unitDivided(by: .minute()), sampleUnit: .breathsPerMinute),
         .init(identifier: .basalEnergyBurned, kind: .basalEnergy, unit: .kilocalorie(), sampleUnit: .kilocalories),
         .init(identifier: .vo2Max, kind: .vo2Max,
@@ -53,12 +55,12 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
         try await store.requestAuthorization(toShare: [], read: Self.readTypes)
     }
 
-    /// `cursor` is a JSON map of type identifier → archived `HKQueryAnchor`. A type that fails
+    /// `cursor` is a `HealthImportCursor` (type identifier → archived `HKQueryAnchor`, plus format). A type that fails
     /// (for example while the device is locked) keeps its old anchor and is reported; the others
     /// are imported anyway, so one bad type never blocks the whole sync.
     func sync(deviceID: String, cursor: String?) async throws -> SyncBatch {
         guard Self.available else { throw AdapterError.notAvailable }
-        var anchors = Self.decodeAnchors(cursor)
+        var anchors = HealthImportCursor.decode(cursor)
         var batch = SyncBatch()
         let since = Date(timeIntervalSinceNow: -initialWindow)
         let timeZone = TimeZone.current.identifier
@@ -68,7 +70,8 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
                 kind: kind, value: value, unit: unit,
                 start: sample.startDate, end: sample.endDate, timeZoneIdentifier: timeZone,
                 source: .appleHealth, deviceID: deviceID, originalSampleID: sample.uuid.uuidString,
-                method: .healthStore, rawDataReference: "healthkit:\(sample.sourceRevision.source.bundleIdentifier)")
+                method: .healthStore, rawDataReference: "healthkit:\(sample.sourceRevision.source.bundleIdentifier)",
+                originDetail: Self.originDetail(of: sample))
         }
         func record(_ kind: SampleKind, added: Int, deleted: Int, error: Error? = nil) {
             batch.reports.append(SyncTypeReport(kind: kind, added: added, deleted: deleted, at: .now,
@@ -140,7 +143,7 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
             record(.trainingDuration, added: 0, deleted: 0, error: error)
         }
 
-        batch.nextCursor = Self.encodeAnchors(anchors)
+        batch.nextCursor = anchors.encode()
         return batch
     }
 
@@ -155,14 +158,12 @@ final class HealthKitAdapter: DeviceAdapter, @unchecked Sendable {
         return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
     }
 
-    private static func decodeAnchors(_ cursor: String?) -> [String: String] {
-        guard let data = cursor?.data(using: .utf8),
-              let map = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
-        return map
-    }
-
-    private static func encodeAnchors(_ anchors: [String: String]) -> String? {
-        guard let data = try? JSONEncoder().encode(anchors) else { return nil }
-        return String(data: data, encoding: .utf8)
+    /// Which app and which single device wrote the sample (`HealthOrigin`): bundle, model and a hash of
+    /// `HKDevice.localIdentifier`. The device name ("Johannes' iPhone") is never stored; a missing
+    /// identifier stays "unbekannt" instead of being guessed from the model.
+    static func originDetail(of sample: HKSample) -> String {
+        HealthOrigin.detail(bundle: sample.sourceRevision.source.bundleIdentifier,
+                            model: sample.device?.model ?? sample.sourceRevision.productType,
+                            localIdentifier: sample.device?.localIdentifier)
     }
 }

@@ -186,10 +186,27 @@ final class SourcesStore {
         syncing.insert(id)
         defer { syncing.remove(id) }
         do {
+            let stored = HealthImportCursor.decode(device.syncCursor)
+            let migrating = device.syncCursor != nil && stored.needsMigration
+            if stored.isUnknownFormat {
+                change(id) { $0.log("Health-Import: unbekanntes Format \(stored.format), keine Umstellung") }
+            }
             let batch = try await health.sync(deviceID: HealthKitAdapter.deviceID, cursor: device.syncCursor)
+            // Migration, ingest and save are one transaction: on any error everything is rolled back and
+            // the old cursor stays, so the next sync repeats the same run (Codex review P1-003 R2-1).
             // Apple Health belongs to the iPhone owner for all time.
-            let plan = try SampleStore(context: context).ingest(batch, deviceID: HealthKitAdapter.deviceID,
-                                                                profiles: .constant(ownerProfileID))
+            let (outcome, plan) = SampleStore(context: context).syncHealth(
+                batch, deviceID: HealthKitAdapter.deviceID, storedCursor: device.syncCursor,
+                profiles: .constant(ownerProfileID))
+            guard outcome.committed else {
+                change(id) { $0.log("Sync zurückgerollt, nichts gespeichert: \(outcome.error ?? "unbekannt")") }
+                return
+            }
+            if migrating {
+                change(id) {
+                    $0.log("Health-Import auf Format \(HealthImportCursor.currentFormat) umgestellt: \(outcome.migratedRows) Werte umgetypt, \(outcome.removedDuplicates) Dubletten entfernt")
+                }
+            }
             change(id) {
                 // Health never says whether reading was denied; an empty import may mean either. Stages rise
                 // only with evidence, so without any data the source stays "kompatibel" and the screen asks
@@ -197,7 +214,7 @@ final class SourcesStore {
                 $0.reach(.compatible)
                 if !batch.observations.isEmpty { $0.reach(.dataAccess) }
                 if $0.stage >= .dataAccess { $0.reach(.synced) }
-                $0.syncCursor = batch.nextCursor
+                $0.syncCursor = outcome.cursor
                 $0.lastSuccessfulSync = .now
                 $0.record(batch.reports)
                 if let latest = batch.observations.map(\.start).max() { $0.lastSampleAt = max(latest, $0.lastSampleAt ?? latest) }

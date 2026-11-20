@@ -271,6 +271,15 @@ private struct DeviceSourceCard: View {
         .accessibilityElement(children: .combine)
     }
 
+    static func symbol(for status: SupportStatus) -> String {
+        switch status {
+        case .confirmed: "checkmark.circle.fill"
+        case .implementedUntested: "hourglass.circle"
+        case .protocolUnknown: "questionmark.circle"
+        case .planned, .unsupported: "circle.dashed"
+        }
+    }
+
     private func kinds(_ adapter: AdapterDescriptor) -> some View {
         let listed = SampleKind.allCases.filter { adapter.status(of: $0) != .unsupported }
         return VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -281,8 +290,9 @@ private struct DeviceSourceCard: View {
             ForEach(listed, id: \.self) { kind in
                 let status = adapter.status(of: kind)
                 HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
-                    Image(systemName: status.mayDeliverData ? "checkmark.circle" : "circle.dashed")
-                        .foregroundStyle(status.mayDeliverData ? Palette.bioCyan : Palette.inkMuted)
+                    // Symbol follows the evidence level: only "bestätigt" gets a check mark.
+                    Image(systemName: Self.symbol(for: status))
+                        .foregroundStyle(status == .confirmed ? Palette.bioCyan : Palette.inkMuted)
                         .accessibilityHidden(true)
                     Text("\(kind.title): \(status.label)")
                         .font(Typography.caption)

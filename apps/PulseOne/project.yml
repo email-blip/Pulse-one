@@ -49,6 +49,20 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - package: PulseCore
+  # Logic tests against the app's real persistence types, without launching the app (no TEST_HOST):
+  # the SwiftData file is compiled in directly (Codex review P1-003 R3-2).
+  PulseOneIntegrationTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: IntegrationTests
+      - path: Sources/Persistence/StoredSample.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.sommerlabs.pulseone.integrationtests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - package: PulseCore
   PulseOneUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -67,4 +81,5 @@ schemes:
         PulseOne: all
     test:
       targets:
+        - PulseOneIntegrationTests
         - PulseOneUITests

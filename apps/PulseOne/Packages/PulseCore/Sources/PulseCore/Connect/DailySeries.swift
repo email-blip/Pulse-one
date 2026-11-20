@@ -18,6 +18,11 @@ public struct DailyValue: Equatable, Sendable {
     public let sampleIDs: [UUID]
     /// Hours of the day that had usable data (0–24). Low coverage means an incomplete day.
     public let coveredHours: Int
+    /// Reservations carried over from `ResolvedTotal` (review R2-2/R3): a display or export must show
+    /// them; a Health day total is never presented as Apple's exact figure.
+    public let caveats: [TotalCaveat]
+
+    public var isProvisional: Bool { !caveats.isEmpty }
 }
 
 public enum DailySeries {
@@ -35,12 +40,12 @@ public enum DailySeries {
     static func value(for group: [HealthSample], day: Date, kind: SampleKind, calendar: Calendar,
                       policy: SourcePolicy) -> DailyValue? {
         func hours(_ s: [HealthSample]) -> Int { Set(s.map { calendar.component(.hour, from: $0.start) }).count }
-        func make(_ value: Double, _ used: [HealthSample]) -> DailyValue {
+        func make(_ value: Double, _ used: [HealthSample], caveats: [TotalCaveat] = []) -> DailyValue {
             let values = used.map(\.value)
             return DailyValue(day: day, kind: kind, aggregation: kind.aggregation, value: value,
                               minimum: values.min() ?? 0, maximum: values.max() ?? 0, sampleCount: used.count,
                               origins: Set(used.map(\.origin)).sorted(), sampleIDs: used.map(\.id),
-                              coveredHours: hours(used))
+                              coveredHours: hours(used), caveats: caveats)
         }
         switch kind.aggregation {
         case .point:
@@ -50,7 +55,7 @@ public enum DailySeries {
         case .cumulative:
             guard let total = DataSourceResolver.resolveTotal(group, policy: policy) else { return nil }
             let ids = Set(total.sampleIDs)
-            return make(total.total, group.filter { ids.contains($0.id) })
+            return make(total.total, group.filter { ids.contains($0.id) }, caveats: total.caveats)
         case .interval:
             // One origin for the whole day; overlapping spans of that origin are merged, not added.
             guard let best = policy.choose(kind: kind, among: Set(group.map(\.origin)))?.origin else { return nil }

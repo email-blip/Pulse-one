@@ -16,11 +16,14 @@ public struct RawObservation: Equatable, Sendable {
     /// A fault the device itself reported for this reading (e.g. "Sensor ohne Hautkontakt").
     public var deviceFlag: String?
     public var rawDataReference: String?
+    /// Origin inside an aggregating source, e.g. the app and device that wrote a HealthKit sample
+    /// (`HealthOrigin`: "bundle|model|device hash"). Keeps devices apart in the resolver.
+    public var originDetail: String?
 
     public init(kind: SampleKind, value: Double, unit: SampleUnit, start: Date, end: Date? = nil,
                 timeZoneIdentifier: String? = nil, source: DataSourceKind, deviceID: String,
                 originalSampleID: String, method: MeasurementMethod, identity: SampleIdentity = .sourceID,
-                deviceFlag: String? = nil, rawDataReference: String? = nil) {
+                deviceFlag: String? = nil, rawDataReference: String? = nil, originDetail: String? = nil) {
         self.kind = kind
         self.value = value
         self.unit = unit
@@ -34,6 +37,7 @@ public struct RawObservation: Equatable, Sendable {
         self.identity = identity
         self.deviceFlag = deviceFlag
         self.rawDataReference = rawDataReference
+        self.originDetail = originDetail
     }
 }
 
@@ -76,7 +80,8 @@ public enum MeasurementNormalizer {
                             start: raw.start, end: raw.end, timeZoneIdentifier: raw.timeZoneIdentifier,
                             source: raw.source, deviceID: raw.deviceID, originalSampleID: raw.originalSampleID,
                             importedAt: importedAt, quality: quality, qualityReason: reason, method: raw.method,
-                            identity: raw.identity, rawDataReference: raw.rawDataReference)
+                            identity: raw.identity, rawDataReference: raw.rawDataReference,
+                            originDetail: raw.originDetail)
     }
 
     /// First matching rule wins; the order is part of the contract (tested).
