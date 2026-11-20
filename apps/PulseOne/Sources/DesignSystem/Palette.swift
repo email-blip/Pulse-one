@@ -12,8 +12,9 @@ enum Palette {
     static let surface       = obsidian
     static let surfaceRaised = Color(hex: 0x0F1A2C)
     static let hairline      = Color(hex: 0x23344F)
+    static let surfaceButton = Color(hex: 0x16243A)
     static let ink           = iceWhite
-    static let inkMuted      = Color(hex: 0xA3B8C8)
+    static let inkMuted      = Color(hex: 0xBACCDA)
 
     /// Background mesh (3×3), row by row: deep obsidian with a cyan/violet glow behind the orb.
     static let mesh: [Color] = [

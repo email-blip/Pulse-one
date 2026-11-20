@@ -41,11 +41,18 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity, minHeight: 50)
             .padding(.horizontal, Spacing.l)
-            .background(Capsule().strokeBorder(Palette.bioCyan.opacity(0.7), lineWidth: 1.5))
+            // Opaque so text contrast never depends on what is behind the button.
+            .background(Capsule().fill(Palette.surfaceButton))
+            .overlay(Capsule().strokeBorder(Palette.bioCyan.opacity(0.7), lineWidth: 1.5))
             .contentShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.25, bounce: 0.3), value: configuration.isPressed)
     }
+}
+
+extension View {
+    /// Wrap instead of truncating at any Dynamic Type size.
+    func wraps() -> some View { fixedSize(horizontal: false, vertical: true) }
 }
 
 /// Raised glass-like card used for every block on the connect screen.
@@ -58,7 +65,7 @@ struct Card<Content: View>: View {
             .padding(Spacing.l)
             .background(
                 RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
-                    .fill(Palette.surfaceRaised.opacity(0.85))
+                    .fill(Palette.surfaceRaised)   // opaque: contrast must not depend on the background
                     .overlay(
                         RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
                             .strokeBorder(Palette.hairline, lineWidth: 1)

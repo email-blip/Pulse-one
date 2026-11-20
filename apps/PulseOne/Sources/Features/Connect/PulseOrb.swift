@@ -9,6 +9,7 @@ struct PulseOrb: View {
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @ScaledMetric(relativeTo: .largeTitle) private var valueSize: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var orbHeight: CGFloat = 260
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: reduceMotion || freeze)) { context in
@@ -17,7 +18,8 @@ struct PulseOrb: View {
                 draw(in: &canvas, size: size, time: time)
             }
         }
-        .frame(height: 260)
+        // Grows with Dynamic Type so the readout always fits inside the core.
+        .frame(height: min(orbHeight, 420))
         .overlay { readout }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Puls")
@@ -31,10 +33,17 @@ struct PulseOrb: View {
                 .font(Typography.vital(size: valueSize))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.numericText())
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
             Text(bpm == nil ? (isConnected ? "bereit" : "kein Ring") : "bpm live")
                 .font(Typography.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(Palette.inkMuted)
         }
+        // The orb element itself carries label and value; the visual readout is not read twice.
+        .frame(maxWidth: min(orbHeight, 420) * 0.48)
+        .accessibilityHidden(true)
     }
 
     private func draw(in canvas: inout GraphicsContext, size: CGSize, time: TimeInterval) {

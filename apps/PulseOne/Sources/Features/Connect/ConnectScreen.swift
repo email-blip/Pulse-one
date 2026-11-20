@@ -50,10 +50,14 @@ struct ConnectScreen: View {
                 .font(Typography.wordmark)
                 .tracking(4)
                 .foregroundStyle(Palette.ink)
+                .multilineTextAlignment(.center)
+                .wraps()
             Text("ONE BODY. MANY WORLDS.")
                 .font(Typography.motto)
                 .tracking(2)
                 .foregroundStyle(Palette.bioCyan)
+                .multilineTextAlignment(.center)
+                .wraps()
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Spacing.l)
@@ -68,7 +72,7 @@ struct ConnectScreen: View {
             .padding(.horizontal, Spacing.m)
             .padding(.vertical, Spacing.s)
             .frame(maxWidth: .infinity)
-            .background(Capsule().fill(Palette.iceWhite))
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.iceWhite))
             .accessibilityIdentifier("testBanner")
     }
 
@@ -93,6 +97,7 @@ struct ConnectScreen: View {
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .multilineTextAlignment(.center)
+                    .wraps()
             }
         case .connecting, .discovering, .reconnecting:
             Button("Abbrechen", systemImage: "xmark") { ring.disconnect() }
@@ -120,6 +125,7 @@ struct ConnectScreen: View {
             .font(Typography.caption)
             .foregroundStyle(Palette.inkMuted)
             .multilineTextAlignment(.center)
+            .wraps()
             .frame(maxWidth: .infinity)
     }
 }
@@ -138,16 +144,19 @@ private struct StatusCard: View {
                     Text(snapshot.connection.label)
                         .font(Typography.title)
                         .foregroundStyle(Palette.ink)
+                        .wraps()
                         .accessibilityIdentifier("status")
                     Text(snapshot.bluetooth.label)
                         .font(Typography.caption)
                         .foregroundStyle(Palette.inkMuted)
+                        .wraps()
                 }
             }
             if let error = snapshot.lastError {
                 Text(error)
                     .font(Typography.caption)
                     .foregroundStyle(Palette.pulseCoral)
+                    .wraps()
             }
         }
         .accessibilityElement(children: .combine)
@@ -172,6 +181,7 @@ private struct ScanResults: View {
                 Text("Gefundene Ringe")
                     .font(Typography.title)
                     .foregroundStyle(Palette.ink)
+                    .wraps()
                 Spacer()
                 if ring.snapshot.connection == .scanning {
                     ProgressView().tint(Palette.bioCyan)
@@ -181,6 +191,7 @@ private struct ScanResults: View {
                 Text("Noch kein Ring gefunden. Ring aus der Ladeschale nehmen, kurz bewegen und die QRing-App schließen.")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
+                    .wraps()
             }
             ForEach(ring.visibleRings) { found in
                 Button { ring.connect(found) } label: {
@@ -189,26 +200,33 @@ private struct ScanResults: View {
                             .foregroundStyle(Palette.bioCyan)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(found.name).font(Typography.body).foregroundStyle(Palette.ink)
+                            Text(found.name).font(Typography.body).foregroundStyle(Palette.ink).wraps()
                             Text([found.model.map { "Colmi \($0.name)" }, found.signalLabel].compactMap { $0 }.joined(separator: " · "))
                                 .font(Typography.caption)
                                 .foregroundStyle(Palette.inkMuted)
+                                .wraps()
                         }
                         Spacer()
                         Text("Verbinden")
                             .font(Typography.label)
                             .foregroundStyle(Palette.bioCyan)
+                            .fixedSize()
                     }
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("\(spoken(found.name)), \(found.model.map { "Colmi \($0.name)" } ?? "unbekanntes Gerät"), \(found.signalLabel)")
+                .accessibilityHint("Verbinden")
                 .accessibilityIdentifier("ring.\(found.name)")
             }
-            Toggle("Alle Bluetooth-Geräte zeigen", isOn: $ring.showAllDevices)
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .tint(Palette.bioCyan)
+            Toggle(isOn: $ring.showAllDevices) {
+                Text("Alle Bluetooth-Geräte zeigen")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+            }
+            .tint(Palette.bioCyan)
             if ring.snapshot.connection == .scanning {
                 Button("Suche stoppen") { ring.stopScan() }
                     .buttonStyle(SecondaryButtonStyle())
@@ -219,12 +237,15 @@ private struct ScanResults: View {
 
 private struct DeviceCard: View {
     let snapshot: RingSnapshot
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         Card {
             Text(snapshot.deviceName ?? "Ring")
                 .font(Typography.title)
                 .foregroundStyle(Palette.ink)
+                .wraps()
+                .accessibilityLabel("Ring \(spoken(snapshot.deviceName ?? ""))")
             row("Modell", snapshot.model.map { "Colmi \($0.name) (am Namen erkannt)" } ?? "unbekannt")
             row("Firmware", snapshot.firmwareNote ?? "wird gelesen …")
             row("Akku", snapshot.battery.map { "\($0.level) %" + ($0.charging ? " · lädt" : "") } ?? "–")
@@ -232,6 +253,7 @@ private struct DeviceCard: View {
             Text("Fähigkeiten")
                 .font(Typography.label)
                 .foregroundStyle(Palette.ink)
+                .wraps()
             ForEach(Metric.allCases, id: \.self) { metric in
                 row(metric.title, snapshot.capabilities.level(of: metric)?.label ?? "–")
             }
@@ -239,22 +261,23 @@ private struct DeviceCard: View {
                 Text("\(snapshot.unknownPackets.count) unbekannte Antworten vom Ring protokolliert")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
+                    .wraps()
             }
         }
         .accessibilityIdentifier("deviceCard")
     }
 
+    /// Side by side at normal sizes, stacked at accessibility sizes (no truncation either way).
     private func row(_ title: String, _ value: String) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title).foregroundStyle(Palette.inkMuted)
-                Spacer()
-                Text(value).foregroundStyle(Palette.ink).multilineTextAlignment(.trailing)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).foregroundStyle(Palette.inkMuted)
-                Text(value).foregroundStyle(Palette.ink)
-            }
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Spacing.m))
+        return layout {
+            Text(title).foregroundStyle(Palette.inkMuted).wraps()
+            if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            Text(value).foregroundStyle(Palette.ink)
+                .multilineTextAlignment(typeSize.isAccessibilitySize ? .leading : .trailing)
+                .wraps()
         }
         .font(Typography.body)
         .accessibilityElement(children: .combine)
@@ -269,23 +292,32 @@ private struct HistoryCard: View {
             Text("Gespeicherte Werte")
                 .font(Typography.title)
                 .foregroundStyle(Palette.ink)
+                .wraps()
             if items.isEmpty {
                 Text("Noch keine echten Messwerte. Verbinde deinen Ring und miss den Puls.")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
+                    .wraps()
             }
             ForEach(items) { item in
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(item.metric?.title ?? item.metricRaw): \(item.value) \(item.unit)")
                         .font(Typography.body)
                         .foregroundStyle(Palette.ink)
+                        .wraps()
                     Text("\(item.timestamp.formatted(date: .abbreviated, time: .shortened)) · \(item.deviceName) · live gemessen")
                         .font(Typography.caption)
                         .foregroundStyle(Palette.inkMuted)
+                        .wraps()
                 }
                 .accessibilityElement(children: .combine)
             }
         }
         .accessibilityIdentifier("history")
     }
+}
+
+/// BLE names like "R03_1A2B" read badly with VoiceOver; speak them with spaces.
+func spoken(_ name: String) -> String {
+    name.replacingOccurrences(of: "_", with: " ")
 }
