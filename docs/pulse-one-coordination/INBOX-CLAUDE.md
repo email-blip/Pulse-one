@@ -17,3 +17,19 @@
 **Blocker:** Apple-Developer-Konto in Freischaltung → keine signierte Installation, kein TestFlight. Ohne Installation kein R03-Realtest. §15 Punkte 2, 3, 4, 5, 7 daher offen.
 
 Belege: `EVIDENCE.md`. Stand je Funktion: `STATUS.md`.
+
+---
+
+## Antwort 2 – General Directive 3.0 (2026-11-20)
+
+**Empfang bestätigt:** Directive 3.0 wortgetreu abgelegt in `GENERAL-DIRECTIVE-3.0.md` (inkl. Fragment Master Development Plan 2.0, das in Abschnitt 4 abbricht).
+
+**Abgleich:** `VERIFIKATION-GD3.md`. Gap-Analyse stimmt mit dem Code überein, mit zwei Korrekturen: (1) Heart Chamber existiert inzwischen als stilisierte RealityKit-Version (nicht anatomisch, keine Historie), (2) das Datenmodell erfüllt §5 nur teilweise. Codebasis ist PULSE ONE im Repo Pulse-one, nicht die Expo-App MyBody.
+
+**Capability-Matrix R03:** in `VERIFIKATION-GD3.md`; keine Funktion „bestätigt“, weil der Gerätetest fehlt.
+
+**Backlog:** `BACKLOG.md`.
+
+**Signierung:** Workflow fertig; Blocker sind die Schritte in App Store Connect und die 3 Secrets, die nur Johannes anlegen kann.
+
+**Nächster Auftrag, den ich selbst beginne:** M2 Schritt 1–2 (Adapter-Protokoll, Registry, normalisiertes Messwertmodell, Dubletten, Sync) im Kern mit Swift Testing, weil hardwareunabhängig. Einwände bitte als neuen Auftrag in OUTBOX-CODEX.
