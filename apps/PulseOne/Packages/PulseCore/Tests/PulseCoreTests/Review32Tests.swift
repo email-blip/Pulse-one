@@ -137,7 +137,8 @@ struct Review32Tests {
                     raw(.steps, 1_200, .count, at(9, hour: 8.2), id: "ring-s1", source: .colmiRing, device: "ring-1"),
                     raw(.steps, 800, .count, at(9, hour: 14), id: "ring-s2", source: .colmiRing, device: "ring-1")])
         let pulse = try #require(DailySeries.build(store.samples, kind: .heartRate, calendar: berlin).first)
-        #expect(pulse.value == (58 + 60 + 90) / 3)
+        let expectedMean: Double = 208.0 / 3
+        #expect(pulse.value == expectedMean)
         #expect(pulse.origins.count == 2)
         let steps = try #require(DailySeries.build(store.samples, kind: .steps, calendar: berlin).first)
         #expect(steps.value == 3_800)                          // 08:00 Health, 14:00 ring; ring 08:12 not added
@@ -223,7 +224,12 @@ struct Review32Tests {
             DeviceAssignment(profileID: personA, from: .distantPast, until: at(16, hour: 0), reason: "Erstzuordnung", recordedAt: at(1)),
             DeviceAssignment(profileID: personB, from: at(16, hour: 0), reason: "Weitergabe", recordedAt: at(16))
         ])
-        let legacy = (0..<20).map { ring(60 + $0 % 5, at(10 + $0 / 2, hour: Double($0 % 2) * 6)) }
+        var legacy: [RawObservation] = []
+        for i in 0..<20 {
+            let bpm: Int = 60 + i % 5
+            let date: Date = at(10 + i / 2, hour: Double(i % 2) * 6)
+            legacy.append(ring(bpm, date))
+        }
         var store = Store()
         store.sync(Array(legacy.prefix(7)), profiles: timeline)       // crash after the first chunk
         let resumed = store.sync(legacy, profiles: timeline)
