@@ -219,6 +219,6 @@ Unverändert die Reihenfolge des Implementierungs-Threads (`OPEN-SOURCE-REVIEW.m
 ## 13. Entscheidungen von Johannes
 
 1. **Claude-Kosten:** freigegeben (2026-11-20; eigenes Anthropic-Konto vorhanden).
-2. **Lebensmittel-Abfragen an Dritte** (Open Food Facts, USDA): offen.
+2. **Lebensmittel-Abfragen an Dritte** (Open Food Facts, USDA): erlaubt (2026-11-20). In der App offenlegen, generischer User-Agent ohne persönliche Daten.
 3. **iCloud-Backup** der Datenbank: erlaubt (Johannes, 2026-11-19, projektweit). Damit gilt W1: Dateischutz `completeUntilFirstUserAuthentication`, Backup nicht ausschließen.
-4. **Diagnosen selbst eintragen** (ICD, nur Anzeige): offen.
+4. **Diagnosen selbst eintragen** (ICD, nur Anzeige): gewünscht (2026-11-20). Keine Auswertung oder Kodierung aus Messwerten.
