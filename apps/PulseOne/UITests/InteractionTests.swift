@@ -60,5 +60,8 @@ final class InteractionTests: XCTestCase {
         XCTAssertTrue(migrated.exists)
         // Health synced but delivered nothing: the permission hint is shown.
         XCTAssertTrue(app.descendants(matching: .any)["healthPermissionHint"].exists)
+        // Preferred source per kind (Review 3.2 §4).
+        XCTAssertTrue(app.descendants(matching: .any)["preferredSources"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["preference.heart_rate"].exists)
     }
 }

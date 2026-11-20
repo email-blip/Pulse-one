@@ -7,7 +7,10 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
     /// Hardware or account identifier from the source (peripheral UUID, Oura user id, "healthkit").
     public let sourceIdentifier: String
     public var name: String
-    public var profileID: UUID?
+    /// The current profile (the running assignment). History lives in `assignments`.
+    public private(set) var profileID: UUID?
+    /// Who wore the device when (Review 3.2 §2). Samples take the profile valid at their time.
+    public internal(set) var assignments: [DeviceAssignment]
     public private(set) var stage: IntegrationStage
     public var batteryPercent: Int?
     public var firmware: String?
@@ -23,9 +26,43 @@ public struct RegisteredDevice: Equatable, Codable, Sendable, Identifiable {
         self.sourceIdentifier = sourceIdentifier
         self.name = name
         self.profileID = profileID
+        // The first assignment also covers the device memory from before it was added (a ring keeps
+        // about 7 days); the reason says so.
+        self.assignments = [DeviceAssignment(profileID: profileID, from: .distantPast,
+                                             reason: "Erstzuordnung beim Hinzufügen (gilt auch für den Gerätespeicher davor)",
+                                             recordedAt: .now)]
         self.stage = stage
         self.diagnostics = []
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, adapterID, sourceIdentifier, name, profileID, assignments, stage, batteryPercent, firmware
+        case lastSuccessfulSync, lastSampleAt, syncCursor, diagnostics
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        adapterID = try c.decode(String.self, forKey: .adapterID)
+        sourceIdentifier = try c.decode(String.self, forKey: .sourceIdentifier)
+        name = try c.decode(String.self, forKey: .name)
+        profileID = try c.decodeIfPresent(UUID.self, forKey: .profileID)
+        // Registries from before Review 3.2 have no history: one open period, marked as migrated.
+        assignments = try c.decodeIfPresent([DeviceAssignment].self, forKey: .assignments)
+            ?? [DeviceAssignment(profileID: profileID, from: .distantPast,
+                                 reason: "Übernommen aus Version ohne Zuordnungsverlauf", recordedAt: .now)]
+        stage = try c.decode(IntegrationStage.self, forKey: .stage)
+        batteryPercent = try c.decodeIfPresent(Int.self, forKey: .batteryPercent)
+        firmware = try c.decodeIfPresent(String.self, forKey: .firmware)
+        lastSuccessfulSync = try c.decodeIfPresent(Date.self, forKey: .lastSuccessfulSync)
+        lastSampleAt = try c.decodeIfPresent(Date.self, forKey: .lastSampleAt)
+        syncCursor = try c.decodeIfPresent(String.self, forKey: .syncCursor)
+        diagnostics = try c.decodeIfPresent([String].self, forKey: .diagnostics) ?? []
+    }
+
+    public var timeline: ProfileTimeline { ProfileTimeline(assignments) }
+
+    mutating func setCurrentProfile(_ profile: UUID?) { profileID = profile }
 
     /// Stages only move forward through evidence; `reset` is the one way back (e.g. after unpairing).
     public mutating func reach(_ newStage: IntegrationStage) {
@@ -50,6 +87,7 @@ public enum RegistryError: Error, Equatable, Sendable {
     case emptyName
     /// Apple Health belongs to the iPhone owner; it must not move to another local profile.
     case healthKitOwnerOnly
+    case invalidAssignment(AssignmentError)
 }
 
 /// Central list of a user's devices and sources (directive §4 "DeviceRegistry").
@@ -57,9 +95,28 @@ public struct DeviceRegistry: Equatable, Codable, Sendable {
     public private(set) var devices: [RegisteredDevice] = []
     /// The profile that owns the iPhone and therefore Apple Health data.
     public var ownerProfileID: UUID?
+    /// Preferred source per kind, per profile (Review 3.2 §4). Missing = automatic.
+    public private(set) var preferences: [UUID: SourcePreferences] = [:]
 
     public init(ownerProfileID: UUID? = nil) {
         self.ownerProfileID = ownerProfileID
+    }
+
+    private enum CodingKeys: String, CodingKey { case devices, ownerProfileID, preferences }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        devices = try c.decodeIfPresent([RegisteredDevice].self, forKey: .devices) ?? []
+        ownerProfileID = try c.decodeIfPresent(UUID.self, forKey: .ownerProfileID)
+        preferences = try c.decodeIfPresent([UUID: SourcePreferences].self, forKey: .preferences) ?? [:]
+    }
+
+    public func preferences(for profile: UUID) -> SourcePreferences { preferences[profile] ?? SourcePreferences() }
+
+    public mutating func setPreference(_ choice: SourceChoice, for kind: SampleKind, profile: UUID) {
+        var p = preferences(for: profile)
+        p.set(choice, for: kind)
+        preferences[profile] = p
     }
 
     @discardableResult
@@ -90,10 +147,34 @@ public struct DeviceRegistry: Equatable, Codable, Sendable {
         try update(id) { $0.name = trimmed }
     }
 
-    public mutating func assign(_ id: UUID, to profileID: UUID?) throws {
+    /// Hands a device to another profile from `date` on (Review 3.2 §2). Earlier samples keep their profile.
+    public mutating func assign(_ id: UUID, to profileID: UUID?, from date: Date = .now,
+                                reason: String = "Gerät neu zugeordnet", now: Date = .now) throws {
         guard let device = device(id) else { throw RegistryError.notFound }
         try checkOwner(adapterID: device.adapterID, profileID: profileID)
-        try update(id) { $0.profileID = profileID }
+        var assignments = device.assignments
+        do { try assignments.handOver(to: profileID, from: date, reason: reason, now: now) } catch let e as AssignmentError {
+            throw RegistryError.invalidAssignment(e)
+        }
+        try update(id) { $0.assignments = assignments; $0.setCurrentProfile(profileID) }
+    }
+
+    /// Manual, logged correction of who wore a device in a past period. The caller must re-attribute the
+    /// stored samples of that period (`SyncCoordinator.reattribute`).
+    public mutating func correctAssignment(_ id: UUID, to profileID: UUID?, from start: Date, until end: Date,
+                                           reason: String, now: Date = .now) throws {
+        guard let device = device(id) else { throw RegistryError.notFound }
+        try checkOwner(adapterID: device.adapterID, profileID: profileID)
+        var assignments = device.assignments
+        do { try assignments.correct(to: profileID, from: start, until: end, reason: reason, now: now) } catch let e as AssignmentError {
+            throw RegistryError.invalidAssignment(e)
+        }
+        let current = ProfileTimeline(assignments).profile(at: now)
+        try update(id) {
+            $0.assignments = assignments
+            $0.setCurrentProfile(current)
+            $0.log("Zuordnung korrigiert: \(reason)")
+        }
     }
 
     public mutating func update(_ id: UUID, _ change: (inout RegisteredDevice) -> Void) throws {

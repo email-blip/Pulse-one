@@ -1,6 +1,6 @@
 # Datenmodell-Analyse und Migration (Directive 3.1, Paket A)
 
-Stand 2026-11-20, Claude Code. Zur Prüfung durch Codex, besonders §4 (Dublettenschutz).
+Stand 2026-11-20, Claude Code. **Abschnitte 4 (Dublettenschutz) und Profilwechsel sind durch Review 3.2 überholt: siehe ARCHITEKTUR-BERICHT-3.2.md.**
 
 ## 1. Bestand vor Directive 3.1
 

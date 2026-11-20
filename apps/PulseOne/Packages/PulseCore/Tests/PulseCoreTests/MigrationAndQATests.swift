@@ -28,7 +28,7 @@ private struct MemoryStore {
     var rows: [String: HealthSample] = [:]
 
     @discardableResult
-    mutating func ingest(_ batch: SyncBatch, profile: UUID = owner, at time: Date = t0) -> SyncPlan {
+    mutating func ingest(_ batch: SyncBatch, profile: UUID = owner, at time: Date = t0.addingTimeInterval(3_600)) -> SyncPlan {
         let plan = SyncCoordinator.plan(batch: batch, existing: rows, profileID: profile, importedAt: time)
         for s in plan.inserts + plan.updates { rows[s.deduplicationKey] = s }
         for id in plan.deletions { rows = rows.filter { $0.value.id != id } }
@@ -131,18 +131,20 @@ struct DirectiveQATests {
                                                             method: .healthStore)])
         let plan = SyncCoordinator.plan(batch: batch, existing: [:], profileID: owner, importedAt: t0)
         #expect(plan.inserts.map(\.originalSampleID) == ["small-skew"])
+        #expect(plan.inserts.first?.quality == .timeUncertain)
         #expect(Set(plan.rejected.map { "\($0)" }) == ["timestampTooOld", "timestampInFuture", "endBeforeStart"])
     }
 
-    @Test func profileSwitchMovesResyncedSamplesWithoutDuplicates() {
+    /// Review 3.2 §2: a re-sync after a profile switch must not move history to the new profile.
+    @Test func resyncAfterProfileSwitchKeepsHistoricProfile() {
         var store = MemoryStore()
         let batch = SyncBatch(observations: [obs(.heartRate, 60, id: "x"), obs(.heartRate, 62, at: 60, id: "y")])
         store.ingest(batch, profile: owner)
         let switched = store.ingest(batch, profile: guest)
-        #expect(switched.inserts.isEmpty)
-        #expect(switched.updates.count == 2)
+        #expect(switched.isEmpty)
+        #expect(switched.unchanged == 2)
         #expect(store.rows.count == 2)
-        #expect(store.rows.values.allSatisfy { $0.profileID == guest })
+        #expect(store.rows.values.allSatisfy { $0.profileID == owner })
     }
 
     @Test func healthSyncWithoutDataIsFlagged() throws {
@@ -169,14 +171,17 @@ struct DailySeriesTests {
         try MeasurementNormalizer.normalize(r, profileID: owner, importedAt: t0.addingTimeInterval(7 * 86_400))
     }
 
-    @Test func cumulativeDaysUseOneOriginOnly() throws {
+    @Test func cumulativeDaysMergeByHourWithoutDoubleCounting() throws {
+        // Same hour: Health (preferred for steps) wins, the ring is not added on top.
+        // Next day only the ring has data: it fills in.
         let samples = try [obs(.steps, 1_000, .count, id: "r1"), obs(.steps, 2_000, .count, at: 600, id: "r2"),
                            obs(.steps, 9_000, .count, id: "h", source: .appleHealth, device: "healthkit"),
                            obs(.steps, 500, .count, at: 86_400, id: "r3")].map(normalized)
         let days = DailySeries.build(samples, kind: .steps, calendar: berlin)
-        #expect(days.map(\.value) == [3_000, 500])
-        #expect(days.first?.origins == [SampleOrigin(source: .colmiRing, deviceID: "ring-1")])
-        #expect(days.first?.sampleCount == 2)
+        #expect(days.map(\.value) == [9_000, 500])
+        #expect(days.first?.origins == [SampleOrigin(source: .appleHealth, deviceID: "healthkit")])
+        #expect(days.first?.sampleCount == 1)
+        #expect(days.last?.origins == [SampleOrigin(source: .colmiRing, deviceID: "ring-1")])
     }
 
     @Test func pointDaysAverageResolvedValuesAndSkipImplausible() throws {
@@ -195,7 +200,7 @@ struct DailySeriesTests {
         let samples = try [0.0, 3_600].enumerated().map { i, off in
             try MeasurementNormalizer.normalize(
                 RawObservation(kind: .steps, value: 100, unit: .count, start: late.addingTimeInterval(off),
-                               source: .colmiRing, deviceID: "ring-1", originalSampleID: "s\(i)", method: .deviceHistory),
+                               timeZoneIdentifier: "Europe/Berlin", source: .colmiRing, deviceID: "ring-1", originalSampleID: "s\(i)", method: .deviceHistory),
                 profileID: owner, importedAt: late.addingTimeInterval(7_200))
         }
         #expect(DailySeries.build(samples, kind: .steps, calendar: berlin).count == 2)

@@ -74,7 +74,7 @@ final class SourcesStore {
         let device = ringDevice(reading.deviceIdentifier)
         do {
             let plan = try SampleStore(context: context).ingest(SyncBatch(observations: [raw]), deviceID: reading.deviceIdentifier,
-                                                                profileID: device?.profileID ?? ownerProfileID)
+                                                                profiles: device?.timeline ?? .constant(ownerProfileID))
             if let device, !plan.inserts.isEmpty {
                 change(device.id) {
                     $0.reach(.dataAccess)
@@ -112,16 +112,16 @@ final class SourcesStore {
         var byDevice: [String: [RawObservation]] = [:]
         for row in rows {
             guard let reading = row.reading else { report.skipped += 1; continue }
-            byDevice[reading.deviceIdentifier, default: []].append(RawObservation(reading: reading, timeZoneIdentifier: nil))
+            byDevice[reading.deviceIdentifier, default: []].append(RawObservation(reading: reading, timeZoneIdentifier: TimeZone.current.identifier))
         }
         let store = SampleStore(context: context)
         do {
             for (deviceID, observations) in byDevice.sorted(by: { $0.key < $1.key }) {
-                let profile = ringDevice(deviceID)?.profileID ?? ownerProfileID
+                let profiles = ringDevice(deviceID)?.timeline ?? .constant(ownerProfileID)
                 var start = 0
                 while start < observations.count {
                     let chunk = Array(observations[start..<min(start + 500, observations.count)])
-                    let plan = try store.ingest(SyncBatch(observations: chunk), deviceID: deviceID, profileID: profile)
+                    let plan = try store.ingest(SyncBatch(observations: chunk), deviceID: deviceID, profiles: profiles)
                     report.inserted += plan.inserts.count
                     report.alreadyPresent += plan.unchanged + plan.updates.count
                     report.skipped += plan.rejected.count
@@ -151,10 +151,12 @@ final class SourcesStore {
     func importedData(deviceID: String) -> [ImportedKind] {
         guard let context = modelContext else { return [] }
         let plausible = SampleQuality.plausible.rawValue
+        let valid = SampleQuality.valid.rawValue
         return SampleKind.allCases.compactMap { kind in
             let raw = kind.rawValue
             var descriptor = FetchDescriptor<StoredSample>(
-                predicate: #Predicate { $0.deviceID == deviceID && $0.kindRaw == raw && $0.qualityRaw == plausible },
+                predicate: #Predicate { $0.deviceID == deviceID && $0.kindRaw == raw
+                    && ($0.qualityRaw == plausible || $0.qualityRaw == valid) },
                 sortBy: [SortDescriptor(\.start, order: .reverse)])
             let count = (try? context.fetchCount(descriptor)) ?? 0
             guard count > 0 else { return nil }
@@ -185,8 +187,9 @@ final class SourcesStore {
         defer { syncing.remove(id) }
         do {
             let batch = try await health.sync(deviceID: HealthKitAdapter.deviceID, cursor: device.syncCursor)
+            // Apple Health belongs to the iPhone owner for all time.
             let plan = try SampleStore(context: context).ingest(batch, deviceID: HealthKitAdapter.deviceID,
-                                                                profileID: ownerProfileID)
+                                                                profiles: .constant(ownerProfileID))
             change(id) {
                 // Health never says whether reading was denied; an empty import may mean either. Stages rise
                 // only with evidence, so without any data the source stays "kompatibel" and the screen asks
@@ -201,6 +204,37 @@ final class SourcesStore {
             }
         } catch {
             change(id) { $0.log("Sync fehlgeschlagen: \(error.localizedDescription)") }
+        }
+    }
+
+    // MARK: Profiles and preferences
+
+    /// Logged correction of who wore a device in a past period; re-attributes its stored samples.
+    func correctAssignment(_ id: UUID, to profile: UUID?, from start: Date, until end: Date, reason: String) {
+        guard !isTestScenario else { return }
+        mutate { try $0.correctAssignment(id, to: profile, from: start, until: end, reason: reason) }
+        guard let context = modelContext, let device = registry.device(id) else { return }
+        let changed = (try? SampleStore(context: context).reattribute(deviceID: device.sourceIdentifier,
+                                                                      profiles: device.timeline)) ?? 0
+        change(id) { $0.log("\(changed) Werte neu zugeordnet") }
+    }
+
+    var preferences: SourcePreferences { registry.preferences(for: ownerProfileID) }
+
+    func setPreference(_ choice: SourceChoice, for kind: SampleKind) {
+        var copy = registry
+        copy.setPreference(choice, for: kind, profile: ownerProfileID)
+        registry = copy
+        save()
+    }
+
+    /// Choices offered for a kind: automatic plus every registered device whose adapter can deliver it.
+    func candidates(for kind: SampleKind) -> [(title: String, choice: SourceChoice)] {
+        devices.compactMap { device in
+            guard let adapter = AdapterCatalog.descriptor(id: device.adapterID),
+                  adapter.status(of: kind) != .unsupported,
+                  let source = AdapterCatalog.sourceKind(adapterID: device.adapterID) else { return nil }
+            return (device.name, .device(SampleOrigin(source: source, deviceID: device.sourceIdentifier)))
         }
     }
 

@@ -94,4 +94,16 @@ public enum AdapterCatalog {
     public static let all: [AdapterDescriptor] = [colmiR03, colmiR09, appleHealth, ouraCloud, bluetoothHeartRate, manual]
 
     public static func descriptor(id: String) -> AdapterDescriptor? { all.first { $0.id == id } }
+
+    /// The source system samples of an adapter are stored under.
+    public static func sourceKind(adapterID: String) -> DataSourceKind? {
+        switch adapterID {
+        case colmiR03.id, colmiR09.id: .colmiRing
+        case appleHealth.id: .appleHealth
+        case ouraCloud.id: .ouraCloud
+        case bluetoothHeartRate.id: .bluetoothStandard
+        case manual.id: .manual
+        default: nil
+        }
+    }
 }

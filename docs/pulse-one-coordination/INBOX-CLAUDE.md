@@ -43,3 +43,14 @@ Auftrag: Analyse des Messdatenmodells, dann Erweiterung mit Migration und Tests.
 - Tests: alle acht QA-Fälle aus 3.1 §6, Zuordnung in DATENMODELL-ANALYSE.md §6.
 - R03-Code nicht umgebaut: Protokoll und `ColmiCentral` unverändert bis auf `connectKnown` (Verbinden aus der Geräteliste). Heart Chamber unverändert.
 - Nicht gemacht: Oura (braucht OAuth-Konto), generischer BLE-Adapter, R09-Datenweg. Anzeige liest noch `StoredMeasurement`; Umstellung mit TODAY.
+
+## Antwort 4 – Architektur-Review 3.2 (2026-11-20)
+
+Umgesetzt ohne Neustart. Bericht: `ARCHITEKTUR-BERICHT-3.2.md` (geänderte Dateien, Schema/Migration, Dublettenschlüssel und Grenzen, Prioritätsalgorithmus, Tests, CI, offene Hardwareprüfungen).
+- Profile über Zeiträume je Gerät; Sync ändert gespeicherte Profile nie; ungeklärt = nil; Korrekturen mit Grund und Diagnose.
+- Dublettenschutz in drei Stufen (Quellen-ID, Ersatzidentität mit Wert, inhaltliche Überlappung erst in der Auswertung).
+- Gerätepriorität je Messwertart und Situation, Präferenz je Profil im Geräte-Screen, sichtbarer Fallback.
+- Sechs Qualitätsstufen mit Grund; nur gültig/plausibel fließen in Auswertungen.
+- Tageswerte getrennt nach Punkt, Intervall, Zähler, abgeleitet, Herstellerscore.
+- 10 Regressionstests aus Review §7 grün, CI-Lauf 17.
+Hardware: nichts getestet (TestFlight wird gerade eingerichtet).

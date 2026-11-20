@@ -33,6 +33,7 @@ struct DevicesScreen: View {
                                          onRename: { newName = device.name; renaming = device },
                                          onRemove: { sources.remove(device.id) })
                     }
+                    if !sources.devices.isEmpty { PreferredSourcesCard() }
                     addButtons
                     Text("Stufen: entdeckt → verbunden → kompatibel → Datenzugriff → synchronisiert → Qualität geprüft. Eine Bluetooth-Verbindung allein ist noch keine fertige Anbindung.")
                         .font(Typography.caption)
@@ -299,5 +300,61 @@ private struct StageTrack: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Stufe \(stage.rawValue + 1) von 6: \(stage.label)")
+    }
+}
+
+/// Geräte → Datenquellen → Bevorzugte Quelle (Review 3.2 §4). One choice per kind; "Automatisch" follows
+/// the documented order for that kind and falls back when the chosen source has no data.
+private struct PreferredSourcesCard: View {
+    @Environment(SourcesStore.self) private var sources
+
+    private var kinds: [SampleKind] {
+        SampleKind.allCases.filter { $0 != .deviceBattery && !sources.candidates(for: $0).isEmpty }
+    }
+
+    var body: some View {
+        Card {
+            Text("Bevorzugte Quellen")
+                .font(Typography.title)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+                .accessibilityAddTraits(.isHeader)
+            Text("Pro Messwert zählt immer nur eine Quelle, nichts wird doppelt gezählt. Fehlt die gewählte Quelle, springt die automatische Reihenfolge ein.")
+                .font(Typography.caption)
+                .foregroundStyle(Palette.inkMuted)
+                .wraps()
+            ForEach(kinds, id: \.self) { kind in
+                row(kind)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("preferredSources")
+    }
+
+    private func row(_ kind: SampleKind) -> some View {
+        let candidates = sources.candidates(for: kind)
+        let selection = Binding(get: { sources.preferences.choice(for: kind) },
+                                set: { sources.setPreference($0, for: kind) })
+        return VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text(kind.title)
+                .font(Typography.label)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+            Picker(kind.title, selection: selection) {
+                Text("Automatisch").tag(SourceChoice.automatic)
+                ForEach(candidates.indices, id: \.self) { i in
+                    Text(candidates[i].title).tag(candidates[i].choice)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(Palette.bioCyan)
+            .accessibilityLabel("Bevorzugte Quelle für \(kind.title)")
+            .accessibilityIdentifier("preference.\(kind.rawValue)")
+            Text("Automatisch: \(SourcePolicy.automaticOrder(for: kind, context: .general).prefix(3).map(\.title).joined(separator: " › "))")
+                .font(Typography.caption)
+                .foregroundStyle(Palette.inkMuted)
+                .wraps()
+        }
+        .padding(.top, Spacing.xs)
     }
 }
