@@ -1,0 +1,59 @@
+name: PulseOne
+options:
+  bundleIdPrefix: de.sommerlabs
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: de
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+packages:
+  PulseCore:
+    path: Packages/PulseCore
+targets:
+  PulseOne:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: PULSE ONE
+        CFBundleDevelopmentRegion: de
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+        NSBluetoothAlwaysUsageDescription: "PULSE ONE verbindet sich per Bluetooth mit deinem Ring, um Puls und Akkustand zu lesen. Die Daten bleiben auf diesem iPhone."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.sommerlabs.pulseone
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - package: PulseCore
+  PulseOneUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.sommerlabs.pulseone.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: PulseOne
+schemes:
+  PulseOne:
+    build:
+      targets:
+        PulseOne: all
+    test:
+      targets:
+        - PulseOneUITests

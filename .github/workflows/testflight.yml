@@ -1,0 +1,129 @@
+name: TestFlight
+
+# Manual only: archives PULSE ONE, signs it automatically with the App Store Connect API key
+# and uploads it to App Store Connect for INTERNAL TestFlight testing. No external testers,
+# no App Store submission (both need the owner's explicit approval).
+#
+# Needs repository secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (contents of AuthKey_XXXX.p8,
+# pasted as plain text or base64).
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App folder under apps/"
+        default: "PulseOne"
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  APP: ${{ inputs.app || 'PulseOne' }}
+  XCODE_VERSION: "26.6"
+  XCODEGEN_VERSION: "2.48.0"
+  TEAM_ID: "86W9BY22V9"   # Apple Developer team of the owner (not a secret)
+
+jobs:
+  archive-upload:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check secrets
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          [ -n "$ASC_KEY_ID" ] || missing="$missing ASC_KEY_ID"
+          [ -n "$ASC_ISSUER_ID" ] || missing="$missing ASC_ISSUER_ID"
+          [ -n "$ASC_KEY_P8" ] || missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing (see docs/TESTFLIGHT-EINRICHTEN.md)"; exit 1; fi
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+
+      - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
+        run: |
+          curl -fsSL -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+          echo "/tmp/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: Write API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set +x
+          key="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          if printf '%s' "$ASC_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_KEY_P8" > "$key"
+          else
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$key"
+          fi
+          grep -q "BEGIN PRIVATE KEY" "$key" || { echo "::error::ASC_KEY_P8 is not a valid .p8 key"; exit 1; }
+          chmod 600 "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+
+      - name: Generate project
+        run: xcodegen generate --spec "apps/$APP/project.yml"
+
+      - name: Archive (automatic signing with API key)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild archive -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
+            -destination "generic/platform=iOS" -archivePath "build/$APP.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" 2>&1 | tee build-archive.log | grep -E "error:|warning:|ARCHIVE (SUCCEEDED|FAILED)" || true
+          grep -q "ARCHIVE SUCCEEDED" build-archive.log
+
+      - name: Export and upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>testFlightInternalTestingOnly</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "build/$APP.xcarchive" \
+            -exportOptionsPlist build/ExportOptions.plist -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "Uploaded build ${{ github.run_number }} of $APP to App Store Connect (internal TestFlight)."
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
+
+      - name: Upload logs (7 days)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testflight-${{ github.run_number }}
+          path: |
+            build-archive.log
+            build/export/*.log
+          retention-days: 7
+          if-no-files-found: ignore

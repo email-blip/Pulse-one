@@ -1,0 +1,109 @@
+name: iOS CI
+
+# Builds, tests and captures simulator screenshots on a GitHub-hosted Mac.
+# Screenshots are pushed to branch ci-screenshots/<branch> so cloud Claude sessions can review them with git.
+
+on:
+  push:
+    branches-ignore: ["ci-screenshots/**"]
+    paths: ["apps/**", "scripts/**", ".github/workflows/ios-ci.yml"]
+  # No pull_request trigger: the push run on the PR branch already reports on the PR; running both would double macOS minutes.
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App folder under apps/"
+        default: "PulseOne"
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true   # saves macOS minutes
+
+permissions:
+  contents: write            # push to ci-screenshots/* only
+
+env:
+  APP: ${{ inputs.app || 'PulseOne' }}
+  XCODE_VERSION: "26.6"      # newest on GitHub macos-26 image (2026-11-20); Xcode 27 not offered yet
+  XCODEGEN_VERSION: "2.48.0" # pinned
+
+jobs:
+  build-test-screenshots:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode
+        run: |
+          if [ -d "/Applications/Xcode_${XCODE_VERSION}.app" ]; then
+            sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          else
+            echo "::error::Xcode ${XCODE_VERSION} not on runner. Available:"; ls -d /Applications/Xcode*.app; exit 1
+          fi
+          xcodebuild -version; swift --version
+
+      - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
+        run: |
+          curl -fsSL -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+          echo "/tmp/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: Core package tests (Swift Testing)
+        run: |
+          for pkg in apps/$APP/Packages/*/; do swift test --package-path "$pkg"; done
+
+      - name: Generate project
+        run: xcodegen generate --spec "apps/$APP/project.yml"
+
+      - name: Pick simulators
+        id: sims
+        run: scripts/pick-simulators.sh >> "$GITHUB_OUTPUT"
+
+      - name: Build for testing
+        id: build
+        run: |
+          set -o pipefail; mkdir -p build
+          xcodebuild build-for-testing -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
+            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.main }}" \
+            -derivedDataPath build/dd SWIFT_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee build/build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "TEST BUILD SUCCEEDED\|BUILD SUCCEEDED" build/build.log
+
+      - name: All tests on main device
+        run: |
+          xcodebuild test-without-building -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
+            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.main }}" \
+            -derivedDataPath build/dd -resultBundlePath "build/main.xcresult"
+
+      - name: Screenshots on small and large device
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          for which in small large; do
+            id=$([ $which = small ] && echo "${{ steps.sims.outputs.small }}" || echo "${{ steps.sims.outputs.large }}")
+            xcodebuild test-without-building -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
+              -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/dd \
+              -only-testing:"${APP}UITests/ScreenshotTests" -resultBundlePath "build/$which.xcresult" || true
+          done
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          scripts/export-screenshots.sh build/main.xcresult  "shots/${{ steps.sims.outputs.main_name }}"
+          scripts/export-screenshots.sh build/small.xcresult "shots/${{ steps.sims.outputs.small_name }}"
+          scripts/export-screenshots.sh build/large.xcresult "shots/${{ steps.sims.outputs.large_name }}"
+
+      - name: Push screenshots to ci-screenshots branch
+        if: always() && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/push-screenshots.sh shots "ci-screenshots/${GITHUB_REF_NAME}"
+
+      - name: Upload results (7 days)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: results-${{ github.run_number }}
+          path: |
+            build/*.xcresult
+            build/build.log
+            shots
+          retention-days: 7
