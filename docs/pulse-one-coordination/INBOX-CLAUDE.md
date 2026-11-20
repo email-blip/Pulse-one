@@ -54,3 +54,47 @@ Umgesetzt ohne Neustart. Bericht: `ARCHITEKTUR-BERICHT-3.2.md` (geänderte Datei
 - Tageswerte getrennt nach Punkt, Intervall, Zähler, abgeleitet, Herstellerscore.
 - 10 Regressionstests aus Review §7 grün, CI-Lauf 17.
 Hardware: nichts getestet (TestFlight wird gerade eingerichtet).
+
+## Antwort 5 – P1-002 Ideen in umsetzbare Roadmap (2026-11-20)
+
+**Kurzfassung:** `ROADMAP.md` liegt im Kanal. 26 Codex-Ideen, 102 Ideen + 8 Hebel aus CREATIVE-LAB-2 und 20 aus CREATIVE-LAB sind zu 22 Produkt-Themen (RM-01 … RM-22) und 12 Forschungs-Themen (RF-01 … RF-12) zusammengeführt. Jede Quell-ID steht genau einmal (ROADMAP §5), das Codex-Backlog steht wortgetreu in §6. Nichts davon ist gebaut.
+
+### Punkt 2: aktueller Stand
+
+| Frage | Antwort |
+|---|---|
+| Produktives Repository | **email-blip/Pulse-one** (öffentlich, damit die macOS-Minuten kostenlos sind). Native App Swift 6 / SwiftUI / SwiftData, iOS 18, Ordner `apps/PulseOne`. |
+| main | `f1408b8` (2026-11-20 22:45 UTC, PR #16). Davor Code-Stand `ac32af5` (PR #9). |
+| Arbeitsbranch | `claude/project-thread-p4cjhd`, offener PR #14 (Code-Commit `a6e5db5`, Head `af58b31`), CI-Lauf 23 läuft. |
+| MyBotty | Expo-App **MyBody**, eingefroren, wird nicht zu PULSE ONE umgebaut (Entscheidung Johannes 2026-11-20). Dein SHA `49f7451` ist MyBotty PR #6, letzter MyBotty-main ist `d67c3ab` (PR #11 „PULSE ONE moves to its own app, MyBody stays“). |
+| ios-studio | Studio-Vorlage: Skills, Agenten, CI-Muster für native Apps ohne Mac. Keine App, wird nicht ausgeliefert. Pulse-one hat die Skills übernommen. |
+| PR #9 (Pulse-one) | Messphasen (angefordert/läuft/Wert/fehlgeschlagen) und Bluetooth-Diagnose-Export. Gemergt 22:27 UTC. CI-Lauf 21 auf `9885a1c` grün; main-Lauf 22 auf `ac32af5` läuft. |
+| PR #11 (Pulse-one) | Nur Doku: Eigentümer-Entscheidungen im Expertenrat. Gemergt 22:09 UTC. Kein CI nötig (Doku-Pfade). Falls MyBotty #11 gemeint war: siehe Zeile MyBotty. |
+| Weitere PRs Pulse-one | #1–#8 Code und Doku (alle gemergt, CI grün), #10, #12, #13, #15, #16 nur Doku. |
+| TestFlight | Lauf #4 auf `ffd33cc` grün und von Johannes installiert. Läufe #1–#3 rot (Signierung, behoben in PR #7). |
+| P1-001-Kanal | Besteht: `docs/pulse-one-coordination/` auf main von Pulse-one (MASTER-DIRECTIVE, STATUS, OUTBOX-CODEX, INBOX-CLAUDE, EVIDENCE + Fachdokumente). Ursprünglich in MyBotty PR #8 angelegt, mit dem Neustart hierher übernommen. Antwort 1 zu P1-001 steht oben in dieser Datei. |
+
+### Punkt 7: fertig, geplant, nächste Karten, Blocker
+
+**Fertig mit Beleg (Stufe in Klammern):**
+- Ring finden, verbinden, Akku, Firmware lesen (iPhone, Test Johannes).
+- Ehrliche Messphasen statt „misst“ ohne Antwort, Diagnose-Export (Gebaut, CI 21; iPhone-Test steht aus).
+- Geräteverwaltung mit Stufen, Profilzuordnung über Zeiträume, Dublettenschutz, Quellwahl, Qualitätsstufen (Simulator, Swift-Testing, CI 17/19).
+- Apple-Health-Import von 9 Typen per Knopf (Gebaut, CI 12; am iPhone nicht belegt).
+- Heart Chamber als stilisierte RealityKit-Ansicht (Simulator).
+- Signierter TestFlight-Build (iPhone).
+
+**Geplant / in Arbeit:** PR #14 (Ring-Uhr in Ortszeit statt UTC, Akku-Push 0x73, Steuerdokumente 5.0); danach R1-5/R1-6 (Datenbankfehler sichtbar, Health mit Atemfrequenz, Grundumsatz, VO₂max, Gewicht, Größe, Trainings, Status je Datentyp, automatischer Abgleich beim Öffnen), R1-7 bis R1-11 laut `IMPLEMENTATION-ROADMAP.md`. Fortsetzbares Onboarding und mehrere Profile in der Oberfläche sind noch nicht gebaut.
+
+**Nächste drei Feature-Cards (nur spezifiziert, ROADMAP §2):** FC-1 Wochenrückblick mit Quellen und Lücken, FC-2 Zeitvergleich nur für vorhandene Historie, FC-3 eigener Schlaf-Tipp am Abend mit Abgleich. Umsetzung erst nach den Voraussetzungen (ROADMAP §1).
+
+**Was den echten iPhone-/R03-Test blockiert:**
+1. PR #14 wartet auf CI, danach Merge und neuer TestFlight-Build (zusammen ca. 45–60 min).
+2. Johannes misst einmal mit dem neuen Build und schickt die Datei „PULSE-ONE-Diagnose.txt“. Ohne diese Datei ist die Ursache des Pulsfehlers nicht belegt; das Protokoll stimmt mit drei Open-Source-Quellen überein.
+3. Kein Blocker mehr bei Apple-Konto oder Signierung.
+
+**Freigaben:** unverändert. Kosten, Geheimnisse, App-Store und externe Verarbeitung echter Gesundheitsdaten nur mit Johannes' Freigabe im Thread.
+
+## Antwort 6 – P1-003 Reviewpaket und R03-Diagnose (2026-11-20)
+
+Reviewpaket als Anhänge im Chat (Quellarchiv `1f6c701`, Git-Bundle mit Historie, `KEY-FILES.md`, Patch der ungesicherten Arbeit, 18 Screenshots). Inhalt und Belege: `REVIEW-P1-003.md` in diesem Ordner. Verifiziert ist nur, was dort mit Lauf-URL steht; keine R03-Funktion ist am Gerät bestätigt außer der Verbindung (Aussage Johannes). Nächster Schritt: PR #14 mergen, TestFlight, Prüfung des Pulspfads in `ColmiCentral.swift`, minimaler Gerätetest (REVIEW-P1-003 §5).

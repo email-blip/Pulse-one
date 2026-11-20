@@ -32,12 +32,22 @@ struct ColmiProtocolTests {
         #expect(!ColmiProtocol.isValid([3, 0, 0]))
     }
 
-    @Test func setTimeUsesUTCAndBCD() throws {
-        // 2026-11-20 15:32:53 UTC
+    @Test func setTimeUsesLocalWallClockAndBCD() throws {
+        // 2026-11-20 15:32:53 UTC = 16:32:53 in Berlin (CET)
         let date = Date(timeIntervalSince1970: 1_795_188_773)
-        let packet = try ColmiProtocol.setTimeRequest(date)
-        #expect(Array(packet[0...7]) == [1, 0x26, 0x11, 0x20, 0x15, 0x32, 0x53, 1])
+        let berlin = try #require(TimeZone(identifier: "Europe/Berlin"))
+        let packet = try ColmiProtocol.setTimeRequest(date, timeZone: berlin)
+        #expect(Array(packet[0...7]) == [1, 0x26, 0x11, 0x20, 0x16, 0x32, 0x53, 1])
         #expect(ColmiProtocol.isValid(packet))
+        let utc = try #require(TimeZone(identifier: "UTC"))
+        #expect(try ColmiProtocol.setTimeRequest(date, timeZone: utc)[4] == 0x15)
+    }
+
+    @Test func statusPushCarriesBattery() throws {
+        let packet = try ColmiProtocol.makePacket(.statusPush, payload: [0x0C, 87, 1])
+        #expect(ColmiProtocol.decode(packet) == .battery(.init(level: 87, charging: true)))
+        let other = try ColmiProtocol.makePacket(.statusPush, payload: [0x01])
+        #expect(ColmiProtocol.decode(other) == .unknown(hex: ColmiProtocol.hex(other)))
     }
 
     @Test func setTimeRejectsDatesBefore2000() {
