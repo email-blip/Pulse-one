@@ -9,6 +9,8 @@ import PulseCore
 @Observable
 final class RingStore {
     var snapshot: RingSnapshot
+    /// Bluetooth diagnostic log of this app session (directive 4.0 §3), exportable by the user.
+    var trace = BLETrace()
     let isTestScenario: Bool
     /// Show every named Bluetooth device, not only names that look like a Colmi ring.
     var showAllDevices = false
@@ -27,9 +29,26 @@ final class RingStore {
         return store
     }
 
-    static func preview(_ snapshot: RingSnapshot) -> RingStore {
-        RingStore(snapshot: snapshot, isTestScenario: true)
+    static func preview(_ snapshot: RingSnapshot, trace: BLETrace = BLETrace()) -> RingStore {
+        let store = RingStore(snapshot: snapshot, isTestScenario: true)
+        store.trace = trace
+        return store
     }
+
+    /// Plain-text diagnosis for the share sheet: no device identifier, ring suffix hidden.
+    func diagnosticReport() -> String {
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        var text = trace.report(appVersion: version, systemVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+                                deviceName: snapshot.deviceName, firmware: snapshot.firmware)
+        text += "\n\nMessung: \(snapshot.measurement.title) · \(snapshot.measurement.detail)"
+        if !snapshot.unknownPackets.isEmpty {
+            text += "\nUnbekannte Antworten (\(snapshot.unknownPackets.count)):\n" + snapshot.unknownPackets.joined(separator: "\n")
+        }
+        return text
+    }
+
+    func clearTrace() { trace.clear() }
 
     var visibleRings: [DiscoveredRing] {
         showAllDevices ? snapshot.discovered : snapshot.discovered.filter { $0.model != nil }

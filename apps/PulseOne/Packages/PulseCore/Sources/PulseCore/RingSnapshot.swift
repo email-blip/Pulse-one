@@ -34,6 +34,9 @@ public struct RingSnapshot: Equatable, Sendable {
     public var model: ColmiModel?
     public var firmware: String?
     public var battery: ColmiProtocol.Battery?
+    /// Phase of the current or last live measurement, shown separately from the connection.
+    public var measurement: MeasurementPhase = .idle
+    /// Newest valid live value of the running measurement (nil when no measurement delivers values).
     public var liveHeartRate: Int?
     public var lastHeartRate: VitalReading?
     public var capabilities = CapabilityTracker()

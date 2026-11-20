@@ -36,7 +36,6 @@ struct ConnectionTests {
 
     @Test func connectedStates() {
         #expect(ConnectionState.ready.isConnected)
-        #expect(ConnectionState.measuring.isConnected)
         #expect(!ConnectionState.reconnecting(attempt: 1).isConnected)
         #expect(ConnectionState.scanning.isBusy)
     }

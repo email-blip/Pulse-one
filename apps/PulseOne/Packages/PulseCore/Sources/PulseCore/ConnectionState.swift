@@ -22,8 +22,8 @@ public enum ConnectionState: Equatable, Sendable {
     case scanning
     case connecting(name: String)
     case discovering
+    /// Connected and notifications enabled; a live measurement has its own phase in `RingSnapshot`.
     case ready
-    case measuring
     case reconnecting(attempt: Int)
     case disconnected
     case failed(message: String)
@@ -35,7 +35,6 @@ public enum ConnectionState: Equatable, Sendable {
         case .connecting(let name): "Verbinde mit \(name) …"
         case .discovering: "Prüfe Ring-Dienste …"
         case .ready: "Verbunden"
-        case .measuring: "Verbunden · misst Puls"
         case .reconnecting(let attempt): "Verbindung verloren · neuer Versuch \(attempt)"
         case .disconnected: "Getrennt"
         case .failed(let message): message
@@ -44,7 +43,7 @@ public enum ConnectionState: Equatable, Sendable {
 
     public var isConnected: Bool {
         switch self {
-        case .ready, .measuring: true
+        case .ready: true
         default: false
         }
     }
