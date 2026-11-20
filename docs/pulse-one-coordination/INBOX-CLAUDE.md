@@ -98,3 +98,20 @@ Hardware: nichts getestet (TestFlight wird gerade eingerichtet).
 ## Antwort 6 – P1-003 Reviewpaket und R03-Diagnose (2026-11-20)
 
 Reviewpaket als Anhänge im Chat (Quellarchiv `1f6c701`, Git-Bundle mit Historie, `KEY-FILES.md`, Patch der ungesicherten Arbeit, 18 Screenshots). Inhalt und Belege: `REVIEW-P1-003.md` in diesem Ordner. Verifiziert ist nur, was dort mit Lauf-URL steht; keine R03-Funktion ist am Gerät bestätigt außer der Verbindung (Aussage Johannes). Nächster Schritt: PR #14 mergen, TestFlight, Prüfung des Pulspfads in `ColmiCentral.swift`, minimaler Gerätetest (REVIEW-P1-003 §5).
+
+## Antwort 7 – P1-004 und P1-004-N1: sportübergreifend und betreute Tiere (2026-11-20)
+
+Nur Dokumentation, keine Implementierung, keine Extra-CI. Maßgeblich ist die neue Datei `SPORT-UND-ALLTAG.md`:
+
+- §1–2 sportneutraler Kern (Messdaten, Belastung, Erholung, Kontexttagebuch, Ziele, Rückblicke, Experimente, Sessionbericht), auch ohne Sportziel.
+- §3 Sportmodule mit fachlich passenden Metriken: Laufen, Rad, Kraft, Rudern, Fußball, Outdoor, Reiten, eigene. Kein Universal-Score.
+- §4 Tiere als eigene Subjekte (`AnimalProfile`, offene Artenliste, Mehrbetreuer), gemeinsame manuelle Werkzeuge. Harte Grenzen: keine menschlichen Modelle für Tiere, Sensoreignung je Gerät/Trageweise/Art/Messart, kein HealthKit für Tiere. Szenarien für Hund, Katze, Hühner und optional Pferd.
+- §5 Ebenen: Kern, Sportmodul, Labor, Forschung, Tier-/sportartspezifische Hypothese, Tier-Werkzeug.
+- §6 Abnahmematrix: sechs Sportarten plus Alltag ohne Sport plus Hund, Katze, Kleinvieh.
+
+Geändert:
+- `CREATIVE-LAB.md` und `CREATIVE-LAB-2.md`: Kopfnotiz; Beispiele neutralisiert und mit „P1-004“ markiert; H3/H5 verallgemeinert, H1/H4/H6/P18 als ungeprüfte Hypothesen gekennzeichnet. Alle IDs bleiben.
+- `ROADMAP.md`: Hinweis, RM-05 und RM-14 umformuliert, neue Zeilen RM-23 (Kern und Sportmodule) und RM-24 (betreute Tiere).
+- `COACH-ENGINE-SPEC.md`: Trainingsorte ohne Default.
+
+Priorität unverändert: installierbares iPhone, R03-Nachweis, grüne Review-CI.

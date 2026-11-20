@@ -12,6 +12,8 @@ Reine Doku. Kein App-Code wird angefasst.
 
 ---
 
+> **Korrektur P1-004 (2026-11-20):** Reiten war hier zu oft das Standardbeispiel. Maßgeblich für Sportbezug ist jetzt `SPORT-UND-ALLTAG.md` (sportneutraler Kern, Sportmodule, Abnahmematrix). Beispiele unten sind neutralisiert (markiert „P1-004“); IDs und Ideen bleiben unverändert. Reiten bleibt eine freiwillige Sportwelt, Tierdaten getrennt. **P1-004-N1:** Die App betreut Menschen und verschiedene Tiere (Hund, Katze, Pferd, Kleintiere, Geflügel, weitere) als eigene Subjekte; Pferd/Reiter ist nur ein optionaler Fall (`SPORT-UND-ALLTAG.md` §4).
+
 ## 0. Kurzfassung für Johannes
 
 Die bestehenden Konzepte (Claude Intelligence R3, Coach R4/R6, Ernährung R5, Klinik R7) machen Claude zu einem
@@ -26,10 +28,10 @@ ohne dass die Grundregeln wackeln (Daten lokal, Senden nur mit Freigabe, keine D
 | 1 | **Zwei Gehirne** (Apple-KI auf dem iPhone + Claude) | Kurze Alltagstexte kommen kostenlos und offline vom iPhone, Claude wird nur für die großen Fragen gerufen, und du siehst vorher genau, was das iPhone verlässt. |
 | 2 | **Körper-Detektiv mit Analogtagen** | Wenn ein Wert ungewohnt ist, legt dir die App drei mögliche Begleitumstände mit Belegen hin und zeigt frühere Tage, die genauso aussahen, und was danach kam. |
 | 3 | **Experiment-Labor** | Du fragst „Schlafe ich besser ohne Kaffee nach 14 Uhr?“, und Claude baut daraus einen kleinen Selbstversuch mit Plan, Erinnerungen und ehrlicher Auswertung. |
-| 4 | **Abend-Sprachnotiz** | Du sprichst abends 30 Sekunden ins iPhone („Reitstunde, viel Stress, zwei Bier“), und die App macht daraus Stichworte, die später erklären helfen, warum eine Nacht anders war. |
+| 4 | **Abend-Sprachnotiz** | Du sprichst abends 30 Sekunden ins iPhone (z. B. „Intervalllauf, viel Stress, zwei Bier“ oder „Nachtschicht, kaum gegessen“; P1-004), und die App macht daraus Stichworte, die später erklären helfen, warum eine Nacht anders war. |
 | 5 | **Körperbiografie mit Verfallsdatum** | Die App sammelt, was sie über deinen Körper gelernt hat, zeigt dir das als lesbares Heft und prüft jede Erkenntnis regelmäßig neu, statt alte Annahmen ewig zu wiederholen. |
 
-**Joker für später:** Reiter-Pferd-Kopplung (zwei Polar-H10-Gurte, einer am Pferd), sobald H10 und Equine-Gurt da sind.
+**Joker für später:** Gleichlauf zweier Sensorströme (z. B. Reiter und Pferd, zwei Ruderer, Trainer und Sportler), sobald zwei H10 da sind; nur zeitliche Nähe, keine Stressdeutung (P1-004).
 
 ---
 
@@ -77,7 +79,7 @@ Quellen am Ende (§8).
 | **GD** | Game Designer | Wie wird es fesselnd ohne Streak-Zwang und Schuldgefühle? |
 | **CB** | Chronobiologin | Welche Rolle spielen innere Uhr, Rhythmus und Zeitpunkt? |
 | **ST** | Storyteller | Wie werden Zahlen zu einer Geschichte, die man behält? |
-| **SW** | Sportwissenschaftler (inkl. Reiten) | Was hilft beim Training und im Sattel? |
+| **SW** | Sportwissenschaftler (alle Sportarten, Reiten als eine davon; P1-004) | Was hilft beim Training, egal welcher Sport? |
 | **DE** | Datenschutz-Ethikerin (**Vetorecht**) | Bleibt Johannes Herr seiner Daten, und ist es kein Medizinprodukt? |
 | **DS** | Designer (Interaktion, Klang, Haptik) | Wie fühlt es sich an, und passt es zu „ruhig & dunkel“? |
 
@@ -146,7 +148,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 | 5 | 4 | ca. 0,10 $ je Versuch | R2 (Statistik), R3 (Claude-Plan), R4 (Erinnerungen) |
 
 #### 4. Abend-Sprachnotiz als fehlende Datenschicht (VP, KI, DS)
-**Alltag:** Du sprichst abends 30 Sekunden ins iPhone („Reitstunde, viel Stress, zwei Bier“), und die App macht daraus Stichworte, die später erklären helfen, warum eine Nacht anders war.
+**Alltag:** Du sprichst abends 30 Sekunden ins iPhone (z. B. „Krafttraining Beine, viel Stress, zwei Bier“ oder „Umzugskartons, kaum geschlafen“; P1-004), und die App macht daraus Stichworte, die später erklären helfen, warum eine Nacht anders war.
 
 - **Ablauf:** Spracherkennung **auf dem Gerät** (Apple Speech-Framework mit On-Device-Erkennung; API vor Umsetzung gegen die Doku des gepinnten SDK prüfen), dann Apple-KI (Idee 1) oder feste Regeln → Stichworte: Stimmung 1–5, Stress, Koffein, Alkohol, Training/Reiten, spätes Essen, Bildschirm, Krankheitsgefühl, Freitext.
 - **Bestätigung:** Stichworte erscheinen als Chips, ein Tipp bestätigt oder korrigiert. Audio wird nach der Umwandlung **gelöscht** (Standard).
@@ -161,7 +163,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 #### 5. Körperbiografie mit Verfallsdatum (KI, ST, DE)
 **Alltag:** Die App sammelt, was sie über deinen Körper gelernt hat, zeigt dir das als lesbares Heft und prüft jede Erkenntnis regelmäßig neu, statt alte Annahmen ewig zu wiederholen.
 
-- **Erkenntnis-Karte:** Satz („Nach Reittagen ist dein Ruhepuls am Folgetag eher niedriger“), Belege (Fakt-IDs, n, Zeitraum), Stärke (schwach / mittel / deutlich), Herkunft (Experiment, Korrelation, Analogtage), **Prüfdatum**.
+- **Erkenntnis-Karte:** Satz (z. B. „Nach Lauftagen ist dein Ruhepuls am Folgetag eher niedriger“ oder „Nach spätem Krafttraining schläfst du kürzer“; P1-004), Belege (Fakt-IDs, n, Zeitraum), Stärke (schwach / mittel / deutlich), Herkunft (Experiment, Korrelation, Analogtage), **Prüfdatum**.
 - **Verfallsdatum:** Jede Erkenntnis wird nach z. B. 90 Tagen automatisch lokal neu gerechnet; hält sie nicht mehr, wird sie als „verblasst“ markiert. So bleibt das Wissen lebendig, wenn sich Körper, Saison oder Gerät ändern.
 - **Kontext statt Rohdaten:** Für Claude-Gespräche wird die Biografie (nur freigegebene Kategorien) mitgeschickt statt langer Historien. Das spart Token und sendet weniger.
 - **Abgrenzung:** Coach Memory (R6) speichert Vorlieben und Ziele; die Körperbiografie speichert **messbare Muster**. Beide getrennt einsehbar, löschbar, nur nach Bestätigung.
@@ -183,7 +185,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 | 3 | 5 | ca. 0,01–0,03 $ je Bericht | R3 |
 
 #### 7. Foto als Datenquelle über Mahlzeiten hinaus (KI, SW)
-**Alltag:** Du fotografierst einen Laborausdruck oder einen Trainingsplan vom Reitstall, und die App überträgt die Angaben nach deiner Bestätigung in die richtigen Felder.
+**Alltag:** Du fotografierst einen Laborausdruck oder einen Trainingsplan vom Verein, Studio oder Stall (P1-004), und die App überträgt die Angaben nach deiner Bestätigung in die richtigen Felder.
 
 - Claude Vision liest das Bild im festen Schema; nichts wird ohne Bestätigung gespeichert. Laborwerte landen nur im Klinischen Kontext (R7) und nur mit dessen separater Freigabe.
 - Alternative zuerst lokal: Apple Vision-Texterkennung auf dem Gerät; Claude nur, wenn Struktur unklar.
@@ -198,7 +200,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 ### Gruppe B – Lebensanleitung: vom Wissen zum Tun
 
 #### 8. Werte-Kompass: Lebensziele in Wochensignale übersetzen (VP, ST)
-**Alltag:** Du sagst einmal, was dir wichtig ist („mit 70 noch reiten“, „abends ruhiger sein“), und die App zeigt dir jede Woche, welche deiner Messwerte dazu passen und ob du auf Kurs bist.
+**Alltag:** Du sagst einmal, was dir wichtig ist („mit 70 noch Berge wandern“, „abends ruhiger sein“, „Marathon laufen“; P1-004), und die App zeigt dir jede Woche, welche deiner Messwerte dazu passen und ob du auf Kurs bist.
 
 - Claude übersetzt Werte in 2–4 beobachtbare **Leitsignale** (z. B. Schlafregelmäßigkeit, Kraft-Einheiten pro Woche, Ruhepuls-Band) und formuliert sie als Richtung, nicht als Soll.
 - Wöchentlich ein Satz je Wert, ohne Punkte oder Ampeln („Schlafzeiten diese Woche regelmäßiger als im Monatsschnitt“).
@@ -222,9 +224,9 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 | 4 | 4 | Cent-Beträge | R4, R6 |
 
 #### 10. Tag im Voraus mit dem Kalender (CB, SW)
-**Alltag:** Morgens sieht die App, dass heute vier Termine und um 17 Uhr Reiten anstehen, und schlägt nach einer kurzen Nacht vor, wo eine Pause oder ein früheres Zubettgehen passt.
+**Alltag:** Morgens sieht die App, dass heute vier Termine und um 17 Uhr Training anstehen (Lauf, Studio, Ritt; P1-004), und schlägt nach einer kurzen Nacht vor, wo eine Pause oder ein früheres Zubettgehen passt.
 
-- Kalender über EventKit **nur lesen**, nur belegt/frei und selbst gewählte Schlüsselwörter („Reiten“, „Training“). Termintitel verlassen das iPhone nie; an Claude gehen höchstens „3 h Termine vormittags, Reiten 17–18 Uhr“.
+- Kalender über EventKit **nur lesen**, nur belegt/frei und selbst gewählte Schlüsselwörter (z. B. „Lauf“, „Studio“, „Training“; P1-004). Termintitel verlassen das iPhone nie; an Claude gehen höchstens „3 h Termine vormittags, Training 17–18 Uhr“.
 - **Prüfung:** L ✓ (Titel bleiben lokal), D ✓, K 0 € (lokal) bzw. Teil des Morgentexts, M ✓.
 
 | Wirkung | Machbarkeit | Kosten | Release |
@@ -265,9 +267,9 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 
 ---
 
-### Gruppe C – Pferd und Sport
+### Gruppe C – Sport und Bewegung (Reiten als freiwillige Sportwelt; P1-004)
 
-#### 14. Reiter-Pferd-Kopplung (Joker) (SW, DS)
+#### 14. Reiter-Pferd-Kopplung (Joker) (SW, DS) · tierspezifische Hypothese, P1-004
 **Alltag:** Nach dem Ausritt siehst du, in welchen Phasen dein Puls und der deines Pferdes eng zusammenlagen und wann einer von euch angespannter war.
 
 - Zwei Polar H10 gleichzeitig (einer im **Polar Equine**-Gurt am Pferd), RR-Intervalle über das Standard-Herzfrequenzprofil bzw. Polar BLE SDK; Synchronisierung lokal (gleitende Korrelation der Herzfrequenz, Phasen aus GPS-Tempo).
@@ -275,6 +277,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 - Forschung: Synchronisierung zwischen Pferd und Reiter messbar (Sci. Rep. 2025, Polar Equine; iScience 2024). H10 am Pferd im Stand gut validiert, in Bewegung mit Vorsicht.
 - **Kosten (Schätzung, vor Kauf prüfen):** zweiter H10 und Equine-Gurt, zusammen grob 150–200 €; Software 0 €.
 - **Voraussetzungen:** Pferdeprofil (Subjekt „Pferd“ wie im MyBody-Konzept), Zwei-Geräte-Verbindung, GPS-Aufzeichnung.
+- **P1-004:** Der Gleichlauf ist ein allgemeines Werkzeug für zwei Sensorströme (auch Rudern zu zweit, Trainer und Sportler). Tierdaten bleiben getrennt; menschliche Basislinien und HealthKit gelten nie für das Tier. „Wer war angespannter“ ist eine ungeprüfte Hypothese, keine Ausgabe.
 
 | Wirkung | Machbarkeit | Kosten | Release |
 |---|---|---|---|
@@ -334,7 +337,7 @@ Claude-Preise wie in `CLAUDE-INTELLIGENCE-SPEC.md` §4 (Opus 5.5: 4 $ / 20 $ je 
 | 2 | 4 | 0 € | R8 |
 
 #### 20. Siri, Widgets, Live-Aktivität (DS, KI)
-**Alltag:** „Hey Siri, wie war meine Nacht?“ beantwortet die App mit einem Satz aus deinen Daten, und beim Reiten zeigt der Sperrbildschirm deinen Puls live.
+**Alltag:** „Hey Siri, wie war meine Nacht?“ beantwortet die App mit einem Satz aus deinen Daten, und beim Training (Lauf, Rad, Ritt) zeigt der Sperrbildschirm deinen Puls live (P1-004).
 
 - App Intents (lokale Antwort, optional Apple-KI), WidgetKit, ActivityKit. Keine Claude-Aufrufe über Siri (DE: kein Senden ohne sichtbare Freigabe).
 
