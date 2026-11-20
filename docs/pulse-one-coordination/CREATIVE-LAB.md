@@ -1,5 +1,7 @@
 # CREATIVE LAB – Neue Wege, wie Claude Gesundheitsdaten deutet und den Alltag begleitet
 
+> **Hinweis:** Erweitert und abgelöst durch `CREATIVE-LAB-2.md` (ohne Vorauswahl, 102 Ideen).
+
 Stand: 2026-11-20 · Status aller Ideen: **Geplant / Vorschlag** (§14) · Verfasser: Claude Code
 Auftrag: Johannes (Projekt-Chat, 2026-11-20 22:27): „ganz kreativ … Think out of the box … herausragende neue Interpretation und Lebensanleitung“.
 Reine Doku. Kein App-Code wird angefasst.
