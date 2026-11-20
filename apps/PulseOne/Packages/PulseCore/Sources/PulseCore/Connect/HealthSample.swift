@@ -249,12 +249,14 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
     public let method: MeasurementMethod
     public let identity: SampleIdentity
     public let rawDataReference: String?
+    /// Origin inside an aggregating source (HealthKit app + device); nil for direct sources.
+    public let originDetail: String?
 
     public init(id: UUID = UUID(), profileID: UUID?, kind: SampleKind, value: Double, unit: SampleUnit,
                 start: Date, end: Date? = nil, timeZoneIdentifier: String?, source: DataSourceKind,
                 deviceID: String, originalSampleID: String, importedAt: Date, quality: SampleQuality,
                 qualityReason: String? = nil, method: MeasurementMethod, identity: SampleIdentity = .sourceID,
-                rawDataReference: String? = nil) {
+                rawDataReference: String? = nil, originDetail: String? = nil) {
         self.id = id
         self.profileID = profileID
         self.kind = kind
@@ -272,6 +274,7 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
         self.method = method
         self.identity = identity
         self.rawDataReference = rawDataReference
+        self.originDetail = originDetail
     }
 
     /// The same sample attributed to another profile (explicit correction only, never by a sync).
@@ -279,7 +282,8 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
         HealthSample(id: id, profileID: profile, kind: kind, value: value, unit: unit, start: start, end: end,
                      timeZoneIdentifier: timeZoneIdentifier, source: source, deviceID: deviceID,
                      originalSampleID: originalSampleID, importedAt: importedAt, quality: quality,
-                     qualityReason: qualityReason, method: method, identity: identity, rawDataReference: rawDataReference)
+                     qualityReason: qualityReason, method: method, identity: identity, rawDataReference: rawDataReference,
+                     originDetail: originDetail)
     }
 
     /// Identity across repeated syncs: the same source sample always maps to the same key.

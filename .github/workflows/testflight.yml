@@ -101,6 +101,19 @@ jobs:
           echo "== Strategy 2: ad hoc signed archive, re-signed on export"
           archive CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- AD_HOC_CODE_SIGNING_ALLOWED=YES PROVISIONING_PROFILE_SPECIFIER=""
 
+      - name: Check archive metadata before upload
+        # TestFlight run 5 was rejected because the archive said build "1". Stop before uploading
+        # unless the archived app carries this run's build number.
+        run: |
+          plist=$(ls -d "build/$APP.xcarchive/Products/Applications/"*.app)/Info.plist
+          build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist")
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist")
+          bundle=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist")
+          echo "Archive: $bundle version $version build $build (expected build ${{ github.run_number }})"
+          echo "### Archive metadata: $bundle $version ($build)" >> "$GITHUB_STEP_SUMMARY"
+          [ "$build" = "${{ github.run_number }}" ] || { echo "::error::CFBundleVersion is $build, expected ${{ github.run_number }}"; exit 1; }
+          [ -n "$version" ] || { echo "::error::CFBundleShortVersionString is empty"; exit 1; }
+
       - name: Export and upload to App Store Connect
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

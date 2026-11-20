@@ -145,7 +145,7 @@ struct HeartChamberView: View {
                 toggle("Haptik", systemImage: "hand.tap", isOn: $hapticsOn, id: "toggleHaptics")
                 toggle("Ton", systemImage: "speaker.wave.2", isOn: $soundOn, id: "toggleSound")
             }
-            Text("Bewegung aus deinem Pulswert abgeleitet – kein EKG.")
+            Text("Schematisches Herzmodell, keine anatomische Darstellung. Bewegung aus deinem Pulswert abgeleitet, kein EKG.")
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)
                 .multilineTextAlignment(.center)

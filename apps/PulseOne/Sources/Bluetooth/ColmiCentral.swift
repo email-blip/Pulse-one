@@ -14,11 +14,16 @@ final class ColmiCentral: NSObject {
     private var peripherals: [UUID: CBPeripheral] = [:]
     private var peripheral: CBPeripheral?
     private var writeCharacteristic: CBCharacteristic?
+    private var notifyCharacteristic: CBCharacteristic?
+    /// The peripheral whose cancelled link still has to be proven released (review R2-3/R3-1).
+    private var releasingPeripheral: CBPeripheral?
+    /// Connect → services → characteristics → notify, each with a time limit (Codex review P1-003 F3).
+    private var handshake = RingHandshake()
+    private var handshakeTicker: Task<Void, Never>?
     private var pendingAction: PendingAction?
     private var userRequestedDisconnect = false
     private var reconnectAttempt = 0
     private let reconnectPolicy = ReconnectPolicy()
-    private var connectTimeout: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var measurementTicker: Task<Void, Never>?
     private var measurement = LiveMeasurement()
@@ -84,20 +89,100 @@ final class ColmiCentral: NSObject {
         manager.stopScan()
         userRequestedDisconnect = false
         reconnectAttempt = 0
+        reconnectTask?.cancel()
+        // Switching to another ring: release the old link first. The connect below waits for proof.
+        if let old = peripheral, old.identifier != target.identifier, old.state != .disconnected { cancelLink() }
         peripheral = target
         let name = displayName(of: target)
         update { $0.connection = .connecting(name: name); $0.deviceName = name; $0.lastError = nil }
-        manager.connect(target)
-        connectTimeout?.cancel()
-        connectTimeout = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(15))
-            guard !Task.isCancelled, let self, case .connecting = self.store?.snapshot.connection else { return }
-            self.userRequestedDisconnect = true
-            if let peripheral = self.peripheral { self.manager?.cancelPeripheralConnection(peripheral) }
-            self.update {
-                $0.connection = .failed(message: "Der Ring antwortet nicht. Ist er in der Nähe und nicht gerade mit der QRing-App verbunden?")
+        writeCharacteristic = nil
+        notifyCharacteristic = nil
+        // While a previous link is not proven released, the connect is queued and sent only after the
+        // disconnect callback or an observed `.disconnected` state (serialised lifecycle, review R2-3/R3-1).
+        checkRelease()
+        perform(handshake.handle(.connectRequested(.now)))
+        if handshake.isCancelling { trace(.event, "Neue Verbindung wartet auf das Ende der alten") }
+        runHandshakeTicker()
+    }
+
+    /// Carries out what the handshake asks for.
+    private func perform(_ action: RingHandshake.Action) {
+        switch action {
+        case .none: break
+        case .connectNow:
+            if let peripheral { manager?.connect(peripheral) }
+            runHandshakeTicker()
+        case .rejectConnection:
+            if let peripheral { manager?.cancelPeripheralConnection(peripheral) }
+        case .retryCancel:
+            trace(.event, "Alte Verbindung noch nicht beendet, Trennen wird wiederholt")
+            if let releasingPeripheral { manager?.cancelPeripheralConnection(releasingPeripheral) }
+            runHandshakeTicker()
+        }
+    }
+
+    /// Asks CoreBluetooth to drop the link. `cancelPeripheralConnection` does not block, so the link
+    /// counts as released only on evidence (`didDisconnect` or `checkRelease`), see `RingHandshake`.
+    private func cancelLink() {
+        handshake.handle(.cancelRequested(.now))
+        writeCharacteristic = nil
+        notifyCharacteristic = nil
+        if let peripheral {
+            if handshake.releasePending { releasingPeripheral = peripheral }
+            manager?.cancelPeripheralConnection(peripheral)
+        }
+        runHandshakeTicker()
+    }
+
+    /// Evidence of release besides the callback: CoreBluetooth reports the old peripheral as disconnected.
+    private func checkRelease() {
+        guard handshake.releasePending, let old = releasingPeripheral, old.state == .disconnected else { return }
+        trace(.event, "Alte Verbindung laut Bluetooth-Status beendet")
+        releaseConfirmed(handshake.handle(.released(.now)))
+    }
+
+    private func releaseConfirmed(_ action: RingHandshake.Action) {
+        releasingPeripheral = nil
+        if action == .connectNow { trace(.event, "Alte Verbindung beendet, neue wird aufgebaut") }
+        perform(action)
+    }
+
+    /// Checks the time limits and the pending release once per second while something is open.
+    private func runHandshakeTicker() {
+        handshakeTicker?.cancel()
+        handshakeTicker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, let self else { return }
+                self.checkRelease()
+                let before = self.handshake.failure
+                self.perform(self.handshake.handle(.tick(.now)))
+                if let failure = self.handshake.failure, failure != before { self.failHandshake(failure) }
+                if !self.handshake.needsTimer { return }
             }
         }
+    }
+
+    /// Ends a connection attempt that cannot become ready, with a message that says why.
+    private func failHandshake(_ failure: HandshakeFailure) {
+        trace(.event, "Einrichtung abgebrochen: \(failure.message)")
+        userRequestedDisconnect = true
+        // `releaseTimeout`: nothing was connected; the old link is still being watched.
+        if failure != .releaseTimeout { cancelLink() }
+        update { $0.connection = .failed(message: failure.message) }
+    }
+
+    /// Callbacks for a peripheral that is no longer the current one are ignored. CoreBluetooth has no
+    /// session id, so this alone is no session guard; values additionally need `isExpected`.
+    private func isCurrent(_ candidate: CBPeripheral) -> Bool {
+        candidate.identifier == peripheral?.identifier
+    }
+
+    /// The characteristic object found in this link's own discovery. Objects of an older link (same
+    /// UUID, earlier discovery) are different instances and do not pass.
+    private func isExpected(_ characteristic: CBCharacteristic, _ handle: CBCharacteristic?) -> Bool {
+        guard let handle else { return false }
+        return characteristic === handle
     }
 
     func reconnectRemembered() {
@@ -124,7 +209,7 @@ final class ColmiCentral: NSObject {
         userRequestedDisconnect = true
         reconnectTask?.cancel()
         stopHeartRate()
-        if let peripheral { manager?.cancelPeripheralConnection(peripheral) }
+        cancelLink()
         trace(.event, "Trennen durch Nutzer")
         update { $0.connection = .disconnected; $0.liveHeartRate = nil }
     }
@@ -132,7 +217,11 @@ final class ColmiCentral: NSObject {
     /// Sends the start command. The screen shows "Messung angefordert" until the ring answers;
     /// "läuft" and values come only from the ring's own answers (`handle`).
     func startHeartRate() {
-        guard store?.snapshot.connection == .ready, !measurement.phase.isActive else { return }
+        guard store?.snapshot.connection == .ready, handshake.isReady, writeCharacteristic != nil,
+              !measurement.phase.isActive else {
+            trace(.event, "Messung nicht gestartet: Ring nicht bereit")
+            return
+        }
         measurement.handle(.start(.now))
         trace(.event, "Messung gestartet (Echtzeit Puls)")
         write(ColmiProtocol.realTimeStart(.heartRate))
@@ -295,6 +384,7 @@ final class ColmiCentral: NSObject {
         }
         let attempt = reconnectAttempt
         update { $0.connection = .reconnecting(attempt: attempt) }
+        handshake.handle(.reconnectScheduled)
         reconnectTask?.cancel()
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
@@ -317,6 +407,8 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
         default: .unknown
         }
         update { $0.bluetooth = availability }
+        // Bluetooth off ends every link; that is proof of release for a cancelled one.
+        if central.state == .poweredOff, handshake.releasePending { releaseConfirmed(handshake.handle(.released(.now))) }
         guard availability == .ready else {
             if availability != .unknown, store?.snapshot.connection.isBusy == true {
                 update { $0.connection = .failed(message: availability.label) }
@@ -341,7 +433,18 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        connectTimeout?.cancel()
+        guard isCurrent(peripheral) else {
+            trace(.event, "Späte Verbindung eines anderen Geräts ignoriert")
+            central.cancelPeripheralConnection(peripheral)
+            return
+        }
+        // A didConnect that no step expects (e.g. after the user disconnected) is cancelled again.
+        if handshake.handle(.connected(.now)) == .rejectConnection {
+            trace(.event, "Unerwartete Verbindung abgelehnt")
+            central.cancelPeripheralConnection(peripheral)
+            return
+        }
+        runHandshakeTicker()
         reconnectAttempt = 0
         self.peripheral = peripheral
         peripheral.delegate = self
@@ -360,15 +463,37 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        connectTimeout?.cancel()
+        guard isCurrent(peripheral) else { return }
+        handshake.handle(.connectFailed)
         trace(.event, "Verbindung fehlgeschlagen: \(error?.localizedDescription ?? "ohne Grund")")
         update { $0.connection = .failed(message: "Verbindung fehlgeschlagen. Bitte erneut versuchen.") }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        measurementTicker?.cancel()
-        writeCharacteristic = nil
+        // Proof that a cancelled link is released, also for the previous ring when switching.
+        if handshake.releasePending, let old = releasingPeripheral, old.identifier == peripheral.identifier {
+            trace(.event, "Alte Verbindung bestätigt beendet: \(error?.localizedDescription ?? "ohne Fehler")")
+            let action = handshake.handle(.disconnected(.now))
+            if old.identifier == self.peripheral?.identifier {
+                measurementTicker?.cancel()
+                measurement.handle(.disconnected(.now))
+                publishMeasurement()
+            }
+            releaseConfirmed(action)
+            return
+        }
+        guard isCurrent(peripheral) else {
+            trace(.event, "Trennung eines früheren Geräts ignoriert")
+            return
+        }
+        let wasLinked = handshake.hasLink
+        handshake.handle(.disconnected(.now))
         trace(.event, "Verbindung getrennt: \(error?.localizedDescription ?? "ohne Fehler")")
+        // A stray callback while a new attempt is still connecting changes nothing (review R3-1).
+        guard wasLinked || userRequestedDisconnect else { return }
+        writeCharacteristic = nil
+        notifyCharacteristic = nil
+        measurementTicker?.cancel()
         measurement.handle(.disconnected(.now))
         publishMeasurement()
         if userRequestedDisconnect {
@@ -385,29 +510,31 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
 
 extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        guard isCurrent(peripheral) else { return }
         let services = peripheral.services ?? []
         if let error { trace(.event, "Dienstsuche: Fehler \(error.localizedDescription)") }
         for service in services { trace(.event, channel: service.uuid.uuidString, "Dienst \(service.uuid.uuidString)") }
-        guard services.contains(where: { $0.uuid == Self.uart }) else {
-            userRequestedDisconnect = true
-            manager?.cancelPeripheralConnection(peripheral)
-            update { $0.connection = .failed(message: "Dieses Gerät bietet den Colmi-Datendienst nicht an. Ist es wirklich ein Colmi-Ring?") }
-            return
-        }
+        handshake.handle(.servicesDiscovered(hasUART: services.contains { $0.uuid == Self.uart },
+                                             error: error?.localizedDescription))
+        if let failure = handshake.failure { failHandshake(failure); return }
         for service in services {
             peripheral.discoverCharacteristics(nil, for: service)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        guard isCurrent(peripheral) else { return }
+        if let error {
+            trace(.event, channel: service.uuid.uuidString, "Merkmalsuche: Fehler \(error.localizedDescription)")
+        }
         for characteristic in service.characteristics ?? [] {
             trace(.event, channel: characteristic.uuid.uuidString,
                   "Merkmal \(characteristic.uuid.uuidString) in \(BLETrace.shortUUID(service.uuid.uuidString)) [\(Self.describe(characteristic.properties))]")
             switch characteristic.uuid {
-            case Self.uartWrite:
+            case Self.uartWrite where service.uuid == Self.uart && handshake.acceptsCharacteristics:
                 writeCharacteristic = characteristic
-            case Self.uartNotify:
-                peripheral.setNotifyValue(true, for: characteristic)
+            case Self.uartNotify where service.uuid == Self.uart && handshake.acceptsCharacteristics:
+                notifyCharacteristic = characteristic
             default:
                 if service.uuid == Self.deviceInfo {
                     if Self.readableDeviceInfo.contains(characteristic.uuid) { peripheral.readValue(for: characteristic) }
@@ -419,11 +546,16 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
                 }
             }
         }
-        if service.uuid == Self.uart {
-            update {
-                $0.capabilities.raise(.heartRate, to: .discovered)
-                $0.capabilities.raise(.battery, to: .discovered)
-            }
+        guard service.uuid == Self.uart, handshake.acceptsCharacteristics else { return }
+        // Commands need the write channel, answers the notify channel; without both the ring is not ready.
+        let canWrite = writeCharacteristic.map { !$0.properties.intersection([.write, .writeWithoutResponse]).isEmpty } ?? false
+        let canNotify = notifyCharacteristic.map { !$0.properties.intersection([.notify, .indicate]).isEmpty } ?? false
+        handshake.handle(.uartCharacteristics(hasWrite: canWrite, hasNotify: canNotify, error: error?.localizedDescription))
+        if let failure = handshake.failure { failHandshake(failure); return }
+        if let notifyCharacteristic { peripheral.setNotifyValue(true, for: notifyCharacteristic) }
+        update {
+            $0.capabilities.raise(.heartRate, to: .discovered)
+            $0.capabilities.raise(.battery, to: .discovered)
         }
     }
 
@@ -431,17 +563,20 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
         let state = characteristic.isNotifying ? "an" : "aus"
         let failure = error.map { " · Fehler " + $0.localizedDescription } ?? ""
         trace(.event, channel: characteristic.uuid.uuidString, "Benachrichtigungen " + state + failure)
-        guard characteristic.uuid == Self.uartNotify else { return }
-        guard error == nil, characteristic.isNotifying else {
-            update { $0.connection = .failed(message: "Der Ring sendet keine Daten. Bitte trennen und neu verbinden.") }
-            return
-        }
+        guard isCurrent(peripheral), isExpected(characteristic, notifyCharacteristic) else { return }
+        let wasReady = handshake.isReady
+        handshake.handle(.notifyState(isOn: characteristic.isNotifying, error: error?.localizedDescription))
+        if let failure = handshake.failure { failHandshake(failure); return }
+        guard handshake.isReady, !wasReady else { return }
+        handshakeTicker?.cancel()
+        trace(.event, "Bereit: Befehls- und Antwortkanal aktiv")
         update { $0.connection = .ready }
         if let packet = try? ColmiProtocol.setTimeRequest(.now) { write(packet) }
         refreshBattery()
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard isCurrent(peripheral) else { return }
         let channel = characteristic.uuid.uuidString
         if let error { trace(.event, channel: channel, "Lesefehler: \(error.localizedDescription)") }
         guard error == nil, let data = characteristic.value else { return }
@@ -455,6 +590,7 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
             return
         }
         trace(.received, channel: channel, ColmiProtocol.hex(bytes))
-        if characteristic.uuid == Self.uartNotify { handle(bytes) }
+        // Ring answers count only on this link's own notify characteristic object, once ready.
+        if isExpected(characteristic, notifyCharacteristic), handshake.isReady { handle(bytes) }
     }
 }
