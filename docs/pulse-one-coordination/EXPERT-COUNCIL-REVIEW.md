@@ -216,9 +216,9 @@ Unverändert die Reihenfolge des Implementierungs-Threads (`OPEN-SOURCE-REVIEW.m
 | 10 | Coach: Regeln zuerst, Claude formuliert, schreibende Aktionen nur nach Bestätigung | E, F, G |
 | 11 | Export/Backup/Löschen, Face-ID-Sperre | I |
 
-## 13. Offene Entscheidungen für Johannes
+## 13. Entscheidungen von Johannes
 
-1. **Claude-Kosten** freigeben (Zahlen: `SANIERUNG-4.0.md` §7).
-2. **Lebensmittel-Abfragen an Dritte** (Open Food Facts, USDA) erlauben? Sie verraten, was gescannt wird.
-3. **iCloud-Backup** der PULSE-ONE-Daten wie bei MyBody erlauben?
-4. **Diagnosen selbst eintragen** (ICD) gewünscht? Nur Anzeige, keine Auswertung daraus.
+1. **Claude-Kosten:** freigegeben (2026-11-20; eigenes Anthropic-Konto vorhanden).
+2. **Lebensmittel-Abfragen an Dritte** (Open Food Facts, USDA): offen.
+3. **iCloud-Backup** der Datenbank: erlaubt (Johannes, 2026-11-19, projektweit). Damit gilt W1: Dateischutz `completeUntilFirstUserAuthentication`, Backup nicht ausschließen.
+4. **Diagnosen selbst eintragen** (ICD, nur Anzeige): offen.
