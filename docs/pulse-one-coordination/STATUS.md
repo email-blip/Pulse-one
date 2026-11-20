@@ -17,12 +17,13 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 | Installierbar auf iPhone (TestFlight) | Geplant | **Blocker:** Apple-Developer-Konto in Freischaltung |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
 | Personenprofile, Onboarding, HealthKit | Geplant | nach FIRST DEVICE CONNECT |
-| Living Twin, Heart Chamber, Designprofile, Sportwelten | Geplant | nach FIRST DEVICE CONNECT |
+| Heart Chamber (3D-Herz im Pulstakt, drehen/zoomen, Anatomie/Hologramm, Haptik, Ton) | Implementiert | CI/Screenshots ausstehend; Bewegung aus BPM abgeleitet, kein EKG; Haptik/Ton nur auf iPhone prüfbar |
+| Living Twin, Designprofile, Sportwelten | Geplant | siehe GAP-ANALYSE.md |
 | Colmi R09 | Geplant | Ring nicht geliefert; Protokollgleichheit unbewiesen |
 
 ## Bekannte Lücken / Designabweichungen
 - Nur Cinematic Dark; „Clinical Light“ kommt mit den Designprofilen.
-- Kein Sound bisher; Haptik nur beim Verbinden.
+- Sound und Herz-Haptik nur in der Heart Chamber; Simulator kann beides nicht prüfen.
 - Keine Performance-Metrik-Tests (spart CI-Minuten), folgen mit 3D.
 
 ## Nächste Schritte

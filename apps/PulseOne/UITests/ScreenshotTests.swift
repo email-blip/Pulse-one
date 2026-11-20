@@ -4,7 +4,7 @@ import XCTest
 /// PULSE ONE is dark-only until the design profiles land, so the matrix is dark × Dynamic Type.
 @MainActor
 final class ScreenshotTests: XCTestCase {
-    static let scenarios = ["start", "scanning", "connected", "live", "reconnecting"]
+    static let scenarios = ["start", "scanning", "connected", "live", "reconnecting", "heart"]
 
     override func setUp() async throws {
         continueAfterFailure = true   // one broken cell must not hide the others
@@ -17,6 +17,7 @@ final class ScreenshotTests: XCTestCase {
             }
         }
         capture(scenario: "live", dynamicType: "default", reduceMotion: true)
+        capture(scenario: "heart", dynamicType: "default", reduceMotion: true)
     }
 
     private func capture(scenario: String, dynamicType: String, reduceMotion: Bool) {

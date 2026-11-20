@@ -8,6 +8,10 @@ struct ConnectScreen: View {
     let options: LaunchOptions
     @Environment(RingStore.self) private var ring
     @Query(sort: \StoredMeasurement.timestamp, order: .reverse) private var stored: [StoredMeasurement]
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.reduceMotionEffective) private var reduceMotion
+    @Environment(\.freezeAnimations) private var freeze
+    @State private var showHeart = false
 
     var body: some View {
         let snapshot = ring.snapshot
@@ -26,6 +30,7 @@ struct ConnectScreen: View {
                     PulseOrb(bpm: snapshot.liveHeartRate, isConnected: snapshot.connection.isConnected)
                     StatusCard(snapshot: snapshot)
                     actions(snapshot)
+                    heartEntry
                     if snapshot.connection.isConnected || snapshot.deviceName != nil, snapshot.connection != .scanning {
                         DeviceCard(snapshot: snapshot)
                     }
@@ -39,6 +44,16 @@ struct ConnectScreen: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen.\(options.scenario ?? "start")")
+        .fullScreenCover(isPresented: $showHeart) {
+            // Covers start a new presentation: hand over the environment explicitly.
+            HeartChamberView()
+                .environment(ring)
+                .modelContext(modelContext)
+                .environment(\.reduceMotionEffective, reduceMotion)
+                .environment(\.freezeAnimations, freeze)
+                .preferredColorScheme(.dark)
+                .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
+        }
         .sensoryFeedback(trigger: snapshot.connection.isConnected) { _, connected in
             connected ? .success : nil
         }
@@ -118,6 +133,13 @@ struct ConnectScreen: View {
                 if !snapshot.discovered.isEmpty { ScanResults() }
             }
         }
+    }
+
+    private var heartEntry: some View {
+        Button("Heart Chamber öffnen", systemImage: "heart.circle") { showHeart = true }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityHint("Zeigt ein 3D-Herz im Takt deines Pulses")
+            .accessibilityIdentifier("openHeart")
     }
 
     private var footer: some View {

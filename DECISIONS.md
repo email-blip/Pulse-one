@@ -10,3 +10,6 @@
 | 2026-11-20 | Colmi support is claimed only after the UART service is discovered; capability levels expected → discovered → verified. | Codex review: BLE connected ≠ data works; names alone prove nothing. |
 | 2026-11-20 | Dark-only UI until the four design profiles land; screenshot matrix is dark × Dynamic Type. | Cinematic Dark is the base identity (§5.1); Clinical Light is a profile (§7). |
 | 2026-11-20 | Live heart-rate measurement stops automatically after 60 s. | Protects the ring battery; keep-alive interval still to be verified on the R03. |
+| 2026-11-20 | Heart Chamber heart is procedural (RealityKit `MeshDescriptor` from `HeartGeometry`), no third-party 3D asset. Stylised, not anatomically exact. | No asset licence needed; a licensed anatomical model can replace it later (see docs/ASSETS.md). |
+| 2026-11-20 | Heart motion and lub-dub are derived from the BPM value only and are labelled "kein EKG". Live: haptic/sound per beat; stored value: motion only. | Directive §5.3 and honesty rules: no invented ECG signal. |
+| 2026-11-20 | Heart sound is synthesised (`HeartSound`), off by default, `.ambient` session (respects silent switch). Haptics on by default. | No audio assets; owner wants sound + haptics, but sound must never surprise. |

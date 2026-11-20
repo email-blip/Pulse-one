@@ -57,14 +57,21 @@ struct RootView: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
 
     var body: some View {
-        ConnectScreen(options: options)
+        Group {
+            // The heart scenario renders the chamber directly so the screenshot needs no tap.
+            if options.usesTestScenario, options.scenario == "heart" {
+                HeartChamberView()
+            } else {
+                ConnectScreen(options: options)
+            }
+        }
             .environment(\.reduceMotionEffective, options.reduceMotion ?? systemReduceMotion)
             .environment(\.freezeAnimations, options.usesTestScenario)
             .transaction { if options.usesTestScenario { $0.disablesAnimations = true } }
     }
 }
 
-private struct DynamicTypeOverride: ViewModifier {
+struct DynamicTypeOverride: ViewModifier {
     let size: DynamicTypeSize?
     func body(content: Content) -> some View {
         if let size { content.dynamicTypeSize(size) } else { content }

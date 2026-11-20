@@ -6,7 +6,7 @@ import SwiftData
 /// `-uiTesting YES`; the screen then shows a "Testansicht" banner. These values are not
 /// measurements and are never written to the real store (UI tests use an in-memory store).
 enum TestScenario {
-    static let all = ["start", "scanning", "connected", "live", "reconnecting"]
+    static let all = ["start", "scanning", "connected", "live", "reconnecting", "heart"]
 
     static func snapshot(for name: String) -> RingSnapshot {
         var s = RingSnapshot()
@@ -18,7 +18,7 @@ enum TestScenario {
             s.connection = .scanning
             s.upsert(.init(id: ringID, name: "R03_1A2B", rssi: -52, model: r03))
             s.upsert(.init(id: UUID(), name: "Kopfhörer", rssi: -70, model: nil))
-        case "connected", "live", "reconnecting":
+        case "connected", "live", "reconnecting", "heart":
             s.deviceName = "R03_1A2B"
             s.deviceIdentifier = ringID.uuidString
             s.model = r03
@@ -28,7 +28,7 @@ enum TestScenario {
             s.capabilities.raise(.heartRate, to: .discovered)
             s.rememberedRing = "R03_1A2B"
             s.connection = .ready
-            if name == "live" {
+            if name == "live" || name == "heart" {
                 s.connection = .measuring
                 s.liveHeartRate = 64
                 s.capabilities.raise(.heartRate, to: .verified)
@@ -42,7 +42,7 @@ enum TestScenario {
 
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
-        guard name == "live" else { return }
+        guard name == "live" || name == "heart" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
         for (offset, bpm) in [(0, 64), (-20, 66), (-40, 67)] {
             if let reading = VitalReading(metric: .heartRate, value: bpm, timestamp: base.addingTimeInterval(Double(offset)),
