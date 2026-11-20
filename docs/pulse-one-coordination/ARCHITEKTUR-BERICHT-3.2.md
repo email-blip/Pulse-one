@@ -95,7 +95,12 @@ Jeder Tageswert trägt `origins`, `sampleIDs` und `coveredHours`. Rohwerte bleib
 
 ## 9. CI-Ergebnis
 
-Wird nach dem Lauf ergänzt (siehe INBOX-CLAUDE, Antwort 4).
+CI-Lauf 17 (Commit 1eb1f88) **grün**: https://github.com/email-blip/Pulse-one/actions/runs/44808903967
+- Kern-Tests (Swift Testing) alle bestanden, inklusive aller `Review32Tests` und der angepassten Tests aus 3.1.
+- App-Build, UI-Tests (inklusive Karte „Bevorzugte Quellen“), Bedienungshilfen-Prüfung, Screenshots 3 Geräte × Standard/xxxl (Branch `ci-screenshots/claude/project-thread-p4cjhd`).
+- Vorläufe: Lauf 15 rot (Typprüfung im Test zu langsam, Ausdruck aufgeteilt), Lauf 16 rot (1 von 76 Tests: Testspeicher importierte vor dem Messzeitpunkt, Wert galt korrekt als „zeitlich unsicher“; Testdatum korrigiert).
+
+Stufe: Implementiert → Gebaut → Simulatorgetestet (nur Logik und Oberfläche mit Testdaten). Keine Hardwareprüfung.
 
 ## 10. Offene Hardwareprüfungen
 

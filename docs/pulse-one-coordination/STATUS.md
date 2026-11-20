@@ -14,12 +14,13 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 | Akku, Firmware, Live-Puls lesen | Implementiert | kein echtes Gerät getestet |
 | Werte mit Zeit + Herkunft speichern (SwiftData) | Implementiert | |
 | Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |
-| Installierbar auf iPhone (TestFlight) | Geplant | **Blocker:** Apple-Developer-Konto in Freischaltung |
+| Installierbar auf iPhone (TestFlight) | Workflow gebaut, noch kein Upload | App-Konto aktiv; Johannes trägt gerade die GitHub-Secrets ein |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
 | M2 Kern: Adapter-Protokoll, Adapter-Katalog (Capability-Matrix), DeviceRegistry, HealthSample, Normalizer, idempotenter Sync, Quellenwahl ohne Mittelwert | Implementiert (Kern, Swift-Testing) | CI grün (PR #3) |
 | M2 App: SwiftData `StoredSample` (eindeutiger Dublettenschlüssel), Ring-Werte über den gemeinsamen Sync-Pfad, Apple-Health-Adapter (Freigabe je Typ, inkrementell mit Anker, Löschungen, 30 Tage Erstimport), Geräte-Screen mit Integrationsstufen | Implementiert | CI ausstehend; HealthKit nur auf iPhone prüfbar, braucht HealthKit-Häkchen an der App-ID |
 | M2 Datenbasis (Directive 3.1 A): Migration alter Ringwerte, Zeitstempelprüfung, Quellen- und Gerätepriorität, Tageszeitreihen | Implementiert, Tests geschrieben | CI ausstehend; Analyse: DATENMODELL-ANALYSE.md |
 | M2 Geräteverwaltung (3.1 D): Ring verbinden/trennen, gespeicherte Werte je Art, Hinweis bei fehlender Health-Freigabe | Implementiert | CI ausstehend |
+| Review 3.2: Zuordnungs-Zeiträume, Dublettenschutz A/B/C, Präferenzen + Automatik je Messwertart, 6 Qualitätsstufen, Tageswerte je Aggregationsart | Simulatorgetestet (Logik + Geräte-Screen mit Testdaten) | CI-Lauf 17 grün; Bericht ARCHITEKTUR-BERICHT-3.2.md; Oberfläche für Übergabe/Korrektur folgt mit Profilen (M3) |
 | Personenprofile, Onboarding | Geplant | M3 |
 | Heart Chamber (3D-Herz im Pulstakt, drehen/zoomen, Anatomie/Hologramm, Haptik, Ton) | Simulator getestet (Testansicht) | Herz stilisiert/prozedural, noch nicht anatomisch fein; Bewegung aus BPM abgeleitet, kein EKG; Haptik/Ton nur auf iPhone prüfbar |
 | Living Twin, Designprofile, Sportwelten | Geplant | siehe GAP-ANALYSE.md |
