@@ -6,18 +6,18 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 
 | Funktion | Stufe | Beleg / Lücke |
 |---|---|---|
-| Native App baut (Swift 6, iOS 18) | Implementiert | erster CI-Lauf ausstehend |
+| Native App baut (Swift 6, iOS 18) | Gebaut (CI) + Simulator getestet | CI-Lauf 6 grün |
 | Colmi-Protokoll (Pakete, Parser) | Implementiert, Swift-Testing-Tests geschrieben | Referenz colmi_r02_client (R02); am R03 unbewiesen |
 | Bluetooth-Berechtigung | Implementiert | Simulator hat kein Bluetooth → erst auf dem iPhone prüfbar |
 | R03 finden / identifizieren | Implementiert (Name + UART-Dienst) | kein echtes Gerät getestet |
 | Verbinden, Status, Abbruch, Wiederverbinden | Implementiert | kein echtes Gerät getestet |
 | Akku, Firmware, Live-Puls lesen | Implementiert | kein echtes Gerät getestet |
 | Werte mit Zeit + Herkunft speichern (SwiftData) | Implementiert | |
-| Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Implementiert | Screenshots nach CI-Lauf |
+| Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |
 | Installierbar auf iPhone (TestFlight) | Geplant | **Blocker:** Apple-Developer-Konto in Freischaltung |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
 | Personenprofile, Onboarding, HealthKit | Geplant | nach FIRST DEVICE CONNECT |
-| Heart Chamber (3D-Herz im Pulstakt, drehen/zoomen, Anatomie/Hologramm, Haptik, Ton) | Implementiert | CI/Screenshots ausstehend; Bewegung aus BPM abgeleitet, kein EKG; Haptik/Ton nur auf iPhone prüfbar |
+| Heart Chamber (3D-Herz im Pulstakt, drehen/zoomen, Anatomie/Hologramm, Haptik, Ton) | Simulator getestet (Testansicht) | Herz stilisiert/prozedural, noch nicht anatomisch fein; Bewegung aus BPM abgeleitet, kein EKG; Haptik/Ton nur auf iPhone prüfbar |
 | Living Twin, Designprofile, Sportwelten | Geplant | siehe GAP-ANALYSE.md |
 | Colmi R09 | Geplant | Ring nicht geliefert; Protokollgleichheit unbewiesen |
 
