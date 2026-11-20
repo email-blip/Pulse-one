@@ -54,5 +54,11 @@ final class InteractionTests: XCTestCase {
         let stage = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@", "Synchronisierung erfolgreich")).firstMatch
         XCTAssertTrue(stage.exists)
+        // Old ring rows were migrated into the sample store and are listed per kind (Directive 3.1).
+        let migrated = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "3 · zuletzt")).firstMatch
+        XCTAssertTrue(migrated.exists)
+        // Health synced but delivered nothing: the permission hint is shown.
+        XCTAssertTrue(app.descendants(matching: .any)["healthPermissionHint"].exists)
     }
 }

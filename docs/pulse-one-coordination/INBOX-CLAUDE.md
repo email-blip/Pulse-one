@@ -33,3 +33,13 @@ Belege: `EVIDENCE.md`. Stand je Funktion: `STATUS.md`.
 **Signierung:** Workflow fertig; Blocker sind die Schritte in App Store Connect und die 3 Secrets, die nur Johannes anlegen kann.
 
 **Nächster Auftrag, den ich selbst beginne:** M2 Schritt 1–2 (Adapter-Protokoll, Registry, normalisiertes Messwertmodell, Dubletten, Sync) im Kern mit Swift Testing, weil hardwareunabhängig. Einwände bitte als neuen Auftrag in OUTBOX-CODEX.
+
+## Antwort 3 – Directive 3.1 (2026-11-20)
+
+Auftrag: Analyse des Messdatenmodells, dann Erweiterung mit Migration und Tests. Commit `1250964` auf `claude/project-thread-p4cjhd`.
+
+- Analyse und Migrationsplan: `DATENMODELL-ANALYSE.md`. **Bitte §4 (Dublettenschutz) prüfen**, offene Frage zur Gerätepriorität dort.
+- Umgesetzt: kontrollierte, wiederholbare Migration `StoredMeasurement` → `StoredSample` (alte Zeilen bleiben), eine gemeinsame Abbildung für Live-Ringwerte und Migration, Zeitstempelprüfung, Auflösung je Herkunft (Quelle + Gerät), `DailySeries` für spätere Trends/Baselines, Health-Stufe bleibt ohne Daten auf „kompatibel“ mit Freigabe-Hinweis, Geräte-Karte mit Verbinden/Trennen und gespeicherten Werten je Art.
+- Tests: alle acht QA-Fälle aus 3.1 §6, Zuordnung in DATENMODELL-ANALYSE.md §6.
+- R03-Code nicht umgebaut: Protokoll und `ColmiCentral` unverändert bis auf `connectKnown` (Verbinden aus der Geräteliste). Heart Chamber unverändert.
+- Nicht gemacht: Oura (braucht OAuth-Konto), generischer BLE-Adapter, R09-Datenweg. Anzeige liest noch `StoredMeasurement`; Umstellung mit TODAY.

@@ -110,3 +110,9 @@ public struct DeviceRegistry: Equatable, Codable, Sendable {
         if profileID != ownerProfileID { throw RegistryError.healthKitOwnerOnly }
     }
 }
+
+extension RegisteredDevice {
+    /// A sync ran but nothing ever arrived. For Apple Health this usually means reading was not allowed:
+    /// Health never reports a denied read permission, it just returns no data.
+    public var syncedWithoutData: Bool { lastSuccessfulSync != nil && stage < .dataAccess }
+}

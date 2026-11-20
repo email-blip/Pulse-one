@@ -120,6 +120,9 @@ private struct DeviceSourceCard: View {
     let onRename: () -> Void
     let onRemove: () -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(SourcesStore.self) private var sources
+    @Environment(RingStore.self) private var ring
+    @State private var imported: [SourcesStore.ImportedKind] = []
 
     private var adapter: AdapterDescriptor? { AdapterCatalog.descriptor(id: device.adapterID) }
 
@@ -149,7 +152,10 @@ private struct DeviceSourceCard: View {
                 .accessibilityLabel("Aktionen für \(spoken(device.name))")
             }
             StageTrack(stage: device.stage)
+            if isRing { ringConnection }
             facts
+            if device.syncedWithoutData && device.adapterID == AdapterCatalog.appleHealth.id { healthHint }
+            storedData
             if let adapter { kinds(adapter) }
             if !device.diagnostics.isEmpty {
                 Text(device.diagnostics.suffix(2).joined(separator: "\n"))
@@ -167,6 +173,59 @@ private struct DeviceSourceCard: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("device.\(device.adapterID)")
+        .task(id: device.lastSuccessfulSync) { imported = sources.importedData(deviceID: device.sourceIdentifier) }
+    }
+
+    private var isRing: Bool { device.adapterID.hasPrefix("colmi.") }
+    private var isThisRingActive: Bool { ring.snapshot.deviceIdentifier == device.sourceIdentifier }
+
+    /// Connect or disconnect this ring. The connection state comes from the ring itself, never from the registry.
+    private var ringConnection: some View {
+        let state = isThisRingActive ? ring.snapshot.connection : .idle
+        return VStack(alignment: .leading, spacing: Spacing.s) {
+            fact("Verbindung", state.label)
+            if state.isConnected {
+                Button("Trennen", systemImage: "link.badge.minus") { ring.disconnect() }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("disconnect.\(device.adapterID)")
+            } else if !state.isBusy {
+                Button("Verbinden", systemImage: "link") { ring.connect(identifier: device.sourceIdentifier) }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("connect.\(device.adapterID)")
+            }
+        }
+    }
+
+    private var healthHint: some View {
+        Text("Apple Health hat keine Werte geliefert. Prüfe in der Health-App unter Teilen › Apps › PULSE ONE, ob das Lesen erlaubt ist, und synchronisiere dann erneut.")
+            .font(Typography.caption)
+            .foregroundStyle(Palette.ink)
+            .padding(Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Palette.bioCyan, lineWidth: 1))
+            .wraps()
+            .accessibilityIdentifier("healthPermissionHint")
+    }
+
+    /// Transparent view of what is stored from this source (Directive 3.1 C/D).
+    private var storedData: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("Gespeicherte Werte")
+                .font(Typography.label)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+            if imported.isEmpty {
+                Text("Noch keine gespeicherten Werte von dieser Quelle.")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+            }
+            ForEach(imported) { item in
+                fact(item.kind.title, "\(item.count) · zuletzt \(item.latest?.formatted(date: .abbreviated, time: .shortened) ?? "–")")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("storedData.\(device.adapterID)")
     }
 
     private var facts: some View {

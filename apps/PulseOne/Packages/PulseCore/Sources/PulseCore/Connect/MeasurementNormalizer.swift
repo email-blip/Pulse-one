@@ -42,13 +42,24 @@ public enum NormalizationError: Error, Equatable, Sendable {
     case incompatibleUnit(SampleKind, SampleUnit)
     case notANumber
     case endBeforeStart
+    /// Later than the import time plus `MeasurementNormalizer.futureTolerance` (wrong device clock).
+    case timestampInFuture
+    /// Before `MeasurementNormalizer.earliestPlausibleDate`, typically a ring whose clock was never set.
+    case timestampTooOld
 }
 
 /// Converts units to the canonical unit of each kind and grades plausibility (directive §5).
 public enum MeasurementNormalizer {
+    /// Allowed clock difference between a device and the iPhone.
+    public static let futureTolerance: TimeInterval = 10 * 60
+    /// 2010-01-01 UTC. Earlier timestamps come from unset clocks (1970, 2000), not from real measurements.
+    public static let earliestPlausibleDate = Date(timeIntervalSince1970: 1_262_304_000)
+
     public static func normalize(_ raw: RawObservation, profileID: UUID, importedAt: Date) throws -> HealthSample {
         guard raw.value.isFinite else { throw NormalizationError.notANumber }
         if let end = raw.end, end < raw.start { throw NormalizationError.endBeforeStart }
+        if raw.start < earliestPlausibleDate { throw NormalizationError.timestampTooOld }
+        if raw.start > importedAt.addingTimeInterval(futureTolerance) { throw NormalizationError.timestampInFuture }
         let value = try convert(raw.value, from: raw.unit, to: raw.kind.canonicalUnit, kind: raw.kind)
         let quality: SampleQuality = raw.kind.plausibleRange.contains(value) ? .plausible : .implausible
         return HealthSample(profileID: profileID, kind: raw.kind, value: value, unit: raw.kind.canonicalUnit,
@@ -72,6 +83,19 @@ public enum MeasurementNormalizer {
         case (.hours, .seconds): return value * 3_600
         case (.seconds, .milliseconds): return value * 1_000
         default: throw NormalizationError.incompatibleUnit(kind, from)
+        }
+    }
+}
+
+extension NormalizationError {
+    /// Short German text for the device diagnosis.
+    public var label: String {
+        switch self {
+        case let .incompatibleUnit(kind, unit): "\(kind.title): Einheit \(unit.rawValue) passt nicht"
+        case .notANumber: "Wert ist keine Zahl"
+        case .endBeforeStart: "Ende liegt vor dem Beginn"
+        case .timestampInFuture: "Zeitstempel liegt in der Zukunft (Uhr des Geräts prüfen)"
+        case .timestampTooOld: "Zeitstempel vor 2010 (Uhr des Geräts nicht gestellt)"
         }
     }
 }

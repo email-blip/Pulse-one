@@ -23,6 +23,8 @@ struct PulseOneApp: App {
             sources = SourcesStore.live()
         }
         sources.modelContext = container.mainContext
+        // Test scenarios run the migration on their in-memory rows every time; the real store once.
+        sources.migrateLegacyMeasurements(marker: options.isUITesting ? nil : .standard)
         ring.onMeasurement = { measurement in
             container.mainContext.insert(StoredMeasurement(measurement))
             sources.ingest(measurement)
