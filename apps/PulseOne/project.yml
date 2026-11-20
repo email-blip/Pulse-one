@@ -25,6 +25,10 @@ targets:
       path: Sources/Info.plist
       properties:
         CFBundleDisplayName: PULSE ONE
+        # XcodeGen otherwise writes the fixed defaults "1" / "1.0"; TestFlight then rejects every
+        # upload after the first ("bundle version must be higher"). CI passes the run number.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleDevelopmentRegion: de
         UILaunchScreen:
           UIColorName: LaunchBackground
