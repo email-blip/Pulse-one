@@ -8,7 +8,8 @@ import SwiftData
 final class StoredSample {
     @Attribute(.unique) var dedupKey: String
     var sampleID: UUID
-    var profileID: UUID
+    /// nil = the device's owner at that time is unresolved (Review 3.2 §2).
+    var profileID: UUID?
     var kindRaw: String
     var value: Double
     var unitRaw: String
@@ -20,7 +21,10 @@ final class StoredSample {
     var originalSampleID: String
     var importedAt: Date
     var qualityRaw: String
+    var qualityReason: String?
     var methodRaw: String
+    /// "source_id" or "derived" (Review 3.2 §3). Default keeps lightweight migration of older stores.
+    var identityRaw: String = "source_id"
     var rawDataReference: String?
 
     init(_ s: HealthSample) {
@@ -38,7 +42,9 @@ final class StoredSample {
         originalSampleID = s.originalSampleID
         importedAt = s.importedAt
         qualityRaw = s.quality.rawValue
+        qualityReason = s.qualityReason
         methodRaw = s.method.rawValue
+        identityRaw = s.identity.rawValue
         rawDataReference = s.rawDataReference
     }
 
@@ -50,9 +56,10 @@ final class StoredSample {
         timeZoneIdentifier = s.timeZoneIdentifier
         importedAt = s.importedAt
         qualityRaw = s.quality.rawValue
+        qualityReason = s.qualityReason
         methodRaw = s.method.rawValue
         rawDataReference = s.rawDataReference
-        profileID = s.profileID
+        // The profile is not touched here: only `reattribute` changes it, after a logged correction.
     }
 
     /// Back to the core type; nil if the row holds a value this app version does not know.
@@ -60,10 +67,12 @@ final class StoredSample {
         guard let kind = SampleKind(rawValue: kindRaw), let unit = SampleUnit(rawValue: unitRaw),
               let source = DataSourceKind(rawValue: sourceRaw), let quality = SampleQuality(rawValue: qualityRaw),
               let method = MeasurementMethod(rawValue: methodRaw) else { return nil }
+        let identity = SampleIdentity(rawValue: identityRaw) ?? .sourceID
         return HealthSample(id: sampleID, profileID: profileID, kind: kind, value: value, unit: unit, start: start,
                             end: end, timeZoneIdentifier: timeZoneIdentifier, source: source, deviceID: deviceID,
                             originalSampleID: originalSampleID, importedAt: importedAt, quality: quality,
-                            method: method, rawDataReference: rawDataReference)
+                            qualityReason: qualityReason, method: method, identity: identity,
+                            rawDataReference: rawDataReference)
     }
 }
 
@@ -115,10 +124,24 @@ struct SampleStore {
 
     /// Normalises, de-duplicates and stores one batch. Returns the applied plan for diagnostics.
     @discardableResult
-    func ingest(_ batch: SyncBatch, deviceID: String, profileID: UUID, now: Date = .now) throws -> SyncPlan {
+    func ingest(_ batch: SyncBatch, deviceID: String, profiles: ProfileTimeline, now: Date = .now) throws -> SyncPlan {
         let plan = SyncCoordinator.plan(batch: batch, existing: existing(for: batch, deviceID: deviceID),
-                                        profileID: profileID, importedAt: now)
+                                        profiles: profiles, importedAt: now)
         try apply(plan)
         return plan
+    }
+
+    /// After a logged assignment correction: moves the device's samples to the profile valid at their time.
+    @discardableResult
+    func reattribute(deviceID: String, profiles: ProfileTimeline) throws -> Int {
+        let device = deviceID
+        let rows = try context.fetch(FetchDescriptor<StoredSample>(predicate: #Predicate { $0.deviceID == device }))
+        var changed = 0
+        for row in rows {
+            let target = profiles.profile(at: row.start)
+            if row.profileID != target { row.profileID = target; changed += 1 }
+        }
+        try context.save()
+        return changed
     }
 }

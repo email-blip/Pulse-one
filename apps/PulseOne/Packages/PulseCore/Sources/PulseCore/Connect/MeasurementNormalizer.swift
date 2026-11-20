@@ -12,11 +12,15 @@ public struct RawObservation: Equatable, Sendable {
     public var deviceID: String
     public var originalSampleID: String
     public var method: MeasurementMethod
+    public var identity: SampleIdentity
+    /// A fault the device itself reported for this reading (e.g. "Sensor ohne Hautkontakt").
+    public var deviceFlag: String?
     public var rawDataReference: String?
 
     public init(kind: SampleKind, value: Double, unit: SampleUnit, start: Date, end: Date? = nil,
                 timeZoneIdentifier: String? = nil, source: DataSourceKind, deviceID: String,
-                originalSampleID: String, method: MeasurementMethod, rawDataReference: String? = nil) {
+                originalSampleID: String, method: MeasurementMethod, identity: SampleIdentity = .sourceID,
+                deviceFlag: String? = nil, rawDataReference: String? = nil) {
         self.kind = kind
         self.value = value
         self.unit = unit
@@ -27,6 +31,8 @@ public struct RawObservation: Equatable, Sendable {
         self.deviceID = deviceID
         self.originalSampleID = originalSampleID
         self.method = method
+        self.identity = identity
+        self.deviceFlag = deviceFlag
         self.rawDataReference = rawDataReference
     }
 }
@@ -55,18 +61,39 @@ public enum MeasurementNormalizer {
     /// 2010-01-01 UTC. Earlier timestamps come from unset clocks (1970, 2000), not from real measurements.
     public static let earliestPlausibleDate = Date(timeIntervalSince1970: 1_262_304_000)
 
-    public static func normalize(_ raw: RawObservation, profileID: UUID, importedAt: Date) throws -> HealthSample {
+    /// - Parameters:
+    ///   - profileID: owner at `raw.start` from the device's assignment timeline; nil = unresolved.
+    ///   - sourceConfirmed: the adapter's support for this kind was confirmed on real hardware.
+    public static func normalize(_ raw: RawObservation, profileID: UUID?, importedAt: Date,
+                                 sourceConfirmed: Bool = false) throws -> HealthSample {
         guard raw.value.isFinite else { throw NormalizationError.notANumber }
         if let end = raw.end, end < raw.start { throw NormalizationError.endBeforeStart }
         if raw.start < earliestPlausibleDate { throw NormalizationError.timestampTooOld }
         if raw.start > importedAt.addingTimeInterval(futureTolerance) { throw NormalizationError.timestampInFuture }
         let value = try convert(raw.value, from: raw.unit, to: raw.kind.canonicalUnit, kind: raw.kind)
-        let quality: SampleQuality = raw.kind.plausibleRange.contains(value) ? .plausible : .implausible
+        let (quality, reason) = grade(raw, value: value, importedAt: importedAt, sourceConfirmed: sourceConfirmed)
         return HealthSample(profileID: profileID, kind: raw.kind, value: value, unit: raw.kind.canonicalUnit,
                             start: raw.start, end: raw.end, timeZoneIdentifier: raw.timeZoneIdentifier,
                             source: raw.source, deviceID: raw.deviceID, originalSampleID: raw.originalSampleID,
-                            importedAt: importedAt, quality: quality, method: raw.method,
-                            rawDataReference: raw.rawDataReference)
+                            importedAt: importedAt, quality: quality, qualityReason: reason, method: raw.method,
+                            identity: raw.identity, rawDataReference: raw.rawDataReference)
+    }
+
+    /// First matching rule wins; the order is part of the contract (tested).
+    static func grade(_ raw: RawObservation, value: Double, importedAt: Date,
+                      sourceConfirmed: Bool) -> (SampleQuality, String) {
+        if let flag = raw.deviceFlag { return (.technicalError, "Gerät meldet Fehler: \(flag)") }
+        let range = raw.kind.plausibleRange
+        if !range.contains(value) {
+            return (.implausible, "Außerhalb \(range.lowerBound.formatted())–\(range.upperBound.formatted()) \(raw.kind.canonicalUnit.rawValue)")
+        }
+        if raw.kind.aggregation == .interval, (raw.end ?? raw.start) <= raw.start {
+            return (.incomplete, "Zeitraum ohne Ende")
+        }
+        if raw.start > importedAt { return (.timeUncertain, "Zeitstempel liegt in der Zukunft (Geräteuhr geht vor)") }
+        if raw.timeZoneIdentifier == nil { return (.timeUncertain, "Zeitzone unbekannt") }
+        if sourceConfirmed { return (.valid, "Quelle am Gerät bestätigt") }
+        return (.plausible, "Quelle noch nicht am Gerät bestätigt")
     }
 
     /// Unit conversion. A temperature deviation converts by scale only (no 32 °F offset).
