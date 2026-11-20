@@ -42,4 +42,17 @@ final class InteractionTests: XCTestCase {
         app.buttons["closeHeart"].tap()
         XCTAssertTrue(open.waitForExistence(timeout: 10))
     }
+
+    /// The devices screen lists sources with their real stage and keeps the test label.
+    func testDevicesScreenShowsStages() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", "devices"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["device.colmi.r03"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["device.apple.health"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["testBanner"].exists)
+        let stage = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Synchronisierung erfolgreich")).firstMatch
+        XCTAssertTrue(stage.exists)
+    }
 }

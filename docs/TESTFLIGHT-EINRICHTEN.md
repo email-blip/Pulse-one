@@ -7,7 +7,8 @@ Am besten am PC (Windows reicht). Dauer: etwa 15 Minuten. Danach baut und lädt 
 2. Blaues **+** neben „Identifiers“ → **App IDs** → Continue → **App** → Continue
 3. Description: `PULSE ONE`
 4. Bundle ID: **Explicit** und genau `de.sommerlabs.pulseone` eintragen
-5. Häkchen unten nichts ändern → **Continue** → **Register**
+5. In der Liste „Capabilities“ das Häkchen bei **HealthKit** setzen (sonst nichts ändern) → **Continue** → **Register**
+   (Falls du die App-ID schon ohne HealthKit angelegt hast: App-ID öffnen, HealthKit anhaken, **Save**.)
 
 ## Schritt 2 – App in App Store Connect anlegen
 1. https://appstoreconnect.apple.com/apps öffnen

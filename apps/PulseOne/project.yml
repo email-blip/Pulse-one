@@ -30,7 +30,13 @@ targets:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        NSHealthShareUsageDescription: "PULSE ONE liest ausgewählte Werte aus Apple Health (z. B. Puls, HRV, Schlaf, Schritte), um sie mit deinen Ringdaten auszuwerten. Die Daten bleiben auf diesem iPhone."
         NSBluetoothAlwaysUsageDescription: "PULSE ONE verbindet sich per Bluetooth mit deinem Ring, um Puls und Akkustand zu lesen. Die Daten bleiben auf diesem iPhone."
+    entitlements:
+      path: Sources/PulseOne.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.sommerlabs.pulseone

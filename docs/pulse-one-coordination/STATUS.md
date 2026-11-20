@@ -16,7 +16,8 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 | Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |
 | Installierbar auf iPhone (TestFlight) | Geplant | **Blocker:** Apple-Developer-Konto in Freischaltung |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
-| M2 Kern: Adapter-Protokoll, Adapter-Katalog (Capability-Matrix), DeviceRegistry, HealthSample, Normalizer, idempotenter Sync, Quellenwahl ohne Mittelwert | Implementiert (Kern, Swift-Testing) | CI ausstehend; noch nicht in der App verdrahtet |
+| M2 Kern: Adapter-Protokoll, Adapter-Katalog (Capability-Matrix), DeviceRegistry, HealthSample, Normalizer, idempotenter Sync, Quellenwahl ohne Mittelwert | Implementiert (Kern, Swift-Testing) | CI grün (PR #3) |
+| M2 App: SwiftData `StoredSample` (eindeutiger Dublettenschlüssel), Ring-Werte über den gemeinsamen Sync-Pfad, Apple-Health-Adapter (Freigabe je Typ, inkrementell mit Anker, Löschungen, 30 Tage Erstimport), Geräte-Screen mit Integrationsstufen | Implementiert | CI ausstehend; HealthKit nur auf iPhone prüfbar, braucht HealthKit-Häkchen an der App-ID |
 | Personenprofile, Onboarding, HealthKit | Geplant | M2/M3 |
 | Heart Chamber (3D-Herz im Pulstakt, drehen/zoomen, Anatomie/Hologramm, Haptik, Ton) | Simulator getestet (Testansicht) | Herz stilisiert/prozedural, noch nicht anatomisch fein; Bewegung aus BPM abgeleitet, kein EKG; Haptik/Ton nur auf iPhone prüfbar |
 | Living Twin, Designprofile, Sportwelten | Geplant | siehe GAP-ANALYSE.md |
