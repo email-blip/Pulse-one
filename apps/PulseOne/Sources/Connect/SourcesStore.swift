@@ -61,7 +61,7 @@ final class SourcesStore {
         let id = ensureDevice(adapterID: adapter, sourceIdentifier: identifier, name: name)
         change(id) { device in
             if snapshot.connection.isConnected { device.reach(.connected) }
-            if snapshot.connection == .ready || snapshot.connection == .measuring { device.reach(.compatible) }
+            if snapshot.connection == .ready { device.reach(.compatible) }
             if let battery = snapshot.battery { device.batteryPercent = battery.level }
             if let firmware = snapshot.firmware { device.firmware = firmware }
         }

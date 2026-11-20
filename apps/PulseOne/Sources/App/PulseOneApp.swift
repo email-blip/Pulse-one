@@ -15,7 +15,7 @@ struct PulseOneApp: App {
         let ring: RingStore
         let sources: SourcesStore
         if options.usesTestScenario, let scenario = options.scenario {
-            ring = RingStore.preview(TestScenario.snapshot(for: scenario))
+            ring = RingStore.preview(TestScenario.snapshot(for: scenario), trace: TestScenario.trace(for: scenario))
             sources = SourcesStore.preview(TestScenario.registry(for: scenario), owner: TestScenario.owner)
             TestScenario.insertSampleHistory(for: scenario, into: container.mainContext)
         } else {

@@ -20,7 +20,8 @@ final class ColmiCentral: NSObject {
     private let reconnectPolicy = ReconnectPolicy()
     private var connectTimeout: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
-    private var keepAlive: Task<Void, Never>?
+    private var measurementTicker: Task<Void, Never>?
+    private var measurement = LiveMeasurement()
     private var scanTimeout: Task<Void, Never>?
 
     private enum PendingAction { case scan, reconnect(UUID) }
@@ -32,8 +33,12 @@ final class ColmiCentral: NSObject {
     private static let uartNotify = CBUUID(string: ColmiProtocol.uartNotify)
     private static let deviceInfo = CBUUID(string: ColmiProtocol.deviceInfoService)
     private static let firmwareRevision = CBUUID(string: ColmiProtocol.firmwareRevision)
-    /// A live measurement stops by itself to protect the ring battery.
-    private static let liveMeasurementLimit: Duration = .seconds(60)
+    /// Interval of the "continue" command while a live measurement runs (from colmi_r02_client; unverified on the R03).
+    private static let continueInterval: TimeInterval = 20
+    /// Device information the diagnosis may read. Serial number (2A25) and system ID (2A23) are left out on purpose.
+    private static let readableDeviceInfo: Set<CBUUID> = Set(["2A24", "2A26", "2A27", "2A28", "2A29"].map { CBUUID(string: $0) })
+    /// Standard services the diagnosis does not subscribe to.
+    private static let standardServices: Set<CBUUID> = Set(["1800", "1801", "180A"].map { CBUUID(string: $0) })
 
     init(store: RingStore) {
         self.store = store
@@ -120,34 +125,58 @@ final class ColmiCentral: NSObject {
         reconnectTask?.cancel()
         stopHeartRate()
         if let peripheral { manager?.cancelPeripheralConnection(peripheral) }
+        trace(.event, "Trennen durch Nutzer")
         update { $0.connection = .disconnected; $0.liveHeartRate = nil }
     }
 
+    /// Sends the start command. The screen shows "Messung angefordert" until the ring answers;
+    /// "läuft" and values come only from the ring's own answers (`handle`).
     func startHeartRate() {
-        guard store?.snapshot.connection == .ready else { return }
+        guard store?.snapshot.connection == .ready, !measurement.phase.isActive else { return }
+        measurement.handle(.start(.now))
+        trace(.event, "Messung gestartet (Echtzeit Puls)")
         write(ColmiProtocol.realTimeStart(.heartRate))
-        update { $0.connection = .measuring; $0.liveHeartRate = nil; $0.lastError = nil }
-        keepAlive?.cancel()
-        keepAlive = Task { [weak self] in
-            let started = ContinuousClock.now
+        update { $0.lastError = nil }
+        publishMeasurement()
+        measurementTicker?.cancel()
+        measurementTicker = Task { [weak self] in
+            var lastContinue = Date.now
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(20))
+                try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled, let self else { return }
-                if ContinuousClock.now - started >= Self.liveMeasurementLimit {
-                    self.stopHeartRate()
+                let now = Date.now
+                self.measurement.handle(.tick(now))
+                guard self.measurement.phase.isActive else {
+                    self.trace(.event, "Messung beendet: \(self.measurement.phase.title)")
+                    self.write(ColmiProtocol.realTimeStop(.heartRate))
+                    self.publishMeasurement()
                     return
                 }
-                self.write(ColmiProtocol.realTimeContinue(.heartRate))
+                if now.timeIntervalSince(lastContinue) >= Self.continueInterval {
+                    lastContinue = now
+                    self.write(ColmiProtocol.realTimeContinue(.heartRate))
+                }
+                self.publishMeasurement()
             }
         }
     }
 
     func stopHeartRate() {
-        keepAlive?.cancel()
-        keepAlive = nil
-        guard store?.snapshot.connection == .measuring else { return }
+        measurementTicker?.cancel()
+        measurementTicker = nil
+        guard measurement.phase.isActive else { return }
+        measurement.handle(.stop(.now))
+        trace(.event, "Messung vom Nutzer beendet")
         write(ColmiProtocol.realTimeStop(.heartRate))
-        update { $0.connection = .ready }
+        publishMeasurement()
+    }
+
+    private func publishMeasurement() {
+        let phase = measurement.phase
+        update {
+            $0.measurement = phase
+            if case .receiving(let value, _, _) = phase { $0.liveHeartRate = value } else { $0.liveHeartRate = nil }
+        }
     }
 
     func refreshBattery() {
@@ -185,9 +214,27 @@ final class ColmiCentral: NSObject {
     }
 
     private func write(_ packet: [UInt8]) {
-        guard let peripheral, let characteristic = writeCharacteristic, !packet.isEmpty else { return }
+        guard let peripheral, let characteristic = writeCharacteristic, !packet.isEmpty else {
+            trace(.event, "Senden nicht möglich (keine Verbindung): \(ColmiProtocol.hex(packet))")
+            return
+        }
         let type: CBCharacteristicWriteType = characteristic.properties.contains(.writeWithoutResponse) ? .withoutResponse : .withResponse
+        trace(.sent, channel: characteristic.uuid.uuidString, ColmiProtocol.hex(packet))
         peripheral.writeValue(Data(packet), for: characteristic, type: type)
+    }
+
+    private func trace(_ direction: BLETrace.Direction, channel: String = "", _ text: String) {
+        store?.trace.add(direction, channel: channel, text)
+    }
+
+    private static func describe(_ properties: CBCharacteristicProperties) -> String {
+        var names: [String] = []
+        if properties.contains(.read) { names.append("read") }
+        if properties.contains(.write) { names.append("write") }
+        if properties.contains(.writeWithoutResponse) { names.append("writeNoResp") }
+        if properties.contains(.notify) { names.append("notify") }
+        if properties.contains(.indicate) { names.append("indicate") }
+        return names.joined(separator: ",")
     }
 
     private func handle(_ packet: [UInt8]) {
@@ -201,17 +248,27 @@ final class ColmiCentral: NSObject {
             }
             record(.battery, battery.level, snapshot)
         case .realTime(.value(let type, let value)):
-            guard type == ColmiProtocol.RealTimeType.heartRate.rawValue, value > 0 else { return }
-            guard let reading = makeReading(.heartRate, value, snapshot) else { return }
+            guard type == ColmiProtocol.RealTimeType.heartRate.rawValue else {
+                update { $0.logUnknown(ColmiProtocol.hex(packet)) }
+                return
+            }
+            let before = measurement.phase
+            measurement.handle(.ringValue(value, .now))
+            publishMeasurement()
+            // Store only when this answer produced a new valid value.
+            guard case .receiving(let bpm, let at, _) = measurement.phase, measurement.phase != before,
+                  before.value?.at != at,
+                  let reading = makeReading(.heartRate, bpm, snapshot) else { return }
             update {
-                $0.liveHeartRate = value
                 $0.lastHeartRate = reading
                 $0.capabilities.raise(.heartRate, to: .verified)
             }
             store.record(reading)
         case .realTime(.error(_, let code)):
-            update { $0.lastError = "Der Ring meldet einen Messfehler (Code \(code)). Ring enger anlegen und erneut versuchen." }
-            stopHeartRate()
+            measurement.handle(.ringError(code: code, .now))
+            measurementTicker?.cancel()
+            write(ColmiProtocol.realTimeStop(.heartRate))
+            publishMeasurement()
         case .setTimeAck:
             break
         case .heartRateLog, .unknown:
@@ -297,18 +354,23 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
             $0.capabilities = CapabilityTracker()
         }
         remember(peripheral)
-        peripheral.discoverServices([Self.uart, Self.deviceInfo])
+        trace(.event, "Verbunden mit \(BLETrace.redactedName(name)); suche alle Dienste")
+        // All services, so the diagnosis shows everything the ring offers.
+        peripheral.discoverServices(nil)
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         connectTimeout?.cancel()
+        trace(.event, "Verbindung fehlgeschlagen: \(error?.localizedDescription ?? "ohne Grund")")
         update { $0.connection = .failed(message: "Verbindung fehlgeschlagen. Bitte erneut versuchen.") }
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        keepAlive?.cancel()
+        measurementTicker?.cancel()
         writeCharacteristic = nil
-        update { $0.liveHeartRate = nil }
+        trace(.event, "Verbindung getrennt: \(error?.localizedDescription ?? "ohne Fehler")")
+        measurement.handle(.disconnected(.now))
+        publishMeasurement()
         if userRequestedDisconnect {
             if case .failed = store?.snapshot.connection { return }
             update { $0.connection = .disconnected }
@@ -324,6 +386,8 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
 extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         let services = peripheral.services ?? []
+        if let error { trace(.event, "Dienstsuche: Fehler \(error.localizedDescription)") }
+        for service in services { trace(.event, channel: service.uuid.uuidString, "Dienst \(service.uuid.uuidString)") }
         guard services.contains(where: { $0.uuid == Self.uart }) else {
             userRequestedDisconnect = true
             manager?.cancelPeripheralConnection(peripheral)
@@ -331,25 +395,28 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
             return
         }
         for service in services {
-            if service.uuid == Self.uart {
-                peripheral.discoverCharacteristics([Self.uartWrite, Self.uartNotify], for: service)
-            } else if service.uuid == Self.deviceInfo {
-                peripheral.discoverCharacteristics([Self.firmwareRevision], for: service)
-            }
+            peripheral.discoverCharacteristics(nil, for: service)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         for characteristic in service.characteristics ?? [] {
+            trace(.event, channel: characteristic.uuid.uuidString,
+                  "Merkmal \(characteristic.uuid.uuidString) in \(BLETrace.shortUUID(service.uuid.uuidString)) [\(Self.describe(characteristic.properties))]")
             switch characteristic.uuid {
             case Self.uartWrite:
                 writeCharacteristic = characteristic
             case Self.uartNotify:
                 peripheral.setNotifyValue(true, for: characteristic)
-            case Self.firmwareRevision:
-                peripheral.readValue(for: characteristic)
             default:
-                break
+                if service.uuid == Self.deviceInfo {
+                    if Self.readableDeviceInfo.contains(characteristic.uuid) { peripheral.readValue(for: characteristic) }
+                } else if !Self.standardServices.contains(service.uuid), service.uuid != Self.uart,
+                          !characteristic.properties.intersection([.notify, .indicate]).isEmpty {
+                    // Listen only (no command is sent): shows whether the ring reports on another channel.
+                    trace(.event, channel: characteristic.uuid.uuidString, "nur mitlesen: Benachrichtigungen an")
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
             }
         }
         if service.uuid == Self.uart {
@@ -361,6 +428,9 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        let state = characteristic.isNotifying ? "an" : "aus"
+        let failure = error.map { " · Fehler " + $0.localizedDescription } ?? ""
+        trace(.event, channel: characteristic.uuid.uuidString, "Benachrichtigungen " + state + failure)
         guard characteristic.uuid == Self.uartNotify else { return }
         guard error == nil, characteristic.isNotifying else {
             update { $0.connection = .failed(message: "Der Ring sendet keine Daten. Bitte trennen und neu verbinden.") }
@@ -372,15 +442,19 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        let channel = characteristic.uuid.uuidString
+        if let error { trace(.event, channel: channel, "Lesefehler: \(error.localizedDescription)") }
         guard error == nil, let data = characteristic.value else { return }
-        switch characteristic.uuid {
-        case Self.uartNotify:
-            handle([UInt8](data))
-        case Self.firmwareRevision:
-            let firmware = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .controlCharacters.union(.whitespaces))
-            update { $0.firmware = firmware.isEmpty ? nil : firmware }
-        default:
-            break
+        let bytes = [UInt8](data)
+        if characteristic.service?.uuid == Self.deviceInfo {
+            let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .controlCharacters.union(.whitespaces))
+            trace(.received, channel: channel, "\"\(text)\"")
+            if characteristic.uuid == Self.firmwareRevision {
+                update { $0.firmware = text.isEmpty ? nil : text }
+            }
+            return
         }
+        trace(.received, channel: channel, ColmiProtocol.hex(bytes))
+        if characteristic.uuid == Self.uartNotify { handle(bytes) }
     }
 }

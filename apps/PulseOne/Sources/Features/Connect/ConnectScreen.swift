@@ -1,6 +1,8 @@
+import CoreTransferable
 import PulseCore
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Milestone "FIRST DEVICE CONNECT": find the Colmi ring, connect, show status,
 /// battery and live heart rate, and the stored real values with their origin.
@@ -31,6 +33,9 @@ struct ConnectScreen: View {
                     if ring.isTestScenario { testBanner }
                     PulseOrb(bpm: snapshot.liveHeartRate, isConnected: snapshot.connection.isConnected)
                     StatusCard(snapshot: snapshot)
+                    if snapshot.measurement != .idle {
+                        MeasurementCard(phase: snapshot.measurement, deviceName: snapshot.deviceName)
+                    }
                     actions(snapshot)
                     heartEntry
                     devicesEntry
@@ -38,6 +43,7 @@ struct ConnectScreen: View {
                         DeviceCard(snapshot: snapshot)
                     }
                     HistoryCard(items: Array(stored.prefix(8)))
+                    if !ring.trace.isEmpty { DiagnosticsCard() }
                     footer
                 }
                 .padding(.horizontal, Spacing.l)
@@ -106,25 +112,20 @@ struct ConnectScreen: View {
     @ViewBuilder
     private func actions(_ snapshot: RingSnapshot) -> some View {
         switch snapshot.connection {
+        case .ready where snapshot.measurement.isActive:
+            Button("Messung beenden", systemImage: "stop.fill") { ring.stopHeartRate() }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("stopMeasure")
         case .ready:
             VStack(spacing: Spacing.m) {
-                Button("Puls jetzt messen", systemImage: "heart.fill") { ring.startHeartRate() }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("measure")
+                Button(snapshot.measurement == .idle ? "Puls jetzt messen" : "Erneut messen", systemImage: "heart.fill") {
+                    ring.startHeartRate()
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("measure")
                 Button("Trennen", systemImage: "xmark.circle") { ring.disconnect() }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("disconnect")
-            }
-        case .measuring:
-            VStack(spacing: Spacing.m) {
-                Button("Messung beenden", systemImage: "stop.fill") { ring.stopHeartRate() }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("stopMeasure")
-                Text("Ring ruhig halten. Die Messung endet nach einer Minute von selbst.")
-                    .font(Typography.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .wraps()
             }
         case .connecting, .discovering, .reconnecting:
             Button("Abbrechen", systemImage: "xmark") { ring.disconnect() }
@@ -204,10 +205,118 @@ private struct StatusCard: View {
 
     private var color: Color {
         switch snapshot.connection {
-        case .ready, .measuring: Palette.bioCyan
+        case .ready: Palette.bioCyan
         case .failed, .reconnecting: Palette.pulseCoral
         default: Palette.neuralViolet
         }
+    }
+}
+
+/// One live measurement, in the order the directive asks for: requested → running → value
+/// received / failed / connection lost. A value always shows unit, time and source.
+private struct MeasurementCard: View {
+    let phase: MeasurementPhase
+    let deviceName: String?
+
+    var body: some View {
+        Card {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
+                if phase.isActive && phase.value == nil {
+                    ProgressView().tint(Palette.bioCyan).accessibilityHidden(true)
+                } else {
+                    Image(systemName: icon).foregroundStyle(tint).accessibilityHidden(true)
+                }
+                Text(phase.title)
+                    .font(Typography.title)
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+                    .accessibilityIdentifier("measurementPhase")
+            }
+            if let value = phase.value {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                    Text("\(value.bpm)")
+                        .font(.system(.largeTitle, design: .rounded).weight(.bold).monospacedDigit())
+                        .foregroundStyle(Palette.ink)
+                    Text("Schläge/min")
+                        .font(Typography.label)
+                        .foregroundStyle(Palette.inkMuted)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(value.bpm) Schläge pro Minute")
+                Text("gemessen \(value.at.formatted(date: .omitted, time: .standard)) · Quelle: \(deviceName.map(spoken) ?? "Ring"), Live-Messung")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+            }
+            Text(phase.detail)
+                .font(Typography.caption)
+                .foregroundStyle(isFailure ? Palette.pulseCoral : Palette.inkMuted)
+                .wraps()
+            if isFailure {
+                Text("Tipp: Unten „Bluetooth-Diagnose teilen“ antippen und die Datei an Claude schicken.")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("measurementCard")
+    }
+
+    private var isFailure: Bool {
+        switch phase {
+        case .failed, .connectionLost: true
+        default: false
+        }
+    }
+
+    private var icon: String {
+        switch phase {
+        case .failed, .connectionLost: "exclamationmark.triangle.fill"
+        case .finished, .receiving: "heart.fill"
+        default: "heart"
+        }
+    }
+
+    private var tint: Color { isFailure ? Palette.pulseCoral : Palette.bioCyan }
+}
+
+/// Export of the Bluetooth conversation for diagnosis on the real ring.
+private struct DiagnosticsCard: View {
+    @Environment(RingStore.self) private var ring
+
+    var body: some View {
+        Card {
+            Text("Bluetooth-Diagnose")
+                .font(Typography.title)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+            Text("\(ring.trace.entries.count) Einträge seit App-Start. Enthält die Rohdaten vom Ring (auch Pulswerte), aber keine Geräte-ID. Wird nur geteilt, wenn du es tust.")
+                .font(Typography.caption)
+                .foregroundStyle(Palette.inkMuted)
+                .wraps()
+            ShareLink(item: DiagnosticFile(text: ring.diagnosticReport()),
+                      preview: SharePreview("PULSE ONE Bluetooth-Diagnose")) {
+                Label("Bluetooth-Diagnose teilen", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("shareDiagnostics")
+            Button("Diagnose leeren", systemImage: "trash") { ring.clearTrace() }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("clearDiagnostics")
+        }
+        .accessibilityIdentifier("diagnosticsCard")
+    }
+}
+
+/// The diagnosis as a .txt file in the share sheet (Mail, Dateien, Nachrichten, Claude).
+struct DiagnosticFile: Transferable {
+    let text: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .plainText) { file in Data(file.text.utf8) }
+            .suggestedFileName("PULSE-ONE-Diagnose.txt")
     }
 }
 
