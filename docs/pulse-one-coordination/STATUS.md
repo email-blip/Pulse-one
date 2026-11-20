@@ -2,19 +2,21 @@
 
 Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getestet → Auf iPhone getestet → Vom Nutzer abgenommen.
 
-**Meilenstein:** §15 FIRST DEVICE CONNECT – **offen**.
+**Meilenstein:** Emergency Directive 4.0 – Sanierung läuft, Plan: `SANIERUNG-4.0.md`. §15 FIRST DEVICE CONNECT – **offen** (Puls am R03 fehlgeschlagen).
 
 | Funktion | Stufe | Beleg / Lücke |
 |---|---|---|
 | Native App baut (Swift 6, iOS 18) | Gebaut (CI) + Simulator getestet | CI-Lauf 6 grün |
 | Colmi-Protokoll (Pakete, Parser) | Implementiert, Swift-Testing-Tests geschrieben | Referenz colmi_r02_client (R02); am R03 unbewiesen |
 | Bluetooth-Berechtigung | Implementiert | Simulator hat kein Bluetooth → erst auf dem iPhone prüfbar |
-| R03 finden / identifizieren | Implementiert (Name + UART-Dienst) | kein echtes Gerät getestet |
+| R03 finden / identifizieren | **Auf iPhone getestet** | R03_9903, Build 4 |
 | Verbinden, Status, Abbruch, Wiederverbinden | Implementiert | kein echtes Gerät getestet |
-| Akku, Firmware, Live-Puls lesen | Implementiert | kein echtes Gerät getestet |
+| Akku, Firmware lesen | **Auf iPhone getestet** | 100 %, RY03_3.00.21_241028 |
+| Live-Puls | **Auf iPhone fehlgeschlagen** | kein Wert, 4 unbekannte Antworten; Analyse SANIERUNG-4.0.md §4 |
 | Werte mit Zeit + Herkunft speichern (SwiftData) | Implementiert | |
 | Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |
-| Installierbar auf iPhone (TestFlight) | Workflow gebaut, noch kein Upload | App-Konto aktiv; Johannes trägt gerade die GitHub-Secrets ein |
+| Installierbar auf iPhone (TestFlight) | **Auf iPhone getestet** | Build 4 installiert (PR #7) |
+| TODAY, Diagramme, Analyse, Claude, Coach, Einstellungen | Nicht implementiert | Directive 4.0, Plan PR 2–9 |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
 | M2 Kern: Adapter-Protokoll, Adapter-Katalog (Capability-Matrix), DeviceRegistry, HealthSample, Normalizer, idempotenter Sync, Quellenwahl ohne Mittelwert | Implementiert (Kern, Swift-Testing) | CI grün (PR #3) |
 | M2 App: SwiftData `StoredSample` (eindeutiger Dublettenschlüssel), Ring-Werte über den gemeinsamen Sync-Pfad, Apple-Health-Adapter (Freigabe je Typ, inkrementell mit Anker, Löschungen, 30 Tage Erstimport), Geräte-Screen mit Integrationsstufen | Implementiert | CI ausstehend; HealthKit nur auf iPhone prüfbar, braucht HealthKit-Häkchen an der App-ID |
