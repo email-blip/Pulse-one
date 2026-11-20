@@ -23,7 +23,7 @@ struct NormalizerTests {
     @Test func keepsCanonicalUnitsAndGradesPlausibility() throws {
         let ok = try sample(raw(.heartRate, 62, id: "a"))
         #expect(ok.quality == .plausible)
-        #expect(ok.canonicalUnit == .beatsPerMinute)
+        #expect(ok.unit == .beatsPerMinute)
         #expect(ok.timeZoneIdentifier == "Europe/Berlin")
         let wild = try sample(raw(.heartRate, 400, id: "b"))
         #expect(wild.quality == .implausible)
