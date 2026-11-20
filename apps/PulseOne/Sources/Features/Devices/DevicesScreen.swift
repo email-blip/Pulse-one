@@ -131,6 +131,7 @@ private struct DeviceSourceCard: View {
                         .font(Typography.title)
                         .foregroundStyle(Palette.ink)
                         .wraps()
+                        .accessibilityLabel("Gerät \(spoken(device.name))")
                     Text(adapter?.title ?? device.adapterID)
                         .font(Typography.caption)
                         .foregroundStyle(Palette.inkMuted)
@@ -145,7 +146,7 @@ private struct DeviceSourceCard: View {
                         .foregroundStyle(Palette.ink)
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Aktionen für \(device.name)")
+                .accessibilityLabel("Aktionen für \(spoken(device.name))")
             }
             StageTrack(stage: device.stage)
             facts
