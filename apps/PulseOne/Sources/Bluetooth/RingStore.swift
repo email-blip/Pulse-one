@@ -41,6 +41,11 @@ final class RingStore {
     func stopScan() { central?.stopScan() }
     func connect(_ ring: DiscoveredRing) { central?.connect(ring.id) }
     func reconnectRemembered() { central?.reconnectRemembered() }
+    /// Connects a ring from the device list; `identifier` is the CoreBluetooth peripheral UUID.
+    func connect(identifier: String) {
+        guard let id = UUID(uuidString: identifier) else { return }
+        central?.connectKnown(id)
+    }
     func disconnect() { central?.disconnect() }
     func startHeartRate() { central?.startHeartRate() }
     func stopHeartRate() { central?.stopHeartRate() }

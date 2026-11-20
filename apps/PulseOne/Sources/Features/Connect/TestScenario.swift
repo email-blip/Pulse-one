@@ -59,9 +59,11 @@ enum TestScenario {
         }
         if let health = try? registry.add(adapterID: AdapterCatalog.appleHealth.id, sourceIdentifier: "healthkit",
                                           name: "Apple Health") {
+            // A sync ran but Health returned nothing: shows the permission hint.
             try? registry.update(health.id) {
-                $0.reach(.connected)
-                $0.log("Testansicht: noch nicht synchronisiert")
+                $0.reach(.compatible)
+                $0.lastSuccessfulSync = base
+                $0.log("Sync: 0 neu, 0 geändert, 0 gelöscht, 0 abgelehnt")
             }
         }
         return registry
@@ -69,11 +71,12 @@ enum TestScenario {
 
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
-        guard name == "live" || name == "heart" else { return }
+        guard name == "live" || name == "heart" || name == "devices" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
+        let device = name == "devices" ? "test-ring" : "test"
         for (offset, bpm) in [(0, 64), (-20, 66), (-40, 67)] {
             if let reading = VitalReading(metric: .heartRate, value: bpm, timestamp: base.addingTimeInterval(Double(offset)),
-                                          source: .ringLive, deviceName: "R03_1A2B", deviceIdentifier: "test",
+                                          source: .ringLive, deviceName: "R03_1A2B", deviceIdentifier: device,
                                           model: "R03", firmware: "3.00.10") {
                 context.insert(StoredMeasurement(reading))
             }

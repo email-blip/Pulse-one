@@ -15,7 +15,7 @@ private func raw(_ kind: SampleKind = .heartRate, _ value: Double, _ unit: Sampl
 }
 
 private func sample(_ r: RawObservation, profile: UUID = owner) throws -> HealthSample {
-    try MeasurementNormalizer.normalize(r, profileID: profile, importedAt: t0)
+    try MeasurementNormalizer.normalize(r, profileID: profile, importedAt: t0.addingTimeInterval(3_600))
 }
 
 @Suite("Measurement normalizer")

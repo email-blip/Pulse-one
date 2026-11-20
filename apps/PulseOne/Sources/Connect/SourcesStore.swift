@@ -70,14 +70,8 @@ final class SourcesStore {
     /// Stores one live value from the ring through the common sync path (deduplicated, normalised).
     func ingest(_ reading: VitalReading) {
         guard !isTestScenario, let context = modelContext else { return }
-        let kind: SampleKind = reading.metric == .heartRate ? .heartRate : .deviceBattery
-        let unit: SampleUnit = reading.metric == .heartRate ? .beatsPerMinute : .percent
-        let raw = RawObservation(kind: kind, value: Double(reading.value), unit: unit, start: reading.timestamp,
-                                 timeZoneIdentifier: TimeZone.current.identifier, source: .colmiRing,
-                                 deviceID: reading.deviceIdentifier,
-                                 originalSampleID: "live-\(Int(reading.timestamp.timeIntervalSince1970 * 1000))-\(kind.rawValue)",
-                                 method: .liveSensor)
-        let device = devices.first { $0.sourceIdentifier == reading.deviceIdentifier && $0.adapterID.hasPrefix("colmi.") }
+        let raw = RawObservation(reading: reading, timeZoneIdentifier: TimeZone.current.identifier)
+        let device = ringDevice(reading.deviceIdentifier)
         do {
             let plan = try SampleStore(context: context).ingest(SyncBatch(observations: [raw]), deviceID: reading.deviceIdentifier,
                                                                 profileID: device?.profileID ?? ownerProfileID)
@@ -89,8 +83,83 @@ final class SourcesStore {
                     $0.lastSuccessfulSync = .now
                 }
             }
+            if let device, let error = plan.rejected.first {
+                change(device.id) { $0.log("Wert abgelehnt: \(error.label)") }
+            }
         } catch {
             if let device { change(device.id) { $0.log("Speichern fehlgeschlagen: \(error.localizedDescription)") } }
+        }
+    }
+
+    private func ringDevice(_ identifier: String) -> RegisteredDevice? {
+        devices.first { $0.sourceIdentifier == identifier && $0.adapterID.hasPrefix("colmi.") }
+    }
+
+    // MARK: Migration
+
+    static let migrationMarker = "migration.storedMeasurement.v1"
+
+    /// Copies ring values from the milestone-1 table into the sample store (Directive 3.1 A).
+    /// Idempotent through the dedup key, so an interrupted run simply repeats. The marker is set only after
+    /// every chunk was saved; `marker == nil` (test scenarios) always runs and records nothing.
+    @discardableResult
+    func migrateLegacyMeasurements(marker: UserDefaults?) -> MigrationReport? {
+        guard let context = modelContext else { return nil }
+        if let marker, marker.object(forKey: Self.migrationMarker) != nil { return nil }
+        var report = MigrationReport()
+        let rows = (try? context.fetch(FetchDescriptor<StoredMeasurement>(sortBy: [SortDescriptor(\.timestamp)]))) ?? []
+        report.read = rows.count
+        var byDevice: [String: [RawObservation]] = [:]
+        for row in rows {
+            guard let reading = row.reading else { report.skipped += 1; continue }
+            byDevice[reading.deviceIdentifier, default: []].append(RawObservation(reading: reading, timeZoneIdentifier: nil))
+        }
+        let store = SampleStore(context: context)
+        do {
+            for (deviceID, observations) in byDevice.sorted(by: { $0.key < $1.key }) {
+                let profile = ringDevice(deviceID)?.profileID ?? ownerProfileID
+                var start = 0
+                while start < observations.count {
+                    let chunk = Array(observations[start..<min(start + 500, observations.count)])
+                    let plan = try store.ingest(SyncBatch(observations: chunk), deviceID: deviceID, profileID: profile)
+                    report.inserted += plan.inserts.count
+                    report.alreadyPresent += plan.unchanged + plan.updates.count
+                    report.skipped += plan.rejected.count
+                    start += chunk.count
+                }
+                if let device = ringDevice(deviceID), !observations.isEmpty {
+                    change(device.id) { $0.log("Ältere Messwerte übernommen") }
+                }
+            }
+        } catch {
+            return nil   // marker stays unset; the next launch repeats safely
+        }
+        marker?.set(Date.now, forKey: Self.migrationMarker)
+        return report
+    }
+
+    // MARK: Imported data
+
+    struct ImportedKind: Identifiable, Equatable {
+        let kind: SampleKind
+        let count: Int
+        let latest: Date?
+        var id: String { kind.rawValue }
+    }
+
+    /// What is stored for one device, per kind: number of plausible values and the newest one.
+    func importedData(deviceID: String) -> [ImportedKind] {
+        guard let context = modelContext else { return [] }
+        let plausible = SampleQuality.plausible.rawValue
+        return SampleKind.allCases.compactMap { kind in
+            let raw = kind.rawValue
+            var descriptor = FetchDescriptor<StoredSample>(
+                predicate: #Predicate { $0.deviceID == deviceID && $0.kindRaw == raw && $0.qualityRaw == plausible },
+                sortBy: [SortDescriptor(\.start, order: .reverse)])
+            let count = (try? context.fetchCount(descriptor)) ?? 0
+            guard count > 0 else { return nil }
+            descriptor.fetchLimit = 1
+            return ImportedKind(kind: kind, count: count, latest: (try? context.fetch(descriptor))?.first?.start)
         }
     }
 
@@ -119,10 +188,12 @@ final class SourcesStore {
             let plan = try SampleStore(context: context).ingest(batch, deviceID: HealthKitAdapter.deviceID,
                                                                 profileID: ownerProfileID)
             change(id) {
-                // Health never says whether reading was denied; an empty first import may mean either.
+                // Health never says whether reading was denied; an empty import may mean either. Stages rise
+                // only with evidence, so without any data the source stays "kompatibel" and the screen asks
+                // the user to check the permissions (`syncedWithoutData`).
                 $0.reach(.compatible)
                 if !batch.observations.isEmpty { $0.reach(.dataAccess) }
-                $0.reach(.synced)
+                if $0.stage >= .dataAccess { $0.reach(.synced) }
                 $0.syncCursor = batch.nextCursor
                 $0.lastSuccessfulSync = .now
                 if let latest = batch.observations.map(\.start).max() { $0.lastSampleAt = max(latest, $0.lastSampleAt ?? latest) }

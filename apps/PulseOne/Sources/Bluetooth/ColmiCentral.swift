@@ -105,6 +105,16 @@ final class ColmiCentral: NSObject {
         connect(id)
     }
 
+    /// Connects a known ring by its identifier (from the device list), creating the manager if needed.
+    func connectKnown(_ id: UUID) {
+        guard let manager, manager.state == .poweredOn else {
+            pendingAction = .reconnect(id)
+            makeManager()
+            return
+        }
+        connect(id)
+    }
+
     func disconnect() {
         userRequestedDisconnect = true
         reconnectTask?.cancel()
