@@ -12,6 +12,8 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 | R03 finden / identifizieren | **Auf iPhone getestet** | R03_9903, Build 4 |
 | Verbinden, Status, Abbruch, Wiederverbinden | Implementiert | kein echtes Gerät getestet |
 | Akku, Firmware lesen | **Auf iPhone getestet** | 100 %, RY03_3.00.21_241028 |
+| Messzustände + BLE-Diagnose-Export (PR #9) | Gebaut (CI) + Simulator | Screenshot `failed`; iPhone-Mitschnitt offen |
+| Ringuhr Ortszeit, Akku-Meldung 0x73 | Implementiert | OPEN-SOURCE-REVIEW §2.2 |
 | Live-Puls | **Auf iPhone fehlgeschlagen** | kein Wert, 4 unbekannte Antworten; Analyse SANIERUNG-4.0.md §4 |
 | Werte mit Zeit + Herkunft speichern (SwiftData) | Implementiert | |
 | Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |

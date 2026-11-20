@@ -7,7 +7,9 @@ import Foundation
 /// until a real ring answered (see docs/colmi-protokoll.md).
 ///
 /// Every packet is 16 bytes: `[command, 14 bytes payload, checksum]`,
-/// checksum = sum of bytes 0...14 & 0xFF. The ring clock runs in UTC.
+/// checksum = sum of bytes 0...14 & 0xFF. The ring clock runs in local wall-clock time
+/// (Gadgetbridge, anikbharadwaj129/Colmi, reuhenbhalod/DayBreak, stansz/smart-ring; see
+/// docs/pulse-one-coordination/OPEN-SOURCE-REVIEW.md §2.2).
 public enum ColmiProtocol {
     public static let uartService = "6E40FFF0-B5A3-F393-E0A9-E50E24DCCA9E"
     /// Phone → ring (write without response).
@@ -28,6 +30,8 @@ public enum ColmiProtocol {
         case steps = 67
         case realTimeStart = 105
         case realTimeStop = 106
+        /// Unsolicited status from the ring; subtype 0x0C carries battery (anikbharadwaj129/Colmi, unverified on the R03).
+        case statusPush = 115
     }
 
     /// Reading types for real-time measurements.
@@ -76,10 +80,10 @@ public enum ColmiProtocol {
         (try? makePacket(.battery)) ?? []
     }
 
-    /// Sets the ring clock to `date` in UTC. Language byte 1 = English.
-    public static func setTimeRequest(_ date: Date) throws -> [UInt8] {
+    /// Sets the ring clock to the local wall-clock time of `date`. Language byte 1 = English.
+    public static func setTimeRequest(_ date: Date, timeZone: TimeZone = .current) throws -> [UInt8] {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        calendar.timeZone = timeZone
         let c = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
         guard let year = c.year, year >= 2000, year < 2100,
               let month = c.month, let day = c.day,
@@ -152,7 +156,9 @@ public enum ColmiProtocol {
             return .setTimeAck
         case .readHeartRateLog:
             return .heartRateLog(packet)
-        case .heartRateLogSettings, .steps, .realTimeStop:
+        case .statusPush where packet[1] == 0x0C:
+            return .battery(Battery(level: Int(packet[2]), charging: packet[3] == 1))
+        case .heartRateLogSettings, .steps, .realTimeStop, .statusPush:
             return .unknown(hex: hex(packet))
         }
     }
