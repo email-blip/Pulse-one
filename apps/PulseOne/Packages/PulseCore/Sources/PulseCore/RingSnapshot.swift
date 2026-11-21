@@ -44,6 +44,12 @@ public struct RingSnapshot: Equatable, Sendable {
     public var lastError: String?
     /// Name of the ring connected last time, for one-tap reconnect.
     public var rememberedRing: String?
+    /// What this ring can measure on its own, by evidence (model independent).
+    public var features = RingFeatureSupport(model: nil)
+    /// Settings the ring reported for automatic measurements.
+    public var ringSettings: [RingFeature: RingSettingReport] = [:]
+    /// Fetching the ring's stored history.
+    public var historySync: HistorySyncState = .idle
 
     public init() {}
 
@@ -61,5 +67,36 @@ public struct RingSnapshot: Equatable, Sendable {
 
     public mutating func logUnknown(_ hex: String) {
         if unknownPackets.count < 50 { unknownPackets.append(hex) }
+    }
+}
+
+
+/// Progress of reading the ring's stored history, as the UI shows it.
+public enum HistorySyncState: Equatable, Sendable {
+    case idle
+    case running(step: String, remaining: Int)
+    case finished(summary: String, at: Date)
+    case interrupted(summary: String, at: Date)
+
+    public var isRunning: Bool {
+        if case .running = self { return true }
+        return false
+    }
+
+    public var title: String {
+        switch self {
+        case .idle: "Noch nicht abgerufen"
+        case .running(let step, _): "Wird abgerufen: \(step)"
+        case .finished(_, let at): "Abgerufen \(at.formatted(date: .abbreviated, time: .shortened))"
+        case .interrupted(_, let at): "Unterbrochen \(at.formatted(date: .abbreviated, time: .shortened))"
+        }
+    }
+
+    public var detail: String? {
+        switch self {
+        case .idle: nil
+        case .running(_, let remaining): remaining == 1 ? "noch 1 Schritt" : "noch \(remaining) Schritte"
+        case .finished(let summary, _), .interrupted(let summary, _): summary
+        }
     }
 }

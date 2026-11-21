@@ -6,9 +6,10 @@ extension SampleKind {
     public var displayUnit: String {
         switch self {
         case .heartRate, .restingHeartRate: "bpm"
-        case .heartRateVariability: "ms"
+        case .heartRateVariability, .ringHRV: "ms"
         case .oxygenSaturation, .deviceBattery: "%"
         case .skinTemperature, .bodyTemperature, .skinTemperatureDeviation: "°C"
+        case .ringStress: "von 100"
         case .steps: "Schritte"
         case .activeEnergy, .basalEnergy: "kcal"
         case .distance: "km"
@@ -47,9 +48,10 @@ extension SampleKind {
         switch self {
         case .heartRate: "heart.fill"
         case .restingHeartRate: "heart"
-        case .heartRateVariability: "waveform.path.ecg"
+        case .heartRateVariability, .ringHRV: "waveform.path.ecg"
         case .oxygenSaturation: "lungs"
         case .skinTemperature, .skinTemperatureDeviation, .bodyTemperature: "thermometer.medium"
+        case .ringStress: "gauge.with.dots.needle.33percent"
         case .steps: "figure.walk"
         case .activeEnergy, .basalEnergy: "flame"
         case .distance: "point.topleft.down.to.point.bottomright.curvepath"

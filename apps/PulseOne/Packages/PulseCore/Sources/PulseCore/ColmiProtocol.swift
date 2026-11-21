@@ -25,11 +25,27 @@ public enum ColmiProtocol {
     public enum Command: UInt8, Sendable {
         case setTime = 1
         case battery = 3
+        /// Gadgetbridge `CMD_POWER_OFF`.
+        case powerOff = 8
         case readHeartRateLog = 21
+        /// Gadgetbridge `CMD_AUTO_HR_PREF`: automatic heart-rate interval on the ring.
         case heartRateLogSettings = 22
+        /// Gadgetbridge `CMD_AUTO_SPO2_PREF`: all-day SpO₂ on/off.
+        case autoSpO2Preference = 44
         /// Sent by the ring after connect; Gadgetbridge `CMD_PACKET_SIZE`, logged only.
         case packetSize = 47
+        /// Gadgetbridge `CMD_AUTO_STRESS_PREF`: all-day stress on/off.
+        case autoStressPreference = 54
+        /// Gadgetbridge `CMD_SYNC_STRESS`: stress values of today, every 30 minutes.
+        case readStressLog = 55
+        /// Gadgetbridge `CMD_AUTO_HRV_PREF`: all-day HRV on/off.
+        case autoHRVPreference = 56
+        /// Gadgetbridge `CMD_SYNC_HRV`: HRV values of one day, every 30 minutes.
+        case readHRVLog = 57
+        /// Gadgetbridge `CMD_SYNC_ACTIVITY` / colmi_r02_client `steps.py`: steps per 15 minutes.
         case steps = 67
+        /// Gadgetbridge `CMD_FIND_DEVICE`: the ring blinks.
+        case findDevice = 80
         case realTimeStart = 105
         case realTimeStop = 106
         /// Unsolicited status from the ring; subtype 0x0C carries battery (anikbharadwaj129/Colmi, unverified on the R03).
@@ -175,7 +191,12 @@ public enum ColmiProtocol {
         case realTimeStopAck
         /// Packet size the ring announces (Gadgetbridge `CMD_PACKET_SIZE`); informational.
         case packetSize(Int)
-        case heartRateLog([UInt8])
+        /// One packet of a stored history (heart rate, stress, HRV, steps); see `ColmiHistory`.
+        case history(ColmiHistory.Log, [UInt8])
+        /// A measuring setting the ring reported (Gadgetbridge `ColmiR0xPacketHandler.*Settings`).
+        case setting(RingSettingReport)
+        /// The ring confirmed writing a setting.
+        case settingWriteAck(Command)
         case unknown(hex: String)
     }
 
@@ -193,14 +214,30 @@ public enum ColmiProtocol {
         case .setTime:
             return .setTimeAck
         case .readHeartRateLog:
-            return .heartRateLog(packet)
+            return .history(.heartRate, packet)
+        case .readStressLog:
+            return .history(.stress, packet)
+        case .readHRVLog:
+            return .history(.hrv, packet)
+        case .steps:
+            return .history(.activity, packet)
+        case .heartRateLogSettings:
+            // Gadgetbridge ignores the empty answer to a write; a read carries enabled + minutes.
+            if packet[1] == RingPreference.write { return .settingWriteAck(command) }
+            return .setting(RingSettingReport(feature: .heartRate, enabled: packet[2] == 1, intervalMinutes: Int(packet[3])))
+        case .autoSpO2Preference, .autoStressPreference, .autoHRVPreference:
+            // Gadgetbridge reads byte 2 as on/off for both read and write answers.
+            guard let feature = RingSettingReport.feature(for: command) else { return .unknown(hex: hex(packet)) }
+            return .setting(RingSettingReport(feature: feature, enabled: packet[2] == 1, intervalMinutes: nil))
         case .statusPush where packet[1] == 0x0C:
             return .battery(Battery(level: Int(packet[2]), charging: packet[3] == 1))
         case .realTimeStop:
             return .realTimeStopAck
         case .packetSize:
             return .packetSize(Int(packet[1]))
-        case .heartRateLogSettings, .steps, .statusPush:
+        case .findDevice, .powerOff:
+            return .settingWriteAck(command)
+        case .statusPush:
             return .unknown(hex: hex(packet))
         }
     }

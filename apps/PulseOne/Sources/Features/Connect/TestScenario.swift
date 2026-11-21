@@ -30,6 +30,15 @@ enum TestScenario {
             s.capabilities.raise(.heartRate, to: .discovered)
             s.rememberedRing = "R03_1A2B"
             s.connection = .ready
+            if name == "connected" {
+                // Test view only: how the ring card looks after a history fetch.
+                s.features = RingFeatureSupport(model: r03)
+                for feature in [RingFeature.heartRate, .hrv, .steps, .sleep, .spo2] { s.features.markAnswered(feature) }
+                s.features.markSilent(.stress)
+                s.ringSettings[.heartRate] = RingSettingReport(feature: .heartRate, enabled: true, intervalMinutes: 5)
+                s.ringSettings[.hrv] = RingSettingReport(feature: .hrv, enabled: true, intervalMinutes: nil)
+                s.historySync = .finished(summary: "Testansicht: Puls 288 · HRV 48 · Schritte 96", at: fixedTime)
+            }
             if name == "live" || name == "heart" {
                 s.measurement = .receiving(value: 64, at: fixedTime, since: fixedTime.addingTimeInterval(-6))
                 s.liveHeartRate = 64
@@ -110,7 +119,7 @@ enum TestScenario {
             let wave = sin(Double(offset) * 0.7)
             let hour = { (h: Double) in day.addingTimeInterval(h * 3600) }
             add(.restingHeartRate, 58 + 3 * wave, at: hour(6), source: .appleHealth)
-            add(.heartRateVariability, 46 + 7 * cos(Double(offset) * 0.5), at: hour(6.5), source: .colmiRing)
+            add(.ringHRV, 46 + 7 * cos(Double(offset) * 0.5), at: hour(6.5), source: .colmiRing)
             add(.oxygenSaturation, 97 + (offset % 3 == 0 ? -1 : 0), at: hour(3), source: .colmiRing)
             add(.sleepDuration, (7 + 0.6 * wave) * 3600, at: hour(-1), duration: (7 + 0.6 * wave) * 3600, source: .appleHealth)
             for (h, steps) in [(9.0, 1800.0), (12.0, 2600.0), (15.0, 1900.0 + 900 * wave), (18.0, 2200.0)] {

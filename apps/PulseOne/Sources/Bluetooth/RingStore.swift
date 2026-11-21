@@ -16,11 +16,19 @@ final class RingStore {
     var showAllDevices = false
 
     @ObservationIgnored var onMeasurement: (@MainActor (VitalReading) -> Void)?
+    /// Receives values read from the ring's stored history (already normalised observations).
+    @ObservationIgnored var onHistory: (@MainActor ([RawObservation], String) -> Void)?
+    /// How often the ring measures on its own; applied on every connect.
+    private(set) var measurementProfile: RingMeasurementProfile = RingStore.savedProfile()
+    private static let profileKey = "ring.measurementProfile"
+    /// When the ring's stored history was last fetched completely (nil in test scenarios).
+    private(set) var lastHistorySync: Date?
     @ObservationIgnored private var central: ColmiCentral?
 
     private init(snapshot: RingSnapshot, isTestScenario: Bool) {
         self.snapshot = snapshot
         self.isTestScenario = isTestScenario
+        self.lastHistorySync = isTestScenario ? nil : UserDefaults.standard.object(forKey: ColmiCentral.lastSyncKey) as? Date
     }
 
     static func live() -> RingStore {
@@ -69,6 +77,37 @@ final class RingStore {
     func startHeartRate(mode: ColmiProtocol.HeartRateStartMode = .realTime) { central?.startHeartRate(mode: mode) }
     func stopHeartRate() { central?.stopHeartRate() }
     func refreshBattery() { central?.refreshBattery() }
+
+    func setMeasurementProfile(_ profile: RingMeasurementProfile) {
+        measurementProfile = profile
+        guard !isTestScenario else { return }
+        UserDefaults.standard.set(profile.rawValue, forKey: Self.profileKey)
+        central?.applyProfile(profile)
+    }
+
+    func syncHistoryNow() { central?.syncHistory(force: true) }
+    /// Gadgetbridge "find device": the ring blinks.
+    func findRing() { central?.findRing() }
+    /// Switches the ring off until it is charged again.
+    func powerOff() { central?.powerOff() }
+
+    func noteHistorySynced(at date: Date) { lastHistorySync = date }
+
+    /// Hint from day 4 without a history fetch; the ring keeps about 7 days.
+    var syncReminder: String? {
+        guard snapshot.rememberedRing != nil || snapshot.deviceName != nil else { return nil }
+        return RingSyncSchedule().reminder(lastSync: lastHistorySync, now: .now, calendar: .current)
+    }
+    /// Foreground hook: fetches the history at most every few hours (`RingSyncSchedule`).
+    func syncIfDue() { central?.syncIfDue() }
+
+    func recordHistory(_ observations: [RawObservation], deviceIdentifier: String) {
+        onHistory?(observations, deviceIdentifier)
+    }
+
+    private static func savedProfile() -> RingMeasurementProfile {
+        UserDefaults.standard.string(forKey: profileKey).flatMap(RingMeasurementProfile.init(rawValue:)) ?? .standard
+    }
 
     func record(_ reading: VitalReading) {
         onMeasurement?(reading)
