@@ -48,7 +48,7 @@ final class AccessibilityTests: XCTestCase {
         // Checked on the screenshot matrix instead (DECISIONS.md).
         let barFrames = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex)
             .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -56) }
-        try app.performAccessibilityAudit { issue in
+        let handler: (XCUIAccessibilityAuditIssue) throws -> Bool = { issue in
             let element = issue.element
             print("AUDIT[\(scenario)] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-") type=\(element?.elementType.rawValue ?? 0) frame=\(element?.frame ?? .zero)")
             if issue.auditType == .contrast, let frame = element?.frame,
@@ -78,6 +78,13 @@ final class AccessibilityTests: XCTestCase {
             // fully at accessibility sizes. Clipping is checked instead on the xxxl screenshot matrix
             // (studio-visual-qa), see DECISIONS.md.
             return issue.auditType == .textClipped
+        }
+        // A slow runner sometimes stops the audit with "failed to complete in time" (Code -56, PR #34).
+        // That says nothing about the screen, so the audit runs once more; any other error still fails.
+        do {
+            try app.performAccessibilityAudit(for: .all, handler)
+        } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
+            try app.performAccessibilityAudit(for: .all, handler)
         }
     }
 }
