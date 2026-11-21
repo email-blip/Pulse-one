@@ -40,8 +40,11 @@ final class CompanionTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["companion.headline"].waitForExistence(timeout: 15))
         // Let the launch transition finish (see AccessibilityTests).
         Thread.sleep(forTimeInterval: 3)
-        let barFrames = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex)
-            .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -32) }
+        // iOS 26 draws a scroll-edge blur well above the floating tab bar; the companion screen is long, so its
+        // section titles rest in that zone at launch (run 64: "Deine Nacht", fully legible in the screenshot).
+        let navFrames = app.navigationBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -32) }
+        let tabFrames = app.tabBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -72) }
+        let barFrames = navFrames + tabFrames
         try app.performAccessibilityAudit { issue in
             let element = issue.element
             print("AUDIT[companion] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-")")
