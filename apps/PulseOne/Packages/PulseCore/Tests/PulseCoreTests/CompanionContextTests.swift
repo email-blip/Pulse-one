@@ -354,6 +354,17 @@ struct CompanionDayRhythmTests {
         #expect(nudges.last?.id == "companion.bedtime.20261121")
     }
 
+    @Test func capCountsTheWholeDaySoLaterRefreshesAddNothing() {
+        let wake = ctxDate(21, 6, 30)
+        let morning = DayRhythmPlanner.plan(wake: wake, dayType: .recovered, night: ctxNight(wake: wake), weather: nil,
+                                            preferences: preferences(max: 3), now: wake, calendar: ctxCalendar)
+        let evening = DayRhythmPlanner.plan(wake: wake, dayType: .recovered, night: ctxNight(wake: wake), weather: nil,
+                                            preferences: preferences(max: 3), now: ctxDate(21, 18), calendar: ctxCalendar)
+        // The 17:30 sport window has passed; it is not replaced by a lower-priority nudge.
+        #expect(evening.map(\.kind) == [.windDown, .bedtime])
+        #expect(Set(evening.map(\.id)).isSubset(of: Set(morning.map(\.id))))
+    }
+
     @Test func shortNightGetsNapAndEarlierBedtime() throws {
         let wake = ctxDate(21, 6, 30)
         let nudges = DayRhythmPlanner.plan(wake: wake, dayType: .shortNight, night: ctxNight(wake: wake), weather: nil,

@@ -56,9 +56,20 @@ public enum CompanionConference {
     /// Headings the synthesis prompt asks for, in order.
     public static let sectionTitles = ["Beobachtungen", CompanionPrompts.disagreementHeading, "Vorschläge", "Offene Frage"]
 
-    /// Analyse consent categories the fact list touches (heart, sleep, oxygen at night). The round only
-    /// runs when all of them are switched on in the Analyse settings.
-    public static let requiredConsent: [ConsentCategory] = [.heart, .sleep, .spo2]
+    /// Consent categories the round cannot do without (heart and sleep are the core of the fact list).
+    public static let requiredConsent: [ConsentCategory] = [.heart, .sleep]
+    /// Every health category the fact list can touch; optional ones are only included when switched on.
+    public static let possibleConsent: [ConsentCategory] = [.heart, .sleep, .spo2, .body, .activity]
+
+    /// Categories whose values `CompanionPrompts.minimalFacts(_:consent:)` includes with this consent.
+    public static func sentCategories(consent: Set<ConsentCategory>) -> [ConsentCategory] {
+        possibleConsent.filter { consent.contains($0) }
+    }
+
+    /// The round needs a night to talk about: sleep duration or a night resting pulse.
+    public static func hasNightData(_ day: CompanionDay) -> Bool {
+        day.night.sleepDuration != nil || day.night.nightRestingHeartRate != nil
+    }
 
     /// Effort per request (spec: short texts need little depth; the synthesis a bit more).
     public static let roleEffort = "low"
@@ -211,8 +222,9 @@ public enum CompanionConference {
 
 extension SendPreview {
     /// Preview of one expert round: the fact list is the payload; the estimate covers all five requests.
-    public static func conference(facts: String, model: ClaudeModel, sendBudget: SendBudget) -> SendPreview {
-        let sent = CompanionConference.requiredConsent
+    public static func conference(facts: String, consent: Set<ConsentCategory>, model: ClaudeModel,
+                                  sendBudget: SendBudget) -> SendPreview {
+        let sent = CompanionConference.sentCategories(consent: consent)
         return SendPreview(title: CompanionPrompts.conferenceTitle, periodText: "heute",
                            categoriesSent: sent,
                            categoriesWithheld: ConsentCategory.allCases.filter { !sent.contains($0) },

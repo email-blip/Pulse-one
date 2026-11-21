@@ -41,11 +41,14 @@ final class ConferenceRunner {
     /// Builds the preview for today's companion day; nil without a day (no morning briefing yet).
     func prepare(day: CompanionDay?, modelContext: ModelContext) -> ConferencePreparation? {
         guard let day else { return nil }
-        let facts = CompanionPrompts.minimalFacts(day)
-        let preview = SendPreview.conference(facts: facts, model: engine.settings.model,
+        let consent = engine.settings.consent
+        let facts = CompanionPrompts.minimalFacts(day, consent: consent)
+        let preview = SendPreview.conference(facts: facts, consent: consent, model: engine.settings.model,
                                              sendBudget: engine.sendBudget(in: modelContext))
+        let noNight = CompanionConference.hasNightData(day)
+            ? nil : "Für die Expertenrunde fehlen noch Nachtwerte. Trag den Ring über Nacht, dann geht es morgen früh."
         return ConferencePreparation(facts: facts, preview: preview,
-                                     blocker: blocker(for: preview, modelContext: modelContext),
+                                     blocker: noNight ?? blocker(for: preview, modelContext: modelContext),
                                      spending: engine.spendingBudget(in: modelContext))
     }
 

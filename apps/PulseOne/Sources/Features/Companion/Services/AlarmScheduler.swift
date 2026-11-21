@@ -198,6 +198,20 @@ enum CompanionNotifications {
         return granted ?? false
     }
 
+    /// True when notifications may be shown; asks once when the person has not decided yet.
+    static func ensureAuthorized() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let status = await center.notificationSettings().authorizationStatus
+        switch status {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .notDetermined:
+            return await requestAuthorization()
+        default:
+            return false
+        }
+    }
+
     static func scheduleAlarm(hour: Int, minute: Int, weekdays: [Int]) async throws -> [String] {
         let center = UNUserNotificationCenter.current()
         let targets: [Int?] = weekdays.isEmpty ? [nil] : weekdays.map { Optional($0) }

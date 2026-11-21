@@ -26,7 +26,8 @@ struct CompanionConferenceTests {
     }
 
     @Test func previewCarriesExactFactsAndRemainingSends() {
-        let preview = SendPreview.conference(facts: facts, model: .sonnet, sendBudget: SendBudget(maxSends: 30, used: 28))
+        let preview = SendPreview.conference(facts: facts, consent: [.heart, .sleep, .spo2], model: .sonnet,
+                                             sendBudget: SendBudget(maxSends: 30, used: 28))
         #expect(preview.payload == facts)
         #expect(preview.title == "Expertenrunde")
         #expect(preview.sendsRemaining == 2)
@@ -35,11 +36,14 @@ struct CompanionConferenceTests {
         #expect(preview.estimate == CompanionConference.estimate(facts: facts, model: .sonnet))
         #expect(preview.categoriesSent == [.heart, .sleep, .spo2])
         #expect(!preview.categoriesWithheld.contains(.heart))
+        #expect(preview.categoriesWithheld.contains(.body))
+        #expect(preview.categoriesWithheld.contains(.activity))
     }
 
     @Test func missingConsentIsReportedInOrder() {
         #expect(CompanionConference.missingConsent(in: ConsentCategory.defaultConsent).isEmpty)
-        #expect(CompanionConference.missingConsent(in: [.heart]) == [.sleep, .spo2])
+        #expect(CompanionConference.missingConsent(in: [.heart]) == [.sleep])
+        #expect(CompanionConference.missingConsent(in: [.spo2]) == [.heart, .sleep])
     }
 
     @Test(arguments: [
