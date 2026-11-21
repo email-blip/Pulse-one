@@ -26,6 +26,9 @@ enum TodayModel {
         let today = calendar.startOfDay(for: now)
         let daily = reader.daily(kind, days: PersonalBaseline.defaultWindowDays + 7, profileID: profileID,
                                  calendar: calendar, now: now)
+        if kind == .restingHeartRate, daily.isEmpty {
+            return nightRestingMetric(reader: reader, profileID: profileID, now: now, calendar: calendar)
+        }
         guard let last = daily.last,
               let age = calendar.dateComponents([.day], from: last.day, to: today).day, age <= 1 else { return nil }
         let sources = Set(last.origins.map(\.source.title)).sorted().joined(separator: ", ")
@@ -64,6 +67,30 @@ enum TodayModel {
         if last.isProvisional { parts.append("vorläufig") }
         return TodayMetric(kind: kind, value: value, unit: kind.displayUnit, detail: parts.joined(separator: " · "),
                            bandText: band)
+    }
+
+    /// Ring-only users have no daily resting pulse from a source. TODAY then shows the night resting pulse
+    /// from heart rate, the same method and number as Coach and Begleiter (`NightRestingSeries`).
+    static func nightRestingMetric(reader: SampleReader, profileID: UUID?, now: Date, calendar: Calendar) -> TodayMetric? {
+        let days = PersonalBaseline.defaultWindowDays + 7
+        let nights = NightRestingSeries.daily(
+            reader.samples([.heartRate], since: NightRestingSeries.readStart(days: days, now: now, calendar: calendar),
+                           profileID: profileID),
+            days: days, now: now, calendar: calendar)
+        let today = calendar.startOfDay(for: now)
+        guard let last = nights.last,
+              let age = calendar.dateComponents([.day], from: last.day, to: today).day, age <= 1 else { return nil }
+        let kind = SampleKind.restingHeartRate
+        let status = PersonalBaseline.status(of: nights, kind: kind, before: last.day, calendar: calendar)
+        let band: String?
+        if let baseline = status.baseline {
+            band = "\(baseline.position(of: last.value).description) (\(kind.display(baseline.lower))–\(kind.display(baseline.upper)) \(kind.displayUnit))"
+        } else {
+            band = status.summary
+        }
+        let parts = [dayLabel(last.day, today: today, calendar: calendar), "Nachtruhepuls aus dem Ring-Puls"]
+        return TodayMetric(kind: kind, value: kind.display(last.value), unit: kind.displayUnit,
+                           detail: parts.joined(separator: " · "), bandText: band)
     }
 
     static func dayLabel(_ day: Date, today: Date, calendar: Calendar) -> String {

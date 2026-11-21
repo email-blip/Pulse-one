@@ -271,9 +271,11 @@ struct RingHistoryTests {
 
     @Test func ringHRVAndStressStayTheirOwnKinds() throws {
         var hrv = DayLogAccumulator(log: .hrv)
+        hrv.feed(try Self.packet(.readHRVLog, [0, 5]))
         hrv.feed(try Self.packet(.readHRVLog, [1, 0, 40]))
         #expect(Self.mapper.dayLog(hrv, daysAgo: 1).map(\.kind) == [.ringHRV])
         var stress = DayLogAccumulator(log: .stress)
+        stress.feed(try Self.packet(.readStressLog, [0, 5]))
         stress.feed(try Self.packet(.readStressLog, [1, 0, 35]))
         let raws = Self.mapper.dayLog(stress, daysAgo: 0)
         #expect(raws.map(\.kind) == [.ringStress])

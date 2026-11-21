@@ -99,6 +99,10 @@ final class SourcesStore {
         var inserted = 0
         var rejected = 0
         do {
+            let repaired = try store.migrateRingHistoryIDs(deviceID: deviceIdentifier)
+            if !repaired.isEmpty, let device {
+                change(device.id) { $0.log("Ring-Verlauf bereinigt: \(repaired.duplicates.count) doppelte Werte entfernt") }
+            }
             var start = 0
             while start < observations.count {
                 let chunk = Array(observations[start..<min(start + 500, observations.count)])
