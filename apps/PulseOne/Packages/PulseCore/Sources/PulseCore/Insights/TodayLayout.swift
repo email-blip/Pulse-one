@@ -52,6 +52,12 @@ public struct TodayLayout: Codable, Equatable, Sendable {
     /// The ring's stress score is a vendor scale; it appears only when the user switches it on.
     public static let defaultHidden: Set<TodayTile> = [.metric(.ringStress)]
 
+    /// Tiles that are the only way into a module stay visible: the companion tile is the only entry to
+    /// the alarm settings, and an alarm that keeps ringing must stay reachable.
+    public static let alwaysVisible: Set<TodayTile> = [.companion]
+
+    public static func canHide(_ tile: TodayTile) -> Bool { !alwaysVisible.contains(tile) }
+
     public static let standard = TodayLayout(order: defaultOrder, hidden: defaultHidden)
 
     public init(order: [TodayTile], hidden: Set<TodayTile>) {
@@ -63,7 +69,7 @@ public struct TodayLayout: Codable, Equatable, Sendable {
     public func normalized() -> TodayLayout {
         var seen = Set<TodayTile>()
         var order = self.order.filter { Self.defaultOrder.contains($0) && seen.insert($0).inserted }
-        var hidden = self.hidden.intersection(Self.defaultOrder)
+        var hidden = self.hidden.intersection(Self.defaultOrder).subtracting(Self.alwaysVisible)
         for tile in Self.defaultOrder where !seen.contains(tile) {
             order.append(tile)
             if Self.defaultHidden.contains(tile) { hidden.insert(tile) }
@@ -76,7 +82,7 @@ public struct TodayLayout: Codable, Equatable, Sendable {
     public func isVisible(_ tile: TodayTile) -> Bool { !hidden.contains(tile) }
 
     public mutating func setVisible(_ tile: TodayTile, _ visible: Bool) {
-        if visible { hidden.remove(tile) } else { hidden.insert(tile) }
+        if visible || !Self.canHide(tile) { hidden.remove(tile) } else { hidden.insert(tile) }
     }
 
     /// Same semantics as SwiftUI's `onMove`: `destination` is the index before which the items land.

@@ -29,7 +29,7 @@ env:
 jobs:
   build-test-screenshots:
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 75   # 45 was hit on main (run 44906664459) once all modules were in
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
