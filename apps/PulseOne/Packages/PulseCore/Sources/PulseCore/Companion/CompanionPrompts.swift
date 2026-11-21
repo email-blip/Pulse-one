@@ -47,48 +47,61 @@ public enum CompanionPrompts {
 
     /// Compact German fact list for the AI: rounded numbers, band positions, day type, weather line and
     /// quick actions. Contains no first name, no place, no device id and no exact timestamps.
-    public static func minimalFacts(_ day: CompanionDay) -> String {
+    /// Lines are only included for consent categories that are switched on: heart (pulse, HRV, forecast,
+    /// pattern check), sleep, spo2, body (skin temperature) and activity (Körper-Tempo from steps and age).
+    /// Weather and quick actions are not health data and always included.
+    public static func minimalFacts(_ day: CompanionDay,
+                                    consent: Set<ConsentCategory> = Set(ConsentCategory.allCases)) -> String {
         let night = day.night
+        let heart = consent.contains(.heart)
+        let sleep = consent.contains(.sleep)
         var lines: [String] = []
         lines.append("Tagestyp: \(day.dayType.title)")
 
-        if let duration = night.sleepDuration {
-            var line = "Schlafdauer: \(MorningBriefingComposer.shortDuration(duration))"
-            if night.sleepDurationIsEstimated { line += " (geschätzt)" }
-            line += ", \(bandText(night.sleepPosition))"
-            lines.append(line)
-        } else {
-            lines.append("Schlafdauer: keine Daten")
+        if sleep {
+            if let duration = night.sleepDuration {
+                var line = "Schlafdauer: \(MorningBriefingComposer.shortDuration(duration))"
+                if night.sleepDurationIsEstimated { line += " (geschätzt)" }
+                line += ", \(bandText(night.sleepPosition))"
+                lines.append(line)
+            } else {
+                lines.append("Schlafdauer: keine Daten")
+            }
         }
-        if let resting = night.nightRestingHeartRate {
-            lines.append("Nachtruhepuls: \(rounded(resting)) Schläge pro Minute, \(bandText(night.restingHeartRatePosition))")
+        if heart {
+            if let resting = night.nightRestingHeartRate {
+                lines.append("Nachtruhepuls: \(rounded(resting)) Schläge pro Minute, \(bandText(night.restingHeartRatePosition))")
+            }
+            if let lowest = night.lowestHeartRate {
+                lines.append("Tiefster Nachtpuls: \(rounded(lowest)) Schläge pro Minute")
+            }
+            if let hrv = night.hrv {
+                lines.append("HRV (\(hrvMethod(night.hrvKind))): \(rounded(hrv)) ms, \(bandText(night.hrvPosition))")
+            }
         }
-        if let lowest = night.lowestHeartRate {
-            lines.append("Tiefster Nachtpuls: \(rounded(lowest)) Schläge pro Minute")
-        }
-        if let hrv = night.hrv {
-            lines.append("HRV (\(hrvMethod(night.hrvKind))): \(rounded(hrv)) ms, \(bandText(night.hrvPosition))")
-        }
-        if let spo2 = night.spo2Average {
+        if consent.contains(.spo2), let spo2 = night.spo2Average {
             lines.append("Sauerstoffsättigung Nacht (Mittel): \(rounded(spo2)) %")
         }
-        if let morning = night.morningHeartRate {
+        if heart, let morning = night.morningHeartRate {
             lines.append("Puls nach dem Aufwachen: \(rounded(morning)) Schläge pro Minute")
         }
-        lines.append("Muster-Prüfung: Stufe \(day.infection.level.rawValue) von 3"
-                     + (day.infection.usedTemperature ? ", mit Hauttemperatur" : ", ohne Hauttemperatur"))
-        for reason in day.infection.reasons where !reason.isEmpty {
-            lines.append("- \(reason)")
+        // The pattern check may rest on skin temperature; without body consent it is left out entirely.
+        if heart && (consent.contains(.body) || !day.infection.usedTemperature) {
+            lines.append("Muster-Prüfung: Stufe \(day.infection.level.rawValue) von 3"
+                         + (day.infection.usedTemperature ? ", mit Hauttemperatur" : ", ohne Hauttemperatur"))
+            for reason in day.infection.reasons where !reason.isEmpty {
+                lines.append("- \(reason)")
+            }
+            let infectionSentence = MorningBriefingComposer.infectionText(day.infection)
+            lines.append("Muster-Satz: \(infectionSentence)")
         }
-        let infectionSentence = MorningBriefingComposer.infectionText(day.infection)
-        lines.append("Muster-Satz: \(infectionSentence)")
-        if let outcome = day.forecastOutcome {
+        if heart, let outcome = day.forecastOutcome {
             var line = "Prognose für heute: Ruhepuls \(rounded(outcome.forecast.restingHeartRateLow)) bis \(rounded(outcome.forecast.restingHeartRateHigh))"
             if let actual = outcome.actualRestingHeartRate { line += ", gemessen \(rounded(actual))" }
             if let hit = outcome.restingHeartRateHit { line += hit ? ", eingetroffen" : ", nicht eingetroffen" }
             lines.append(line)
         }
-        if let pace = day.bodyPace {
+        if consent.contains(.activity), let pace = day.bodyPace {
             let delta = pace.paceAge - pace.calendarAge
             let direction = delta == 0 ? "etwa wie das Kalenderalter" : (delta > 0 ? "etwa \(delta) Jahre über dem Kalenderalter" : "etwa \(-delta) Jahre unter dem Kalenderalter")
             lines.append("Körper-Tempo (Annäherung, Etikett \(pace.label.rawValue)): \(direction)")

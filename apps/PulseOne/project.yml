@@ -37,6 +37,7 @@ targets:
         NSHealthShareUsageDescription: "PULSE ONE liest ausgewählte Werte aus Apple Health (z. B. Puls, HRV, Schlaf, Schritte), um sie mit deinen Ringdaten auszuwerten. Die Daten bleiben auf diesem iPhone."
         NSHealthUpdateUsageDescription: "Wenn du es in den Ernährungseinstellungen einschaltest, schreibt PULSE ONE deine bestätigten Mahlzeiten (Energie, Eiweiß, Kohlenhydrate, Fett, Ballaststoffe, Zucker) und Wasser in Apple Health. Standard: aus."
         NSCameraUsageDescription: "PULSE ONE nutzt die Kamera nur, um den Barcode eines Lebensmittels zu lesen. Es werden keine Fotos gespeichert oder gesendet."
+        NSAlarmKitUsageDescription: "PULSE ONE weckt dich zur eingestellten Zeit wie ein normaler Wecker, auch im Stumm-Modus."
         NSBluetoothAlwaysUsageDescription: "PULSE ONE verbindet sich per Bluetooth mit deinem Ring, um Puls und Akkustand zu lesen. Die Daten bleiben auf diesem iPhone."
     entitlements:
       path: Sources/PulseOne.entitlements

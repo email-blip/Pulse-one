@@ -89,7 +89,10 @@ struct MockTransport: ClaudeTransport {
         let context = ([firstUser] + firstUser.components(separatedBy: "\n")).lazy
             .compactMap { try? JSONDecoder().decode(HealthAnalysisContext.self, from: Data($0.utf8)) }.first
         let facts = context?.facts ?? []
-        if properties?["differentials"] != nil {
+        if schema == nil {
+            // Plain-text requests (Begleiter "Expertenrunde"): canned role statements and synthesis.
+            text = CompanionConference.mockReply(system: body["system"]?.arrayValue?.first?["text"]?.stringValue ?? "")
+        } else if properties?["differentials"] != nil {
             let turns = body["messages"]?.arrayValue?.count ?? 1
             text = Self.consultation(facts: facts, followUp: turns > 1)
         } else if properties?["summary"] != nil {

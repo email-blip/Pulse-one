@@ -26,6 +26,7 @@ struct TodayCustomizeSheet: View {
                             }
                         }
                         .tint(Palette.bioCyan)
+                        .disabled(!TodayLayout.canHide(tile))
                         .accessibilityIdentifier("customize.\(tile.id)")
                     }
                     .onMove { source, destination in
@@ -72,6 +73,7 @@ struct TodayCustomizeSheet: View {
         case .metric(.ringStress): "Herstellerwert des Rings, ohne Bewertung"
         case .metric(.ringHRV): "vom Ring, getrennt von der HRV aus Apple Health"
         case .appleHealth: "nur sichtbar, solange Apple Health nicht verbunden ist"
+        case .companion: "bleibt sichtbar, weil hier Wecker und Begleiter eingestellt werden"
         default: nil
         }
     }

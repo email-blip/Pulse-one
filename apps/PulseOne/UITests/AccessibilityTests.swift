@@ -69,9 +69,9 @@ final class AccessibilityTests: XCTestCase {
             if issue.auditType == .elementDetection, element == nil, !barFrames.isEmpty {
                 return true
             }
-            // A contrast issue without element or frame cannot be located; it is the same glass effect
-            // (nutrition run on PR #34). Contrast of real elements is still enforced.
-            if issue.auditType == .contrast, element == nil || element?.frame == .zero, !barFrames.isEmpty {
+            // Only on the nutrition screen: a contrast finding without element (frame 0×0) seen once on a slow
+            // runner (PR #32). Scoped to this screen so element-less findings elsewhere still fail.
+            if scenario == "nutrition", issue.auditType == .contrast, element == nil, !barFrames.isEmpty {
                 return true
             }
             // Known false positive: the audit reports one-line captions as clipped although they wrap
