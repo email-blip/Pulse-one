@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class ScreenshotTests: XCTestCase {
     static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices",
-                            "onboarding", "today", "health", "healthDetail", "profile"]
+                            "onboarding", "today", "health", "healthDetail", "profile", "nutrition"]
 
     override func setUp() async throws {
         continueAfterFailure = true   // one broken cell must not hide the others

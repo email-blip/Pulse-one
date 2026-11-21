@@ -12,6 +12,7 @@ final class AccessibilityTests: XCTestCase {
     func testTodayAudit() throws { try audit(scenario: "today") }
     func testHealthAudit() throws { try audit(scenario: "health") }
     func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
+    func testNutritionAudit() throws { try audit(scenario: "nutrition") }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
     private func audit(scenario: String) throws {
