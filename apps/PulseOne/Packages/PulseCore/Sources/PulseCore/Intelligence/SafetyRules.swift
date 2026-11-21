@@ -9,8 +9,18 @@ public enum SafetyVerdict: Equatable, Sendable {
     case reject(rule: String, reason: String)
 }
 
-/// Local, testable rules S1–S6. PULSE ONE is not a medical device: it describes trends and never
-/// diagnoses, estimates disease risk or changes medication.
+/// How far Claude may go. The owner decided on 2026-11-21 that his private app interprets like a
+/// physician: diagnoses, probabilities and treatment options are allowed (`clinical`). `descriptive` is
+/// the earlier trend-only mode, kept as a switch in the settings.
+public enum SafetyMode: String, Codable, Sendable, CaseIterable {
+    case clinical
+    case descriptive
+}
+
+/// Local, testable rules S1–S7. In `descriptive` mode PULSE ONE describes trends only (S1–S4 apply).
+/// In `clinical` mode diagnoses, disease probabilities and causes are allowed; what stays is the
+/// medication note (S3 as a flag), the fixed referral thresholds (S5), the emergency notice (S6) and the
+/// removal of empty disclaimers (S7).
 public enum SafetyRules {
     static let diseaseTerms = [
         "vorhofflimmern", "herzinsuffizienz", "herzschwäche", "bluthochdruck", "hypertonie", "hypotonie", "diabetes",
@@ -44,8 +54,31 @@ public enum SafetyRules {
         "lag an", "ursache", "bewirkt", "sorgt für", "sorgte für",
     ]
 
+    /// S7: disclaimers the owner does not want to read (he knows the app is not a physician).
+    static let boilerplate = [
+        "ich bin kein arzt", "ich bin keine ärztin", "ich bin kein mediziner", "kein ersatz für", "ersetzt keine",
+        "ersetzt nicht den", "ersetzt nicht die", "kann keine diagnose", "keine diagnose stellen", "kein medizinprodukt",
+        "keine medizinische beratung", "nicht als medizinische", "nur zu informationszwecken",
+    ]
+
+    public static func isBoilerplate(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        return boilerplate.contains { lower.contains($0) }
+    }
+
+    /// Drops sentences that are only a disclaimer (S7); everything else stays word for word.
+    public static func removingBoilerplate(_ text: String) -> String {
+        var kept: [String] = []
+        text.enumerateSubstrings(in: text.startIndex..., options: [.bySentences, .substringNotRequired]) { _, range, enclosing, _ in
+            let sentence = String(text[enclosing])
+            if !isBoilerplate(String(text[range])) { kept.append(sentence) }
+        }
+        return kept.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Checks one sentence. Rejections come before flags.
-    public static func check(_ text: String) -> SafetyVerdict {
+    public static func check(_ text: String, mode: SafetyMode = .clinical) -> SafetyVerdict {
+        if mode == .clinical { return checkClinical(text) }
         let lower = " " + text.lowercased() + " "
         let mentionsDisease = diseaseTerms.contains { lower.contains($0) }
         if lower.contains("icd") || lower.contains("diagnose:") {
@@ -69,7 +102,30 @@ public enum SafetyRules {
         return .allow
     }
 
-    /// S6: acute symptoms in a user question never go to Claude.
+    /// Clinical S3 only notes changes to prescribed medication; vitamins or magnesium need no note.
+    static let prescriptionTerms = [
+        "medikament", "tablette", "betablocker", "blutdruckmittel", "dosis", "dosierung", "insulin", "antibiotik",
+        "statin", "arznei", "präparat", "pille", "antidepressiv", "schilddrüsenhormon", "blutverdünn",
+    ]
+
+    static let changeVerbs = [
+        "absetzen", "abzusetzen", "reduzieren", "erhöhen", "weglassen", "verringern", "umdosieren", "umstellen",
+        "pausieren", "ersetzen", "halbieren", "verdoppeln",
+    ]
+
+    static func checkClinical(_ text: String) -> SafetyVerdict {
+        let lower = " " + text.lowercased() + " "
+        if isBoilerplate(text) {
+            return .reject(rule: "S7", reason: "Floskel ohne Inhalt")
+        }
+        if prescriptionTerms.contains(where: { lower.contains($0) }), changeVerbs.contains(where: { lower.contains($0) }) {
+            return .flag(rule: "S3", reason: "Verordnete Medikamente nur nach Rücksprache mit deiner Ärztin oder deinem Arzt umstellen.")
+        }
+        return .allow
+    }
+
+    /// S6: acute symptoms. A plain question is answered locally and not sent; in the consultation the
+    /// emergency notice is shown first and Claude must open with the urgent advice.
     static let emergencyTerms = [
         "brustschmerz", "schmerzen in der brust", "druck auf der brust", "engegefühl in der brust", "atemnot",
         "bekomme keine luft", "kriege keine luft", "lähmung", "gelähmt", "bewusstlos", "ohnmächtig", "ohnmacht",
@@ -84,6 +140,12 @@ public enum SafetyRules {
     public static let emergencyReply = "Bei akuten Beschwerden wie Brustschmerz, Atemnot, Lähmung oder Bewusstlosigkeit "
         + "bitte sofort den Notruf 112 wählen. In seelischen Krisen hilft die Telefonseelsorge rund um die Uhr unter "
         + "0800 111 0 111. PULSE ONE kann in dieser Lage nicht helfen und schickt nichts an Claude."
+
+    /// Shown above the consultation when the person describes acute symptoms; the message still goes to
+    /// Claude, which must open with the urgent advice.
+    public static let consultationEmergencyNotice = "Was du beschreibst, kann ein Warnzeichen sein. Bei akutem "
+        + "Brustschmerz, Atemnot, Lähmung, Sprachstörung oder Bewusstlosigkeit sofort den Notruf 112 wählen. In seelischen "
+        + "Krisen hilft die Telefonseelsorge rund um die Uhr unter 0800 111 0 111."
 
     /// S5: fixed thresholds that force at least a mention, whatever Claude wrote. Uses period facts with
     /// at least 7 days of data, so a single odd day never triggers it.

@@ -12,6 +12,7 @@ struct IntelligenceSettingsView: View {
     @State private var status: String?
     @State private var testing = false
     @State private var usage = IntelligenceEngine.MonthUsage(spentUSD: 0, sends: 0)
+    @State private var memoryStatus: String?
 
     private var services: IntelligenceServices { engine.services }
 
@@ -41,6 +42,24 @@ struct IntelligenceSettingsView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityAddTraits(settings.modelID == model.id ? .isSelected : [])
+                        }
+                    }
+                    Card {
+                        SectionHeader(title: "Ärztliche Einschätzung")
+                        Toggle(isOn: $settings.clinicalMode) {
+                            Text("Claude deutet wie ein Ärzteteam")
+                                .font(Typography.body).foregroundStyle(Palette.ink).wraps()
+                        }
+                        .tint(Palette.bioCyan)
+                        .accessibilityIdentifier("intelligence.clinicalMode")
+                        Text(settings.clinicalMode
+                             ? "Mögliche Diagnosen mit Wahrscheinlichkeit, Abklärung, Training, Reha und Behandlung, ohne Floskeln. Bei Warnzeichen rät die App deutlich zur Abklärung."
+                             : "Aus: Claude beschreibt nur Verläufe, ohne Diagnosen und ohne Aussagen zu Behandlung.")
+                            .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+                        Button("Gedächtnis der Sprechstunde löschen", role: .destructive) { forgetConsultations() }
+                            .buttonStyle(SecondaryButtonStyle())
+                        if let memoryStatus {
+                            Text(memoryStatus).font(Typography.caption).foregroundStyle(Palette.ink).wraps()
                         }
                     }
                     Card {
@@ -129,6 +148,14 @@ struct IntelligenceSettingsView: View {
             Text("Der Schlüssel liegt nur im Schlüsselbund dieses iPhones, wird nicht mit iCloud abgeglichen und nie angezeigt oder exportiert. Die Kosten rechnet Anthropic mit deinem Konto ab.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
         }
+    }
+
+    /// Deletes all consultations (conversation and memory) from this iPhone.
+    private func forgetConsultations() {
+        let all = (try? modelContext.fetch(FetchDescriptor<StoredConsultation>())) ?? []
+        for consultation in all { modelContext.delete(consultation) }
+        try? modelContext.save()
+        memoryStatus = all.isEmpty ? "Es gibt noch keine Sprechstunde." : "Alle Sprechstunden wurden von diesem iPhone gelöscht."
     }
 
     private func save() {
