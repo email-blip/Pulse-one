@@ -13,7 +13,7 @@ final class IntelligenceEngine {
     private(set) var activity: String?
 
     /// History reaches back far enough for a monthly report, its 28-day band and 90-day correlations.
-    static let historyDays = 125
+    nonisolated static let historyDays = 125
 
     init(services: IntelligenceServices = .shared) {
         self.services = services
@@ -283,21 +283,21 @@ final class IntelligenceEngine {
 
     // MARK: Plumbing
 
-    static let localModelID = "local"
+    nonisolated static let localModelID = "local"
 
     private func call(_ body: JSONValue) async throws -> ClaudeReply {
         guard let key = services.secrets.read(), !key.isEmpty else { throw AnthropicError.missingKey }
         return try await services.transport.send(body, apiKey: key)
     }
 
-    static func json<T: Encodable>(_ value: T) -> String {
+    nonisolated static func json<T: Encodable>(_ value: T) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         guard let data = try? encoder.encode(value) else { return "" }
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func dollars(_ value: Double) -> String {
+    nonisolated static func dollars(_ value: Double) -> String {
         let f = NumberFormatter()
         f.locale = Locale(identifier: "de_DE")
         f.minimumFractionDigits = 2
@@ -305,7 +305,7 @@ final class IntelligenceEngine {
         return (f.string(from: NSNumber(value: value)) ?? "\(value)") + " $"
     }
 
-    static func message(for error: Error) -> String {
+    nonisolated static func message(for error: Error) -> String {
         if let error = error as? AnthropicError { return error.message }
         if let error = error as? ValidationError { return error.message }
         if let error = error as? PlanError, case .rejected(let reason) = error { return reason }
