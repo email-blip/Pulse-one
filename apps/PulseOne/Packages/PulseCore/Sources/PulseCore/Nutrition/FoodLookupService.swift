@@ -17,6 +17,11 @@ public actor FoodLookupService {
         public var items: [FoodItem]
         /// Sources that could not answer, with a German reason for the screen.
         public var problems: [String]
+
+        public init(items: [FoodItem], problems: [String]) {
+            self.items = items
+            self.problems = problems
+        }
     }
 
     private let transport: Transport
