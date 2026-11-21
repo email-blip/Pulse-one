@@ -25,6 +25,8 @@ public enum ColmiProtocol {
     public enum Command: UInt8, Sendable {
         case setTime = 1
         case battery = 3
+        /// Gadgetbridge `CMD_POWER_OFF`.
+        case powerOff = 8
         case readHeartRateLog = 21
         /// Gadgetbridge `CMD_AUTO_HR_PREF`: automatic heart-rate interval on the ring.
         case heartRateLogSettings = 22
@@ -42,6 +44,8 @@ public enum ColmiProtocol {
         case readHRVLog = 57
         /// Gadgetbridge `CMD_SYNC_ACTIVITY` / colmi_r02_client `steps.py`: steps per 15 minutes.
         case steps = 67
+        /// Gadgetbridge `CMD_FIND_DEVICE`: the ring blinks.
+        case findDevice = 80
         case realTimeStart = 105
         case realTimeStop = 106
         /// Unsolicited status from the ring; subtype 0x0C carries battery (anikbharadwaj129/Colmi, unverified on the R03).
@@ -231,6 +235,8 @@ public enum ColmiProtocol {
             return .realTimeStopAck
         case .packetSize:
             return .packetSize(Int(packet[1]))
+        case .findDevice, .powerOff:
+            return .settingWriteAck(command)
         case .statusPush:
             return .unknown(hex: hex(packet))
         }

@@ -177,12 +177,7 @@ public struct RingHistorySync: Sendable {
         case .heartRate(let days), .hrv(let days): daysAgo = days
         default: daysAgo = 0
         }
-        if accumulator.log == .stress {
-            report.values[.stress, default: 0] += accumulator.values.count
-            support.markAnswered(.stress)
-        } else {
-            add(mapper.dayLog(accumulator, daysAgo: daysAgo), for: step.feature)
-        }
+        add(mapper.dayLog(accumulator, daysAgo: daysAgo), for: step.feature)
     }
 
     private mutating func add(_ items: [RawObservation], for feature: RingFeature) {
@@ -235,6 +230,17 @@ public struct RingSyncSchedule: Equatable, Sendable {
     public func isDue(lastSync: Date?, now: Date) -> Bool {
         guard let lastSync else { return true }
         return now.timeIntervalSince(lastSync) >= minimumGap || now < lastSync
+    }
+
+    /// The ring keeps about 7 days. From day 4 without a fetch the app reminds the user to connect.
+    public static let reminderAfterDays = 4
+
+    public func reminder(lastSync: Date?, now: Date, calendar: Calendar) -> String? {
+        guard let lastSync,
+              let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: lastSync),
+                                                 to: calendar.startOfDay(for: now)).day,
+              days >= Self.reminderAfterDays else { return nil }
+        return "Verlauf zuletzt vor \(days) Tagen abgerufen. Der Ring speichert nur etwa 7 Tage – bitte bald verbinden."
     }
 
     /// Days to fetch: since the last sync plus one overlap day, between 2 and 7 (first sync: 7).

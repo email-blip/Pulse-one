@@ -337,8 +337,9 @@ public struct RingHistoryMapper: Sendable {
         let kind: SampleKind
         switch accumulator.log {
         case .heartRate: kind = .heartRate
-        case .hrv: kind = .heartRateVariability
-        case .stress, .activity: return []
+        case .hrv: kind = .ringHRV
+        case .stress: kind = .ringStress
+        case .activity: return []
         }
         guard let day = calendar.date(byAdding: .day, value: -daysAgo, to: calendar.startOfDay(for: today)) else { return [] }
         return accumulator.values.compactMap { entry in

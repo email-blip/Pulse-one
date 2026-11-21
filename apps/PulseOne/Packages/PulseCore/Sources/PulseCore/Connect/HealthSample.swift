@@ -6,6 +6,10 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
     case heartRate = "heart_rate"
     case restingHeartRate = "resting_heart_rate"
     case heartRateVariability = "hrv_sdnn"
+    /// HRV as the Colmi ring reports it (0x39). The method is undocumented, so it is never mixed with SDNN.
+    case ringHRV = "hrv_ring"
+    /// Stress score 0–100 the Colmi ring computes itself (0x37); vendor scale, shown only on request.
+    case ringStress = "stress_index_ring"
     case oxygenSaturation = "spo2"
     case skinTemperature = "skin_temperature"
     case skinTemperatureDeviation = "skin_temperature_deviation"
@@ -27,10 +31,10 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
     public var canonicalUnit: SampleUnit {
         switch self {
         case .heartRate, .restingHeartRate: .beatsPerMinute
-        case .heartRateVariability: .milliseconds
+        case .heartRateVariability, .ringHRV: .milliseconds
         case .oxygenSaturation, .deviceBattery: .percent
         case .skinTemperature, .bodyTemperature, .skinTemperatureDeviation: .celsius
-        case .steps: .count
+        case .steps, .ringStress: .count
         case .activeEnergy: .kilocalories
         case .distance, .elevationGain: .meters
         case .sleepDuration, .trainingDuration: .seconds
@@ -47,11 +51,12 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
         switch self {
         case .heartRate: 25...240
         case .restingHeartRate: 25...140
-        case .heartRateVariability: 1...300
+        case .heartRateVariability, .ringHRV: 1...300
         case .oxygenSaturation: 70...100
         case .skinTemperature: 20...42
         case .skinTemperatureDeviation: -5...5
         case .bodyTemperature: 34...43
+        case .ringStress: 1...100
         case .steps: 0...100_000
         case .activeEnergy: 0...10_000
         case .distance: 0...300_000
@@ -73,7 +78,7 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
     /// How values of this kind combine over a day (Review 3.2 §6).
     public var aggregation: SampleAggregation {
         switch self {
-        case .heartRate, .heartRateVariability, .oxygenSaturation, .skinTemperature, .bodyTemperature, .deviceBattery,
+        case .heartRate, .heartRateVariability, .ringHRV, .ringStress, .oxygenSaturation, .skinTemperature, .bodyTemperature, .deviceBattery,
              .respiratoryRate, .bodyMass, .height: .point
         case .sleepDuration, .trainingDuration: .interval
         case .steps, .activeEnergy, .distance, .elevationGain, .basalEnergy: .cumulative
@@ -96,6 +101,8 @@ public enum SampleKind: String, Codable, CaseIterable, Sendable {
         case .heartRate: "Puls"
         case .restingHeartRate: "Ruhepuls"
         case .heartRateVariability: "HRV"
+        case .ringHRV: "HRV (Ring)"
+        case .ringStress: "Stressindex (Ring)"
         case .oxygenSaturation: "Sauerstoffsättigung"
         case .skinTemperature: "Hauttemperatur"
         case .skinTemperatureDeviation: "Abweichung Hauttemperatur"

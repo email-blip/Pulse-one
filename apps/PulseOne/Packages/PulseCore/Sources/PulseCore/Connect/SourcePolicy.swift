@@ -72,6 +72,7 @@ public struct SourcePolicy: Equatable, Sendable {
         case .heartRateVariability:
             listed = context == .workout ? [.bluetoothStandard, .appleHealth, .colmiRing, .ouraCloud]
                                          : [.ouraCloud, .colmiRing, .appleHealth, .bluetoothStandard]
+        case .ringHRV, .ringStress: listed = [.colmiRing]
         case .restingHeartRate: listed = [.ouraCloud, .appleHealth, .colmiRing, .bluetoothStandard]
         case .oxygenSaturation: listed = [.colmiRing, .ouraCloud, .appleHealth]
         case .sleepDuration: listed = [.ouraCloud, .colmiRing, .appleHealth]

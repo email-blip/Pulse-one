@@ -261,6 +261,33 @@ struct RingHistoryTests {
         #expect(sync.observations.count == 2)
     }
 
+    @Test func ringHRVAndStressStayTheirOwnKinds() throws {
+        var hrv = DayLogAccumulator(log: .hrv)
+        hrv.feed(try Self.packet(.readHRVLog, [1, 0, 40]))
+        #expect(Self.mapper.dayLog(hrv, daysAgo: 1).map(\.kind) == [.ringHRV])
+        var stress = DayLogAccumulator(log: .stress)
+        stress.feed(try Self.packet(.readStressLog, [1, 0, 35]))
+        let raws = Self.mapper.dayLog(stress, daysAgo: 0)
+        #expect(raws.map(\.kind) == [.ringStress])
+        #expect(raws.first?.unit == .count)
+        #expect(RingFeature.hrv.sampleKinds == [.ringHRV])
+    }
+
+    @Test func findAndPowerOffMatchGadgetbridge() throws {
+        #expect(ColmiProtocol.findRingRequest() == (try Self.packet(.findDevice, [0x55, 0xAA])))
+        #expect(ColmiProtocol.findRingRequest()[0] == 0x50)
+        #expect(ColmiProtocol.powerOffRequest() == (try Self.packet(.powerOff, [0x01])))
+        #expect(ColmiProtocol.powerOffRequest()[0] == 0x08)
+    }
+
+    @Test func remindsBeforeTheRingMemoryRunsOut() {
+        let schedule = RingSyncSchedule()
+        #expect(schedule.reminder(lastSync: nil, now: Self.today, calendar: Self.berlin) == nil)
+        #expect(schedule.reminder(lastSync: Self.today.addingTimeInterval(-3 * 86_400), now: Self.today, calendar: Self.berlin) == nil)
+        let text = schedule.reminder(lastSync: Self.today.addingTimeInterval(-4 * 86_400), now: Self.today, calendar: Self.berlin)
+        #expect(text?.contains("vor 4 Tagen") == true)
+    }
+
     @Test func scheduleFetchesSinceLastSync() {
         let schedule = RingSyncSchedule()
         let now = Self.today

@@ -32,13 +32,12 @@ public enum RingFeature: String, CaseIterable, Codable, Sendable, Hashable {
         }
     }
 
-    /// The sample kinds this feature fills in the common store. Stress has no kind yet:
-    /// it is read and counted, but only shown once a descriptive scale is agreed.
+    /// The sample kinds this feature fills in the common store.
     public var sampleKinds: [SampleKind] {
         switch self {
         case .heartRate: [.heartRate]
-        case .hrv: [.heartRateVariability]
-        case .stress: []
+        case .hrv: [.ringHRV]
+        case .stress: [.ringStress]
         case .spo2: [.oxygenSaturation]
         case .steps: [.steps, .distance]
         case .sleep: [.sleepDuration]
@@ -199,6 +198,16 @@ extension ColmiProtocol {
     public static func preferenceRead(_ feature: RingFeature) -> [UInt8]? {
         guard let command = preferenceCommand(feature) else { return nil }
         return try? makePacket(command, payload: [RingPreference.read])
+    }
+
+    /// Gadgetbridge `onFindDevice`: `50 55 AA`, the ring blinks.
+    public static func findRingRequest() -> [UInt8] {
+        (try? makePacket(.findDevice, payload: [0x55, 0xAA])) ?? []
+    }
+
+    /// Gadgetbridge `onPowerOff`: `08 01`. The ring switches off until it is charged again.
+    public static func powerOffRequest() -> [UInt8] {
+        (try? makePacket(.powerOff, payload: [0x01])) ?? []
     }
 
     static func preferenceCommand(_ feature: RingFeature) -> Command? {
