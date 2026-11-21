@@ -105,12 +105,12 @@ final class IntelligenceEngine {
         activity = "Claude schreibt den \(kind.title) …"
         defer { activity = nil }
         do {
-            let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.report,
+            let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.report(settings.safetyMode),
                                          messages: [AnthropicAPI.userText(context.compactJSON())],
                                          schema: AnalysisSchema.reportV1, effort: kind.effort)
             let reply = try await call(body)
             record.apply(reply.response.usage, responder: reply.response.model, model: model)
-            let validated = try ResponseValidator(context: context).validateReport(json: reply.response.text)
+            let validated = try ResponseValidator(context: context, mode: settings.safetyMode).validateReport(json: reply.response.text)
             record.resultJSON = Self.json(validated.report)
             record.issuesJSON = Self.json(validated.issues)
             record.flaggedJSON = Self.json(validated.flagged)
@@ -154,7 +154,7 @@ final class IntelligenceEngine {
         var responder = model.id
         do {
             while finalText == nil {
-                let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.question, messages: messages,
+                let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.question(settings.safetyMode), messages: messages,
                                              schema: AnalysisSchema.questionV1, effort: "medium", tools: tools.definitions)
                 let reply = try await call(body)
                 usage = usage + reply.response.usage
@@ -187,7 +187,7 @@ final class IntelligenceEngine {
             record.contextJSON = context.compactJSON()
             record.toolLog = log.joined(separator: "\n")
             record.apply(usage, responder: responder, model: model)
-            let validated = try ResponseValidator(context: context).validateAnswer(json: finalText ?? "")
+            let validated = try ResponseValidator(context: context, mode: settings.safetyMode).validateAnswer(json: finalText ?? "")
             record.resultJSON = Self.json(validated.answer)
             record.issuesJSON = Self.json(validated.issues)
             record.flaggedJSON = Self.json(validated.flagged)
@@ -202,6 +202,155 @@ final class IntelligenceEngine {
 
     enum QuestionError: Error {
         case tooManyCalls
+    }
+
+    // MARK: Consultation (owner decision 2026-11-21)
+
+    /// The consultation starts from the last four weeks: bands, correlations and note tags.
+    func consultationContext(modelContext: ModelContext, owner: UUID, profile: UserProfile) -> HealthAnalysisContext {
+        reportContext(.monthly, modelContext: modelContext, owner: owner, profile: profile)
+    }
+
+    /// Claude's summaries of the latest earlier consultations, newest first.
+    func consultationMemory(excluding current: StoredConsultation?, modelContext: ModelContext) -> [String] {
+        let descriptor = FetchDescriptor<StoredConsultation>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
+        let all = (try? modelContext.fetch(descriptor)) ?? []
+        return all.filter { $0.id != current?.id && !$0.memory.isEmpty }.prefix(3).map(\.memory)
+    }
+
+    func consultationPreview(context: HealthAnalysisContext, modelContext: ModelContext) -> SendPreview {
+        preview(title: "Sprechstunde mit Claude", context: context, system: IntelligencePrompts.consultation,
+                expectedOutputTokens: 5_000, modelContext: modelContext)
+    }
+
+    /// Sends the person's message with the whole conversation; the answer is checked like a report and
+    /// appended. Acute symptoms are marked so the emergency notice shows first; the message still goes.
+    func consult(_ text: String, in consultation: StoredConsultation, modelContext: ModelContext, owner: UUID) async {
+        let model = settings.model
+        let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var turns = consultation.turns
+        turns.append(ConsultationTurn(date: now, role: .person, text: message.isEmpty ? ConsultationBuilder.startMessage : message,
+                                      emergencyNotice: SafetyRules.isEmergency(message)))
+        consultation.turns = turns
+        consultation.updatedAt = now
+        if consultation.title == "Sprechstunde", !message.isEmpty {
+            consultation.title = String(message.prefix(60))
+        }
+        let record = StoredAnalysis(kind: "consultation", title: "Sprechstunde", model: model, contextJSON: "", question: message)
+        record.promptVersion = IntelligencePrompts.version
+        modelContext.insert(record)
+        try? modelContext.save()
+        activity = "Claude wertet aus und antwortet …"
+        defer { activity = nil }
+
+        let base = consultation.context ?? QuestionTools.context(facts: [], correlations: [], events: [],
+                                                                  consent: settings.consent, now: now)
+        let memory = consultationMemory(excluding: consultation, modelContext: modelContext)
+        let tools = QuestionTools(samples: samples(in: modelContext, owner: owner), events: events(in: modelContext),
+                                  consent: settings.consent)
+        var messages = Self.conversation(turns, opening: { first in
+            ConsultationBuilder.opening(context: base, memory: memory, message: first)
+        })
+        var nextID = consultation.nextToolID
+        var facts: [AnalysisFact] = []
+        var correlations: [CorrelationFact] = []
+        var events: [ContextEventFact] = []
+        var log: [String] = []
+        var usage = TokenUsage()
+        var calls = 0
+        var responder = model.id
+        var claudeTurn = ConsultationTurn(date: now, role: .claude, text: "")
+        do {
+            var finalText: String?
+            while finalText == nil {
+                let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.consultation, messages: messages,
+                                             schema: AnalysisSchema.consultationV1, effort: "high", tools: tools.definitions)
+                let reply = try await call(body)
+                usage = usage + reply.response.usage
+                responder = reply.response.model
+                let uses = reply.response.toolUses
+                if uses.isEmpty {
+                    finalText = reply.response.text
+                    break
+                }
+                guard calls + uses.count <= QuestionTools.maxCalls else { throw QuestionError.tooManyCalls }
+                messages.append(AnthropicResponse.assistantTurn(rawResponse: reply.raw)
+                                ?? JSONValue.object(["role": .string("assistant"), "content": .array([])]))
+                var results: [JSONValue] = []
+                for use in uses {
+                    calls += 1
+                    let output = tools.run(name: use.name ?? "", input: use.input ?? .object([:]), nextID: &nextID)
+                    facts += output.facts
+                    correlations += output.correlations
+                    events += output.events
+                    log.append(output.summary)
+                    results.append(QuestionTools.resultBlock(toolUseID: use.id ?? "", output: output))
+                }
+                messages.append(.object(["role": .string("user"), "content": .array(results)]))
+            }
+            let merged = ConsultationBuilder.merged(base, facts: facts, correlations: correlations, events: events)
+            let validated = try ResponseValidator(context: merged, mode: .clinical)
+                .validateConsultation(json: finalText ?? "", userText: message)
+            claudeTurn.text = validated.reply.reply
+            claudeTurn.apiText = finalText ?? ""
+            claudeTurn.reply = validated.reply
+            claudeTurn.flagged = validated.flagged
+            claudeTurn.issues = validated.issues
+            consultation.contextJSON = merged.compactJSON()
+            consultation.nextToolID = nextID
+            if !validated.reply.memory.isEmpty { consultation.memory = validated.reply.memory }
+            consultation.urgencyRaw = validated.reply.urgency.rawValue
+            record.contextJSON = merged.compactJSON()
+            record.resultJSON = Self.json(validated.reply)
+            record.issuesJSON = Self.json(validated.issues)
+            record.flaggedJSON = Self.json(validated.flagged)
+        } catch {
+            claudeTurn.errorMessage = Self.message(for: error)
+            record.fail(error)
+        }
+        claudeTurn.toolLog = log
+        claudeTurn.date = now
+        record.toolLog = log.joined(separator: "\n")
+        record.apply(usage, responder: responder, model: model)
+        var all = consultation.turns
+        all.append(claudeTurn)
+        consultation.turns = all
+        consultation.updatedAt = now
+        try? modelContext.save()
+    }
+
+    /// The conversation as API messages: the first person turn carries the context and memory; failed
+    /// replies are left out and turns of the same role are joined, so roles alternate.
+    nonisolated static func conversation(_ turns: [ConsultationTurn], opening: (String) -> String) -> [JSONValue] {
+        var pairs: [(role: String, text: String)] = []
+        var openingDone = false
+        for turn in turns {
+            let role: String
+            let text: String
+            switch turn.role {
+            case .person:
+                role = "user"
+                if openingDone {
+                    text = turn.text
+                } else {
+                    text = opening(turn.text)
+                    openingDone = true
+                }
+            case .claude:
+                guard !turn.apiText.isEmpty else { continue }
+                role = "assistant"
+                text = turn.apiText
+            }
+            if let last = pairs.last, last.role == role {
+                pairs[pairs.count - 1].text = last.text + "\n\n" + text
+            } else {
+                pairs.append((role, text))
+            }
+        }
+        return pairs.map { pair in
+            JSONValue.object(["role": .string(pair.role),
+                     "content": .array([.object(["type": .string("text"), "text": .string(pair.text)])])])
+        }
     }
 
     // MARK: Detective
@@ -222,12 +371,12 @@ final class IntelligenceEngine {
         activity = "Claude sucht Begleitumstände …"
         defer { activity = nil }
         do {
-            let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.detective,
+            let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.detective(settings.safetyMode),
                                          messages: [AnthropicAPI.userText(context.compactJSON())],
                                          schema: AnalysisSchema.hypothesesV1, effort: "medium")
             let reply = try await call(body)
             record.apply(reply.response.usage, responder: reply.response.model, model: model)
-            let result = try ResponseValidator(context: context).validateHypotheses(json: reply.response.text)
+            let result = try ResponseValidator(context: context, mode: settings.safetyMode).validateHypotheses(json: reply.response.text)
             record.resultJSON = Self.json(result.board)
             record.issuesJSON = Self.json(result.issues)
         } catch {

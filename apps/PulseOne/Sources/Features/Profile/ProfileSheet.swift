@@ -67,7 +67,7 @@ struct ProfileSheet: View {
                         Label("Einrichtung erneut starten", systemImage: "arrow.counterclockwise")
                     }
                     LabeledContent("Version", value: Self.version)
-                    Text("PULSE ONE ist kein Medizinprodukt. Die App beschreibt Werte und Verläufe, sie stellt keine Diagnosen.")
+                    Text("PULSE ONE ist kein zugelassenes Medizinprodukt. Einschätzungen und mögliche Diagnosen von Claude beruhen auf den Messwerten von Ring und Uhr.")
                         .font(Typography.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }

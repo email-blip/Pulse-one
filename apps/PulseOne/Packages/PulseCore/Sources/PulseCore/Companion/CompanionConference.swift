@@ -121,7 +121,8 @@ public enum CompanionConference {
     public static func isAllowed(_ text: String) -> Bool {
         guard CompanionSafety.violations(in: text).isEmpty else { return false }
         for sentence in sentences(of: text) {
-            if case .reject = SafetyRules.check(sentence) { return false }
+            // Descriptive rules as before; loosening the Expertenrunde is up to the Begleiter team.
+            if case .reject = SafetyRules.check(sentence, mode: .descriptive) { return false }
         }
         return true
     }
