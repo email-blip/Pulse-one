@@ -107,10 +107,11 @@ public struct NutrientValues: Codable, Hashable, Sendable {
         // Rounding on labels allows a small overshoot.
         if let s = clean.sugars, let c = clean.carbohydrates, s > c + 0.5 { clean.sugars = nil; dropped.append(.sugars) }
         if let s = clean.saturatedFat, let f = clean.fat, s > f + 0.5 { clean.saturatedFat = nil; dropped.append(.saturatedFat) }
-        if let p = clean.protein, let c = clean.carbohydrates, let f = clean.fat, let fi = clean.fiber,
-           p + c + f + fi > 105 {
+        // Fibre is left out on purpose: USDA (and US labels) count it inside carbohydrates, so adding it
+        // again would reject real foods such as chia seeds or flaxseed.
+        if let p = clean.protein, let c = clean.carbohydrates, let f = clean.fat, p + c + f > 105 {
             // Macros cannot add up to more than the whole portion; keep energy, drop the macro block.
-            for n in [Nutrient.protein, .carbohydrates, .fat, .fiber] { clean[n] = nil; dropped.append(n) }
+            for n in [Nutrient.protein, .carbohydrates, .fat] { clean[n] = nil; dropped.append(n) }
         }
         return (clean, dropped)
     }
