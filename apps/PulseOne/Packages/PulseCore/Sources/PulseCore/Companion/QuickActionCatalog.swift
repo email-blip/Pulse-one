@@ -29,6 +29,13 @@ public enum QuickActionCatalog {
     public static let coldIDs: Set<String> = [coldFaceID, coldShowerID]
     /// Caffeine options (only with `allowsCaffeineTips`).
     public static let caffeineIDs: Set<String> = [coffeeNowID, coffeeDelayID, strongCoffeeID, greenTeaID]
+    /// Body regions a step loads (same regions as the coach's exercise library), so pain or limitations entered
+    /// in the coach also rule the step out here.
+    public static let loads: [String: Set<BodyRegion>] = [
+        pushUpsID: [.shoulder, .elbowWrist],
+        pullUpsID: [.shoulder, .elbowWrist],
+        squatsID: [.knee, .hip]
+    ]
 
     public static let all: [QuickAction] = [
         QuickAction(id: waterID, title: "Glas Wasser",
@@ -122,10 +129,12 @@ public enum QuickActionCatalog {
 /// day-of-year rotation through the eligible rest, so the same three do not repeat on consecutive days.
 public enum QuickActionPicker {
     public static func pick(dayType: CompanionDayType, night: NightSummary, weather: WeatherSnapshot?,
-                            preferences: CompanionPreferences, now: Date, calendar: Calendar) -> [QuickAction] {
+                            preferences: CompanionPreferences, now: Date, calendar: Calendar,
+                            dayGuard: DayGuard = .open) -> [QuickAction] {
         let plan = Self.plan(for: dayType)
         let eligible: (String) -> Bool = { id in
             isEligible(id, dayType: dayType, night: night, weather: weather, preferences: preferences, now: now, calendar: calendar)
+                && fits(id, dayGuard: dayGuard)
         }
 
         var chosen: [String] = []
@@ -206,6 +215,16 @@ public enum QuickActionPicker {
         // Walking route not in a storm.
         if id == C.activeWayID, let wind = currentHour(weather: weather, now: now)?.windSpeed, wind >= 60 { return false }
         return true
+    }
+
+    /// The shared day guard: no strength or cold steps when today allows only gentle movement or none,
+    /// and no step that loads a region with reported pain or a limitation.
+    static func fits(_ id: String, dayGuard: DayGuard) -> Bool {
+        typealias C = QuickActionCatalog
+        if !dayGuard.allowsStrength && (C.strengthIDs.contains(id) || C.coldIDs.contains(id) || id == C.activatingBreathingID) {
+            return false
+        }
+        return (C.loads[id] ?? []).isDisjoint(with: dayGuard.avoidRegions)
     }
 
     private static func currentHour(weather: WeatherSnapshot?, now: Date) -> WeatherHour? {

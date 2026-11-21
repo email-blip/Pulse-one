@@ -493,11 +493,18 @@ public struct CompanionInput: Sendable {
     /// Person reports feeling ill / alarm symptoms (from the coach's subjective check), if known.
     public let feelsSick: Bool
     public let alarmSymptoms: Bool
+    /// Pain the person reported in the coach's last evening review; no strength step loads these regions.
+    public let painRegions: Set<BodyRegion>
+    /// Permanent limitations from the coach setup.
+    public let limitations: Set<BodyRegion>
+    /// A coach health question was answered with yes and no doctor has confirmed yet.
+    public let needsMedicalClearance: Bool
 
     public init(now: Date, calendar: Calendar, samples: [HealthSample], preferences: CompanionPreferences,
                 birthYear: Int?, confirmedWake: Date? = nil, alarmTime: Date? = nil, morningHeartRate: Double? = nil,
                 weather: WeatherSnapshot? = nil, pendingForecast: MorningForecast? = nil,
-                findings: [ResearchFinding] = [], feelsSick: Bool = false, alarmSymptoms: Bool = false) {
+                findings: [ResearchFinding] = [], feelsSick: Bool = false, alarmSymptoms: Bool = false,
+                painRegions: Set<BodyRegion> = [], limitations: Set<BodyRegion> = [], needsMedicalClearance: Bool = false) {
         self.now = now
         self.calendar = calendar
         self.samples = samples
@@ -511,6 +518,17 @@ public struct CompanionInput: Sendable {
         self.findings = findings
         self.feelsSick = feelsSick
         self.alarmSymptoms = alarmSymptoms
+        self.painRegions = painRegions
+        self.limitations = limitations
+        self.needsMedicalClearance = needsMedicalClearance
+    }
+
+    /// The shared day guard for this morning: the coach's last review and setup plus the Begleiter's night reading.
+    public func dayGuard(dayType: CompanionDayType, infection: InfectionLevel) -> DayGuard {
+        DayGuard.evaluate(DayGuardInput(
+            subjective: SubjectiveCheck(painRegions: painRegions, feelsSick: feelsSick, alarmSymptoms: alarmSymptoms),
+            limitations: limitations, needsMedicalClearance: needsMedicalClearance,
+            companionDayType: dayType, infectionLevel: infection))
     }
 }
 

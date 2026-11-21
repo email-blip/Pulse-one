@@ -80,12 +80,9 @@ public struct RecoveryBand: Equatable, Sendable {
     }
 
     /// Linear interpolation between closest ranks; `sorted` must be ascending and non-empty.
+    /// Same method as the personal band (`PersonalBaseline.percentile`), one implementation for the whole app.
     static func percentile(_ sorted: [Double], _ p: Double) -> Double {
-        let position = p * Double(sorted.count - 1)
-        let lower = Int(position.rounded(.down))
-        let upper = min(lower + 1, sorted.count - 1)
-        let weight = position - Double(lower)
-        return sorted[lower] + (sorted[upper] - sorted[lower]) * weight
+        PersonalBaseline.percentile(sorted, p)
     }
 }
 
