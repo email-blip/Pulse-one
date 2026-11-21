@@ -1,6 +1,7 @@
 import PulseCore
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct PulseOneApp: App {
@@ -35,6 +36,7 @@ struct PulseOneApp: App {
             sources = SourcesStore.live()
         }
         sources.modelContext = container.mainContext
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
         // Test scenarios run the migration on their in-memory rows every time; the real store once.
         sources.migrateLegacyMeasurements(marker: options.isUITesting ? nil : .standard)
         ring.onMeasurement = { measurement in

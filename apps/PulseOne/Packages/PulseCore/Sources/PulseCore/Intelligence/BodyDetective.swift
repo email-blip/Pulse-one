@@ -22,6 +22,8 @@ public struct Deviation: Sendable, Equatable {
     public let p75: Double
     public let direction: DeviationDirection
     public let consecutiveDays: Int
+    /// Days the personal band was computed from (at least `ContextBuilder.baselineMinimumDays`).
+    public var baselineDays: Int = ContextBuilder.baselineMinimumDays
 }
 
 /// A similar earlier day and what the person noted in the days after it.
@@ -70,11 +72,15 @@ public struct BodyDetective: Sendable {
         self.policy = policy
     }
 
-    public func profiles(from samples: [HealthSample]) -> [DayProfile] {
+    /// `now` set: a running day's totals (steps, energy, distance) are left out, because an unfinished day
+    /// must never be compared with whole days.
+    public func profiles(from samples: [HealthSample], now: Date? = nil) -> [DayProfile] {
         var byDay: [Date: [SampleKind: Double]] = [:]
+        let today = now.map { calendar.startOfDay(for: $0) }
         for kind in Self.featureKinds {
             let usable = samples.filter { $0.kind == kind && $0.quality.usableForAnalysis && $0.profileID != nil }
             for value in DailySeries.build(usable, kind: kind, calendar: calendar, policy: policy) {
+                if kind.isRunningTotal, let today, value.day >= today { continue }
                 byDay[value.day, default: [:]][kind] = value.value
             }
         }
@@ -87,7 +93,7 @@ public struct BodyDetective: Sendable {
         var result: [Deviation] = []
         for kind in Self.featureKinds {
             let series = profiles.compactMap { p in p.values[kind].map { (day: p.day, value: $0) } }
-                .filter { $0.day <= today }
+                .filter { kind.isRunningTotal ? $0.day < today : $0.day <= today }
             guard series.count >= 2, let last = series.last else { continue }
             // Only fresh signals: the latest value is from today or yesterday.
             guard let age = calendar.dateComponents([.day], from: last.day, to: today).day, age <= 1 else { continue }
@@ -108,7 +114,7 @@ public struct BodyDetective: Sendable {
                 if outside { streak += 1 } else { break }
             }
             result.append(Deviation(kind: kind, day: last.day, value: last.value, median: m, p25: lo, p75: hi,
-                                    direction: direction, consecutiveDays: streak))
+                                    direction: direction, consecutiveDays: streak, baselineDays: base.count))
         }
         return result
     }
@@ -148,7 +154,7 @@ public struct BodyDetective: Sendable {
 
     /// Everything the detective screen needs, newest deviation first.
     public func cases(samples: [HealthSample], events: [ContextEvent], now: Date) -> [DetectiveCase] {
-        let all = profiles(from: samples)
+        let all = profiles(from: samples, now: now)
         return deviations(in: all, now: now).map { deviation in
             let target = all.first { $0.day == deviation.day } ?? DayProfile(day: deviation.day, values: [deviation.kind: deviation.value])
             let history = all.filter { $0.day < deviation.day }
@@ -169,7 +175,7 @@ public struct BodyDetective: Sendable {
             baseline: FactBaseline(median: FactUnits.display(d.kind, d.median).value,
                                    p25: FactUnits.display(d.kind, d.p25).value,
                                    p75: FactUnits.display(d.kind, d.p75).value,
-                                   windowDays: ContextBuilder.baselineWindowDays, n: ContextBuilder.baselineMinimumDays),
+                                   windowDays: ContextBuilder.baselineWindowDays, n: d.baselineDays),
             source: "local", quality: "plausible")]
         var events_: [ContextEventFact] = []
         if consent.contains(.notes) {

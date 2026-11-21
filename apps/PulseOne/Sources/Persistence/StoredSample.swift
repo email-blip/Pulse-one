@@ -75,6 +75,12 @@ final class StoredSample {
         qualityReason = s.qualityReason
     }
 
+    /// Ring history id repair only (`RingHistoryIDMigration`): new original id and key, everything else stays.
+    func rekey(to s: HealthSample) {
+        dedupKey = s.deduplicationKey
+        originalSampleID = s.originalSampleID
+    }
+
     /// Back to the core type; nil if the row holds a value this app version does not know.
     var sample: HealthSample? {
         guard let kind = SampleKind(rawValue: kindRaw), let unit = SampleUnit(rawValue: unitRaw),
@@ -181,6 +187,28 @@ struct SampleStore {
             if let s = fixed[row.sampleID] { row.retype(to: s) }
             else if duplicates.contains(row.sampleID) { context.delete(row) }
         }
+        return plan
+    }
+
+    /// Ring history ids with the value in them (test team R1) → slot ids. Removes only proven duplicates,
+    /// then saves. Runs before every ring history ingest; after the first run it finds nothing.
+    @discardableResult
+    func migrateRingHistoryIDs(deviceID: String, fallbackZone: TimeZone = .current) throws -> RingHistoryIDMigration.Plan {
+        let device = deviceID
+        let ring = DataSourceKind.colmiRing.rawValue
+        let history = MeasurementMethod.deviceHistory.rawValue
+        let rows = try context.fetch(FetchDescriptor<StoredSample>(predicate: #Predicate {
+            $0.deviceID == device && $0.sourceRaw == ring && $0.methodRaw == history }))
+        let samples = rows.compactMap(\.sample)
+        guard samples.contains(where: RingHistoryIDMigration.isLegacy) else { return RingHistoryIDMigration.Plan() }
+        let keys = Set(samples.filter { !RingHistoryIDMigration.isLegacy($0) }.map(\.deduplicationKey))
+        let plan = RingHistoryIDMigration.plan(stored: samples, existingKeys: keys, fallbackZone: fallbackZone)
+        let fixed = Dictionary(uniqueKeysWithValues: plan.rekeyed.map { ($0.id, $0) })
+        let duplicates = Set(plan.duplicates)
+        // Delete first, so a kept row never meets a removed row's key.
+        for row in rows where duplicates.contains(row.sampleID) { context.delete(row) }
+        for row in rows { if let s = fixed[row.sampleID] { row.rekey(to: s) } }
+        try context.save()
         return plan
     }
 

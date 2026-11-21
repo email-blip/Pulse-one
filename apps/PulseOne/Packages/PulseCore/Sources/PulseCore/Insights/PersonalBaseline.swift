@@ -39,12 +39,19 @@ public struct PersonalBaseline: Equatable, Sendable {
     /// Builds the band from daily values strictly before `day` (the reference day itself is what gets compared).
     public static func status(for days: [DailyValue], kind: SampleKind, before day: Date, calendar: Calendar,
                               windowDays: Int = defaultWindowDays) -> BaselineStatus {
+        status(of: days.filter { $0.kind == kind }.map { DayValue(day: $0.day, value: $0.value) }, kind: kind,
+               before: day, calendar: calendar, windowDays: windowDays)
+    }
+
+    /// Same band from plain day values, e.g. the night resting pulse of ring-only users (`NightRestingSeries`).
+    public static func status(of days: [DayValue], kind: SampleKind, before day: Date, calendar: Calendar,
+                              windowDays: Int = defaultWindowDays) -> BaselineStatus {
         let end = calendar.startOfDay(for: day)
         guard let start = calendar.date(byAdding: .day, value: -windowDays, to: end) else {
             return .forming(daysAvailable: 0, daysNeeded: minimumDays)
         }
         let values = days
-            .filter { $0.kind == kind && $0.day >= start && $0.day < end }
+            .filter { $0.day >= start && $0.day < end }
             .map(\.value)
             .sorted()
         guard values.count >= minimumDays else {

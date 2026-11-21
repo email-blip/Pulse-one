@@ -57,7 +57,10 @@ public struct ContextBuilder: Sendable {
             for sampleKind in category.kinds {
                 let relevant = usable.filter { $0.kind == sampleKind && $0.start >= min(baselineStart, correlationStart) && $0.start < end }
                 let daily = DailySeries.build(relevant, kind: sampleKind, calendar: calendar, policy: policy)
-                dailyByKind[sampleKind] = Dictionary(daily.map { ($0.day, $0.value) }, uniquingKeysWith: { a, _ in a })
+                // Correlations use whole days only: a running day's total is left out.
+                let runningDay = calendar.startOfDay(for: now)
+                let whole = sampleKind.isRunningTotal ? daily.filter { $0.day < runningDay } : daily
+                dailyByKind[sampleKind] = Dictionary(whole.map { ($0.day, $0.value) }, uniquingKeysWith: { a, _ in a })
                 let inPeriod = daily.filter { $0.day >= start && $0.day < end }
                 guard !inPeriod.isEmpty else {
                     // Only kinds the person usually has are worth naming as a gap.
@@ -71,7 +74,7 @@ public struct ContextBuilder: Sendable {
                 let today = calendar.startOfDay(for: now)
                 var complete = inPeriod
                 var soFarToday = false
-                if sampleKind.isCumulative, let last = inPeriod.last, last.day >= today {
+                if sampleKind.isRunningTotal, let last = inPeriod.last, last.day >= today {
                     let finished = inPeriod.filter { $0.day < today }
                     if kind == .daily || finished.isEmpty {
                         complete = [last]
@@ -125,8 +128,11 @@ public struct ContextBuilder: Sendable {
 
         // Low single SpO₂ readings are counted, because the median hides them (SafetyRules S5).
         if consent.contains(.spo2) {
-            let low = usable.filter { $0.kind == .oxygenSaturation && $0.start >= start && $0.start < end && $0.value < 90 }
-            let all = usable.filter { $0.kind == .oxygenSaturation && $0.start >= start && $0.start < end }
+            // Ring and Health can carry the same reading; the source policy keeps one per minute.
+            let raw = usable.filter { $0.kind == .oxygenSaturation && $0.start >= start && $0.start < end }
+            let byDay = Dictionary(grouping: raw) { calendar.startOfDay(for: $0.start) }
+            let all = byDay.values.flatMap { DataSourceResolver.resolvePoints($0, policy: policy) }
+            let low = all.filter { $0.value < 90 }
             if !all.isEmpty {
                 facts.append(AnalysisFact(
                     id: "F\(facts.count + 1)", kind: "spo2_low_readings", title: "SpO₂-Einzelwerte unter 90 %",
