@@ -283,7 +283,7 @@ private struct ActivationOverview: View {
         // Outside the card: inside it the last line was cut at XXXL on the smallest phone.
         Text(plan.reason)
             .font(Typography.body)
-            .foregroundStyle(Palette.inkMuted)
+            .foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .wraps()
             .accessibilityIdentifier("activation.reason")
