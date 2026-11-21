@@ -261,11 +261,13 @@ struct USDATests {
 struct FoodLookupServiceTests {
     @Test func slidingWindowBlocksAndRecovers() {
         var limiter = SlidingWindowLimiter(limit: 2, window: 60)
-        #expect(limiter.tryAcquire(now: t0))
-        #expect(limiter.tryAcquire(now: t0.addingTimeInterval(1)))
-        #expect(!limiter.tryAcquire(now: t0.addingTimeInterval(2)))
+        let first = limiter.tryAcquire(now: t0)
+        let second = limiter.tryAcquire(now: t0.addingTimeInterval(1))
+        let third = limiter.tryAcquire(now: t0.addingTimeInterval(2))
+        #expect(first && second && !third)
         #expect(limiter.retryAfter(now: t0.addingTimeInterval(2)) == 58)
-        #expect(limiter.tryAcquire(now: t0.addingTimeInterval(60)))
+        let later = limiter.tryAcquire(now: t0.addingTimeInterval(60))
+        #expect(later)
     }
 
     @Test func barcodeLookupSendsUserAgentAndParses() async throws {
