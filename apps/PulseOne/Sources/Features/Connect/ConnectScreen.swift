@@ -42,6 +42,9 @@ struct ConnectScreen: View {
                     if snapshot.connection.isConnected || snapshot.deviceName != nil, snapshot.connection != .scanning {
                         DeviceCard(snapshot: snapshot)
                     }
+                    if snapshot.deviceName != nil, snapshot.connection != .scanning {
+                        RingMeasurementCard()
+                    }
                     HistoryCard(items: Array(stored.prefix(8)))
                     if !ring.trace.isEmpty { DiagnosticsCard() }
                     footer

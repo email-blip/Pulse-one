@@ -30,6 +30,15 @@ enum TestScenario {
             s.capabilities.raise(.heartRate, to: .discovered)
             s.rememberedRing = "R03_1A2B"
             s.connection = .ready
+            if name == "connected" {
+                // Test view only: how the ring card looks after a history fetch.
+                s.features = RingFeatureSupport(model: r03)
+                for feature in [RingFeature.heartRate, .hrv, .steps, .sleep, .spo2] { s.features.markAnswered(feature) }
+                s.features.markSilent(.stress)
+                s.ringSettings[.heartRate] = RingSettingReport(feature: .heartRate, enabled: true, intervalMinutes: 5)
+                s.ringSettings[.hrv] = RingSettingReport(feature: .hrv, enabled: true, intervalMinutes: nil)
+                s.historySync = .finished(summary: "Testansicht: Puls 288 · HRV 48 · Schritte 96", at: fixedTime)
+            }
             if name == "live" || name == "heart" {
                 s.measurement = .receiving(value: 64, at: fixedTime, since: fixedTime.addingTimeInterval(-6))
                 s.liveHeartRate = 64

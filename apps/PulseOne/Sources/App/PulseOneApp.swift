@@ -41,6 +41,9 @@ struct PulseOneApp: App {
             container.mainContext.insert(StoredMeasurement(measurement))
             sources.ingest(measurement)
         }
+        ring.onHistory = { observations, deviceID in
+            sources.ingestHistory(observations, deviceIdentifier: deviceID)
+        }
         self.container = container
         self.storeProblem = storeProblem
         _ring = State(initialValue: ring)
@@ -115,7 +118,11 @@ struct RootView: View {
             .onChange(of: ring.snapshot, initial: true) { _, snapshot in sources.noteRing(snapshot) }
             // Apple Health is read on launch and on every return to the foreground (throttled in the store).
             .onChange(of: scenePhase, initial: true) { _, phase in
-                if phase == .active { Task { await sources.syncHealthIfDue() } }
+                if phase == .active {
+                    Task { await sources.syncHealthIfDue() }
+                    // Ring history "daily": on connect, and on return to the app when it is due.
+                    if !options.usesTestScenario { ring.syncIfDue() }
+                }
             }
             .safeAreaInset(edge: .top) {
                 if let storeProblem {

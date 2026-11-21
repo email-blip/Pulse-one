@@ -36,3 +36,31 @@ Danach kam vom Ring kein einziger Pulswert. Abgleich mit den Referenzen:
 Beide Startvarianten liefern echte Werte: A (`69 01 01`) 61–63 bpm, B (`69 01`) 63–64 bpm. Ablauf: Quittung `69 01 00 00` sofort, erste Werte nach ~25 s, dann alle 0,5 s ein Paket `69 01 00 <bpm>`. Stopp `6A 01 00 00` wird mit `6A 01 00 …` quittiert. Nach dem Verbinden meldet der Ring `2F F4` (Paketgröße 244, Gadgetbridge `CMD_PACKET_SIZE`).
 
 Einschränkung: Zwischen Realtest 1 und 2 wurde die Firmware über die QRing-App aktualisiert (3.00.21 → 3.00.28). Ob die Ablaufänderung oder die Firmware den Ausschlag gab, ist nicht trennbar. Getestet ist deshalb nur `RY03_3.00.28_250401` (`TestedFirmware.versions`). Variante A bleibt Standard, B bleibt als Rückfall.
+
+## Selbstständige Messungen und Verlauf (Welle 1, 2026-11-21, noch nicht am Ring getestet)
+
+Quelle: Gadgetbridge `ColmiR0xConstants`, `ColmiR0xDeviceSupport`, `ColmiR0xPacketHandler` (Stand master, 2026-11-21); Schritte zusätzlich tahnok `steps.py`. Übernommen ist nur das Byte-Format, der Code ist eigen. Status: **Implementiert**, nicht am R03/R09 bestätigt.
+
+Einstellungen (UART, 16 Byte mit Prüfsumme; `01` = lesen, `02` = schreiben):
+
+| Befehl | Senden | Antwort |
+|---|---|---|
+| Puls-Intervall `0x16` | `16 02 01 mm` (an, mm = 5…60 in 5er-Schritten), `16 02 02 00` (aus), `16 01` (lesen) | `16 01 <an=1> <Minuten>`; Antwort auf Schreiben wird ignoriert |
+| SpO₂ ganztägig `0x2C` | `2C 02 01/00`, `2C 01` | Byte 2 = an/aus |
+| Stress ganztägig `0x36` | `36 02 01/00`, `36 01` | Byte 2 = an/aus |
+| HRV ganztägig `0x38` | `38 02 01/00`, `38 01` | Byte 2 = an/aus |
+
+HRV, Stress und SpO₂ haben am Ring nur an/aus, ihren Takt legt die Firmware fest (laut Konzept etwa 30 Minuten bzw. stündlich).
+
+Verlauf (Reihenfolge wie Gadgetbridge: Schritte → Puls → Stress → SpO₂ → Schlaf → HRV):
+
+| Daten | Anfrage | Antwortpakete |
+|---|---|---|
+| Schritte `0x43` | `43 <TageZurück> 0F 00 5F 01` | `FF` = leer, `F0` = Kopf, sonst je Viertelstunde: Datum BCD (yy mm dd), Viertelstunde, Index, Anzahl, Kalorien, Schritte, Strecke (je uint16 LE) |
+| Puls `0x15` | `15 <uint32 LE Mitternacht in Ringzeit>` | Paket 0: Anzahl; Paket 1: Zeitstempel + 9 Werte ab Byte 6; danach je 13 Werte; alle 5 min; 0 = kein Wert |
+| Stress `0x37` | `37` | wie Puls, aber 30 min, Paket 1 ab Byte 3 (12 Werte), Ende mit Paket 4 |
+| HRV `0x39` | `39 <uint32 LE TageZurück>` | wie Stress |
+| SpO₂ `BC 2A` | auf `DE5BF72A`: `BC 2A 01 00 FF 00 FF` (ohne Prüfsumme) | auf `DE5BF729`, ggf. über mehrere Pakete: Länge in Byte 2–3; ab Byte 6 je Tag `TageZurück` + 24 × (min, max) |
+| Schlaf `BC 27` | auf `DE5BF72A`: `BC 27 01 00 FF 00 FF` | Byte 6 = Anzahl Tage; je Tag `TageZurück`, `Länge`, Beginn und Ende (Minuten nach Mitternacht, uint16), dann Phasen (Typ, Minuten): 2 leicht, 3 tief, 4 REM, 5 wach |
+
+Robustheit: Antwortet der Ring auf einen Schritt 8 s lang nicht, wird der Schritt übersprungen; bleibt eine Messart schon beim ersten Mal stumm, gilt sie für diese Verbindung als „nicht unterstützt“ und ihre übrigen Tage werden nicht mehr angefragt. Fehlt der zweite Dienst (`DE5BF728`), entfallen SpO₂ und Schlaf. Stresswerte werden gelesen und gezählt, aber noch nicht gespeichert (keine vereinbarte Skala). Hauttemperatur (R09) ist als Fähigkeit angelegt, es wird aber kein Befehl gesendet, bis ein R09-Realtest einen dokumentierten Befehl bestätigt.

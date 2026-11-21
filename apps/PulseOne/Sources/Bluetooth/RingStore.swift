@@ -16,6 +16,11 @@ final class RingStore {
     var showAllDevices = false
 
     @ObservationIgnored var onMeasurement: (@MainActor (VitalReading) -> Void)?
+    /// Receives values read from the ring's stored history (already normalised observations).
+    @ObservationIgnored var onHistory: (@MainActor ([RawObservation], String) -> Void)?
+    /// How often the ring measures on its own; applied on every connect.
+    private(set) var measurementProfile: RingMeasurementProfile = RingStore.savedProfile()
+    private static let profileKey = "ring.measurementProfile"
     @ObservationIgnored private var central: ColmiCentral?
 
     private init(snapshot: RingSnapshot, isTestScenario: Bool) {
@@ -69,6 +74,25 @@ final class RingStore {
     func startHeartRate(mode: ColmiProtocol.HeartRateStartMode = .realTime) { central?.startHeartRate(mode: mode) }
     func stopHeartRate() { central?.stopHeartRate() }
     func refreshBattery() { central?.refreshBattery() }
+
+    func setMeasurementProfile(_ profile: RingMeasurementProfile) {
+        measurementProfile = profile
+        guard !isTestScenario else { return }
+        UserDefaults.standard.set(profile.rawValue, forKey: Self.profileKey)
+        central?.applyProfile(profile)
+    }
+
+    func syncHistoryNow() { central?.syncHistory(force: true) }
+    /// Foreground hook: fetches the history at most every few hours (`RingSyncSchedule`).
+    func syncIfDue() { central?.syncIfDue() }
+
+    func recordHistory(_ observations: [RawObservation], deviceIdentifier: String) {
+        onHistory?(observations, deviceIdentifier)
+    }
+
+    private static func savedProfile() -> RingMeasurementProfile {
+        UserDefaults.standard.string(forKey: profileKey).flatMap(RingMeasurementProfile.init(rawValue:)) ?? .standard
+    }
 
     func record(_ reading: VitalReading) {
         onMeasurement?(reading)
