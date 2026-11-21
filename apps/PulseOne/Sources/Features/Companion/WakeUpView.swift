@@ -21,6 +21,9 @@ struct WakeUpView: View {
     @State private var revealed = 0
     @State private var speaker = BriefingSpeaker()
     @State private var done: Set<String> = []
+    @Environment(\.modelContext) private var modelContext
+    @State private var activation: ActivationStore?
+    @State private var activationPlan: ActivationPlan?
 
     private static let revealAnimation = Animation.spring(duration: 0.5, bounce: 0.05)
 
@@ -47,6 +50,15 @@ struct WakeUpView: View {
         }
         .sensoryFeedback(.success, trigger: step) { old, new in old == .confirm && new == .loading }
         .onDisappear { speaker.stop() }
+        .fullScreenCover(item: $activationPlan, onDismiss: { prepareActivation() }) { plan in
+            if let activation {
+                ActivationSessionView(store: activation, plan: plan, speaks: store.preferences.speaksBriefing)
+                    .environment(\.reduceMotionEffective, reduceMotion)
+                    .environment(\.freezeAnimations, freeze)
+                    .modifier(DynamicTypeOverride(size: LaunchOptions.current.dynamicTypeSize))
+                    .preferredColorScheme(.dark)
+            }
+        }
         .screenIdentifier(CompanionUI.wakeScenario)
     }
 
@@ -106,14 +118,38 @@ struct WakeUpView: View {
             }
             if revealed >= briefing.sections.count {
                 QuickActionChecklist(actions: briefing.actions, done: $done)
+                activationButton
                 finishButton
             }
         } else {
             EmptyState(title: "Noch kein Morgenbericht",
                        message: store.lastError ?? "Für einen Bericht braucht es Ringdaten der letzten Nacht. Trag den Ring heute Nacht und öffne danach PULSE ONE.",
                        systemImage: "moon.zzz")
+            activationButton
             finishButton
         }
+    }
+
+    /// Morning activation right after the briefing; hidden when the activation is switched off.
+    @ViewBuilder
+    private var activationButton: some View {
+        if let activation, activation.settings.isEnabled {
+            let plan = activation.plan(for: .morning, now: CompanionUI.now)
+            let minutes = max(Int((Double(plan.estimatedSeconds) / 60).rounded()), 1)
+            Button { activationPlan = plan } label: {
+                Label(activation.isDone(.morning) ? "Aktivierung noch einmal (\(minutes) Min)" : "Aktivierung starten (\(minutes) Min)",
+                      systemImage: "figure.strengthtraining.functional")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("wake.activation")
+        }
+    }
+
+    /// Plans the morning session with the day the briefing just produced.
+    private func prepareActivation() {
+        let current = activation ?? ActivationStore(context: modelContext)
+        activation = current
+        current.refresh(now: CompanionUI.now, profileID: profileID, day: store.today)
     }
 
     private var finishButton: some View {
@@ -134,6 +170,7 @@ struct WakeUpView: View {
             }
             await store.refresh(profileID: profileID, birthYear: birthYear, firstName: firstName,
                                 confirmedWake: wakeTime, morningHeartRate: pulse)
+            prepareActivation()
             step = .briefing
             await reveal()
         }
