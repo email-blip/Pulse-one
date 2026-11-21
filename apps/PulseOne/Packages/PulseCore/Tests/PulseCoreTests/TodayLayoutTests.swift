@@ -40,4 +40,14 @@ struct TodayLayoutTests {
         #expect(TodayLayout.decode(nil) == .standard)
         #expect(TodayLayout.decode(Data("kaputt".utf8)) == .standard)
     }
+
+    @Test func companionTileCannotBeHidden() {
+        var layout = TodayLayout.standard
+        layout.setVisible(.companion, false)
+        #expect(layout.isVisible(.companion))
+        let stored = TodayLayout(order: TodayLayout.defaultOrder, hidden: [.companion, .coach])
+        let restored = TodayLayout.decode(stored.encoded())
+        #expect(restored.isVisible(.companion))
+        #expect(!restored.isVisible(.coach))
+    }
 }

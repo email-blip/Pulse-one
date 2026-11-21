@@ -1,7 +1,7 @@
 import Foundation
 
 // Day rhythm nudges: light, meals, movement, wind-down and bedtime around the wake time. Suggestions,
-// not orders. Only future times, never in the quiet hours, at most `maxNudgesPerDay` by priority.
+// not orders. Only future times, never in the quiet hours, at most `maxNudgesPerDay` per day by priority.
 
 public enum DayRhythmPlanner {
     /// Priority when the daily cap is reached (first = most important).
@@ -77,11 +77,14 @@ public enum DayRhythmPlanner {
 
         // Wind-down and bedtime are the point of the evening, so quiet hours do not hide them.
         let allowed = drafts.filter { draft in
-            draft.time > now && (draft.kind == .bedtime || draft.kind == .windDown
-                                 || !isQuiet(draft.time, preferences: preferences, calendar: calendar))
+            draft.kind == .bedtime || draft.kind == .windDown
+                || !isQuiet(draft.time, preferences: preferences, calendar: calendar)
         }
+        // The cap applies to the whole day, past nudges included, so re-planning later in the day never adds
+        // more. Only the still-future ones of that fixed daily set are returned.
         let rank: (NudgeKind) -> Int = { kind in Self.priority.firstIndex(of: kind) ?? Self.priority.count }
-        let kept = allowed.sorted { rank($0.kind) < rank($1.kind) }.prefix(max(preferences.maxNudgesPerDay, 0))
+        let cap = max(preferences.maxNudgesPerDay, 0)
+        let kept = allowed.sorted { rank($0.kind) < rank($1.kind) }.prefix(cap).filter { $0.time > now }
         return kept
             .sorted { $0.time == $1.time ? rank($0.kind) < rank($1.kind) : $0.time < $1.time }
             .map { CompanionNudge(id: "companion.\($0.kind.rawValue).\(stamp)", kind: $0.kind, time: $0.time,

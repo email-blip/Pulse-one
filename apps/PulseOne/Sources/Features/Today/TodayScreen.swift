@@ -15,7 +15,7 @@ struct TodayScreen: View {
     @State private var customizing = false
     /// Companion test scenarios open the Begleiter screen directly (pushed, so it sits in this stack).
     @State private var showCompanion = LaunchOptions.current.usesTestScenario
-        && ["companion", "companionWake"].contains(LaunchOptions.current.scenario ?? "")
+        && ["companion", "companionWake", "companionConference"].contains(LaunchOptions.current.scenario ?? "")
     @AppStorage("today.layout") private var layoutData = Data()
 
     private var layout: TodayLayout { TodayLayout.decode(layoutData.isEmpty ? nil : layoutData) }

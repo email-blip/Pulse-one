@@ -281,6 +281,17 @@ final class IntelligenceEngine {
         case rejected(String)
     }
 
+    // MARK: Plain text (used by the Begleiter's Expertenrunde)
+
+    /// One plain-text request without a JSON schema, sent with this module's key and transport. Callers show
+    /// their own preview first, check `blocker(for:modelContext:)` right before sending and record the
+    /// returned usage on a `StoredAnalysis` (`apply`), so budget, send count and cost views include it.
+    func sendPlainText(system: String, user: String, model: ClaudeModel, effort: String) async throws -> AnthropicResponse {
+        let body = AnthropicAPI.body(model: model, system: system, messages: [AnthropicAPI.userText(user)],
+                                     schema: nil, effort: effort)
+        return try await call(body).response
+    }
+
     // MARK: Plumbing
 
     nonisolated static let localModelID = "local"
