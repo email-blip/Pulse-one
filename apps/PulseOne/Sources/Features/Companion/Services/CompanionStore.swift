@@ -25,6 +25,10 @@ final class CompanionStore {
     /// Share of evaluated forecasts whose resting heart rate fell in the range (0…1), nil without outcomes.
     private(set) var forecastHitRate: Double?
     private(set) var isRefreshing = false
+    /// False when the day's nudges could not be delivered as notifications (permission off or an error).
+    private(set) var nudgesDelivered = true
+    /// Moment of the last finished refresh, nil before the first one.
+    private(set) var lastRefreshAt: Date?
     /// Calm German message for the UI, nil when the last action worked.
     var lastError: String?
 
@@ -163,11 +167,14 @@ final class CompanionStore {
         calendar = .current
         let startOfToday = calendar.startOfDay(for: now)
 
-        // Wake: explicit argument, else the alarm button, else an earlier confirmation today.
+        // Wake: explicit argument, else the alarm button, else an earlier confirmation today (also one saved
+        // with today's briefing by another screen or before the app was closed).
         if let alarmWake = isUITesting ? nil : PendingWake.consume() { confirmedWakeToday = alarmWake }
         if let confirmedWake { confirmedWakeToday = confirmedWake }
         if let known = confirmedWakeToday, !calendar.isDate(known, inSameDayAs: now) { confirmedWakeToday = nil }
+        if confirmedWakeToday == nil { confirmedWakeToday = storedWake(on: startOfToday) }
         let wake = confirmedWakeToday
+        disableFiredOneTimeAlarm(now: now)
 
         let since = calendar.date(byAdding: .day, value: -Self.historyDays, to: startOfToday) ?? startOfToday
         let samples = SampleReader(context: context).samples(Self.sampleKinds, since: since, profileID: profileID)
@@ -180,6 +187,7 @@ final class CompanionStore {
 
         var preferences = settings.preferences
         if !firstName.isEmpty { preferences.firstName = firstName }
+        preferences.maxNudgesPerDay = min(max(preferences.maxNudgesPerDay, 1), CompanionPreferences.nudgeCap)
 
         let input = CompanionInput(now: now, calendar: calendar, samples: samples, preferences: preferences,
                                    birthYear: birthYear, confirmedWake: wake, alarmTime: alarmTime(now: now),
@@ -198,8 +206,16 @@ final class CompanionStore {
         forecastHitRate = loadHitRate()
 
         if !isUITesting {
-            await NudgeScheduler.replace(with: day.nudges, now: now, calendar: calendar)
+            nudgesDelivered = await NudgeScheduler.replace(with: day.nudges, now: now, calendar: calendar)
         }
+        lastRefreshAt = Date()
+    }
+
+    /// True when `today` is missing, from another day, or older than `maxAge` seconds.
+    func needsRefresh(now: Date, maxAge: TimeInterval = 15 * 60) -> Bool {
+        guard let today, let last = lastRefreshAt else { return true }
+        if !Calendar.current.isDate(today.briefing.createdAt, inSameDayAs: now) { return true }
+        return Date().timeIntervalSince(last) > maxAge
     }
 
     // MARK: Inputs
@@ -244,6 +260,29 @@ final class CompanionStore {
         for finding in found { context.insert(StoredFinding(finding, createdAt: now)) }
         settings.lastResearchScan = now
         return found
+    }
+
+    /// Wake time saved with today's briefing (a briefing is only saved after a wake), nil otherwise.
+    private func storedWake(on startOfToday: Date) -> Date? {
+        let end = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+        let descriptor = FetchDescriptor<StoredBriefing>(
+            predicate: #Predicate { $0.createdAt >= startOfToday && $0.createdAt < end })
+        return (try? context.fetch(descriptor))?.first?.wakeTime
+    }
+
+    /// A one-time alarm (no weekdays) is switched off in the settings once it has rung, as the system
+    /// does not repeat it either.
+    private func disableFiredOneTimeAlarm(now: Date) {
+        guard settings.alarmEnabled, settings.weekdays.isEmpty, !isUITesting else { return }
+        var components = DateComponents()
+        components.hour = settings.alarmHour
+        components.minute = settings.alarmMinute
+        guard let rang = calendar.nextDate(after: settings.updatedAt, matching: components,
+                                           matchingPolicy: .nextTime),
+              rang <= now else { return }
+        settings.alarmEnabled = false
+        settings.alarmIDs = []
+        touchAndSave()
     }
 
     // MARK: Persistence

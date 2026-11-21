@@ -29,6 +29,9 @@ struct CompanionTodayCard: View {
             }
         }
         .task { await prepare() }
+        .onReceive(NotificationCenter.default.publisher(for: PendingWake.markedNotification)) { _ in
+            checkPendingWake()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Alarm button while TODAY is already open: the app only returns to the foreground.
             if phase == .active { checkPendingWake() }
@@ -64,13 +67,19 @@ struct CompanionTodayCard: View {
         .accessibilityIdentifier("today.companion")
     }
 
+    /// Runs on every appearance: creates the store once, then refreshes when the day is missing, from
+    /// yesterday or older than 15 minutes (the TODAY tab stays alive across days).
     private func prepare() async {
-        guard store == nil else { return }
-        let created = CompanionStore(context: modelContext)
-        store = created
+        let created: CompanionStore
+        if let store {
+            created = store
+        } else {
+            created = CompanionStore(context: modelContext)
+            store = created
+        }
         checkPendingWake()
         if alarmWaiting { return }
-        if created.today == nil {
+        if created.needsRefresh(now: CompanionUI.now) {
             await created.refresh(profileID: sources.ownerProfileID, birthYear: profile.profile.birthYear,
                                   firstName: CompanionUI.firstName(preferences: created.preferences, profile: profile.profile),
                                   confirmedWake: nil, morningHeartRate: nil)
@@ -125,6 +134,12 @@ private struct CompanionTodaySummary: View {
                     .font(Typography.caption)
                     .foregroundStyle(Palette.ink)
                     .wraps()
+                if !store.nudgesDelivered {
+                    Text("Mitteilungen sind aus, dieser Hinweis erscheint nur hier.")
+                        .font(Typography.caption)
+                        .foregroundStyle(Palette.inkMuted)
+                        .wraps()
+                }
             }
         }
         .accessibilityElement(children: .combine)

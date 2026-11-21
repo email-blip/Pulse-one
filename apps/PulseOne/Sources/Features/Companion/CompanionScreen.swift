@@ -17,6 +17,7 @@ struct CompanionScreen: View {
     @State private var speaker = BriefingSpeaker()
     @State private var doneActions: Set<String> = []
     @State private var showWake = false
+    @State private var showConference = false
 
     init() {}
 
@@ -47,6 +48,9 @@ struct CompanionScreen: View {
             .refreshable { await refresh() }
         }
         .navigationTitle("Begleiter")
+        .navigationDestination(isPresented: $showConference) {
+            if let store { ConferenceView(store: store) }
+        }
         .task { await prepare() }
         .onDisappear { speaker.stop() }
         .fullScreenCover(isPresented: $showWake) {
@@ -73,6 +77,10 @@ struct CompanionScreen: View {
             return
         }
         await refresh()
+        // Test view of the expert round: pushed like the entry card would, after today's day exists.
+        if options.usesTestScenario && options.scenario == CompanionUI.conferenceScenario {
+            showConference = true
+        }
     }
 
     private func refresh() async {
@@ -137,7 +145,7 @@ private struct CompanionContent: View {
     private var footer: some View {
         SectionHeader(title: "Expertenrunde")
         NavigationLink {
-            ConferenceView()
+            ConferenceView(store: store)
         } label: {
             ConferenceEntryLabel()
         }

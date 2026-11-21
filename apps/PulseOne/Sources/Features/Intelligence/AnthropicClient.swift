@@ -87,7 +87,10 @@ struct MockTransport: ClaudeTransport {
         let firstUser = body["messages"]?.arrayValue?.first?["content"]?.arrayValue?.first?["text"]?.stringValue ?? "{}"
         let context = try? JSONDecoder().decode(HealthAnalysisContext.self, from: Data(firstUser.utf8))
         let facts = context?.facts ?? []
-        if properties?["summary"] != nil {
+        if schema == nil {
+            // Plain-text requests (Begleiter "Expertenrunde"): canned role statements and synthesis.
+            text = CompanionConference.mockReply(system: body["system"]?.arrayValue?.first?["text"]?.stringValue ?? "")
+        } else if properties?["summary"] != nil {
             text = Self.report(facts: facts)
         } else if properties?["circumstances"] != nil {
             text = Self.hypotheses(facts: facts, analogIDs: context?.events.filter { $0.type == "analog_day" }.map(\.id) ?? [])

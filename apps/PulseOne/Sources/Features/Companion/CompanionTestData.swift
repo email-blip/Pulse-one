@@ -76,6 +76,20 @@ enum CompanionTestData {
         settings.cachedWeather = sampleWeather(now: now, calendar: calendar)
         settings.updatedAt = now
         context.insert(settings)
+
+        context.insert(sampleConference(now: now))
+    }
+
+    /// A finished expert round with the canned replies of the test transport (no usage, so no cost and
+    /// nothing counted against the Analyse budget). Test view only.
+    static func sampleConference(now: Date) -> StoredConference {
+        let statements = CompanionPrompts.conferenceRoles.map { role in
+            ConferenceStatement(role: role, text: CompanionConference.sampleStatements[role.id] ?? CompanionConference.emptyNotice,
+                                withheld: false)
+        }
+        return StoredConference(createdAt: now.addingTimeInterval(-2 * 3600), factsText: CompanionConference.sampleFacts,
+                                statements: statements, synthesis: CompanionConference.sampleSynthesis,
+                                synthesisWithheld: false, costUSD: nil, modelID: ClaudeModel.standard.id)
     }
 
     /// A plausible autumn day in Munich around `now` (36 hours from midnight), so the screen shows body weather

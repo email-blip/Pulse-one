@@ -8,6 +8,8 @@ enum CompanionUI {
     /// Scenario names of the UI tests.
     static let scenario = "companion"
     static let wakeScenario = "companionWake"
+    /// Opens the expert round directly (stored sample round from the test data).
+    static let conferenceScenario = "companionConference"
 
     /// Clock of the companion views: `TestScenario.fixedTime` in test scenarios (like TODAY), else now.
     static var now: Date { LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : Date.now }
