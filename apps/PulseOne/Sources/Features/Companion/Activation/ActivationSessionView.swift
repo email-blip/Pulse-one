@@ -277,14 +277,19 @@ private struct ActivationOverview: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .wraps()
                 .accessibilityAddTraits(.isHeader)
-            Text(plan.reason)
-                .font(Typography.body)
-                .foregroundStyle(Palette.inkMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .wraps()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("activation.overview")
+        // Own card: inside the title card the last line was cut at XXXL on the smallest phone, and on the
+        // bare background the audit reports low contrast against the ambient backdrop.
+        Card {
+            Text(plan.reason)
+                .font(Typography.body)
+                .foregroundStyle(Palette.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .wraps()
+                .accessibilityIdentifier("activation.reason")
+        }
         if !plan.warmUp.isEmpty {
             SectionHeader(title: "Aufwärmen")
             ForEach(plan.warmUp) { block in

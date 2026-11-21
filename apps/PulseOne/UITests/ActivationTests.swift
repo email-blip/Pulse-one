@@ -73,7 +73,7 @@ final class ActivationTests: XCTestCase {
             .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -32) }
         try app.performAccessibilityAudit { issue in
             let element = issue.element
-            print("AUDIT[\(name)] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-")")
+            print("AUDIT[\(name)] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-") frame=\(element?.frame ?? .zero)")
             // Same documented exclusions as AccessibilityTests (DECISIONS.md).
             if issue.auditType == .contrast, let frame = element?.frame,
                barFrames.contains(where: { $0.intersects(frame) }) {

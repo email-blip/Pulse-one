@@ -42,7 +42,7 @@ struct ConferenceView: View {
                         .font(Typography.body)
                         .foregroundStyle(Palette.ink)
                         .wraps()
-                    ConferenceDisclaimerCard()
+                    ConferenceDisclaimerCard(mode: runner.safetyMode)
                     if !runner.hasKey { ConferenceKeyCard() }
                     askSection
                     if runner.isRunning {
@@ -103,19 +103,25 @@ struct ConferenceView: View {
     }
 }
 
-/// Always visible: AI roles, not doctors; no diagnosis, no therapy.
+/// Always visible: who speaks. Clinical mode (default) introduces the specialist roles without disclaimers;
+/// descriptive mode keeps the earlier "no doctors, no diagnosis" card.
 private struct ConferenceDisclaimerCard: View {
+    let mode: SafetyMode
+
     var body: some View {
         Card {
-            Label("Keine Ärzte, keine Diagnose", systemImage: "hand.raised")
+            Label(mode == .clinical ? "Vier Fachrollen" : "Keine Ärzte, keine Diagnose",
+                  systemImage: mode == .clinical ? "stethoscope" : "hand.raised")
                 .font(Typography.label)
                 .foregroundStyle(Palette.ink)
                 .wraps()
-            Text(CompanionPrompts.conferenceDisclaimer)
+            Text(CompanionPrompts.conferenceIntro(mode))
                 .font(Typography.caption)
                 .foregroundStyle(Palette.ink)
                 .wraps()
-            Text("Die Rollen sind KI-Stimmen von Claude, keine echten Fachleute. Sie beschreiben Muster in deinen eigenen Werten und machen Vorschläge. Bei Beschwerden lass dich ärztlich beraten, im Notfall 112.")
+            Text(mode == .clinical
+                 ? "Bei Warnzeichen steht die Dringlichkeit ganz oben. Im Notfall 112."
+                 : "Die Rollen sind KI-Stimmen von Claude, keine echten Fachleute. Sie beschreiben Muster in deinen eigenen Werten und machen Vorschläge. Bei Beschwerden lass dich ärztlich beraten, im Notfall 112.")
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)
                 .wraps()
