@@ -26,11 +26,16 @@ private func sample(_ kind: SampleKind, _ value: Double, daysAgo: Int, hour: Int
 
 /// 40 days: resting pulse 54–56, sleep 7 h ± 0.5, steps 8000 ± 1000.
 private func history(days: Int = 40) -> [HealthSample] {
-    (0..<days).flatMap { d -> [HealthSample] in
-        [sample(.restingHeartRate, 54 + Double(d % 3), daysAgo: d),
-         sample(.sleepDuration, (7 + Double(d % 2) - 0.25) * 3_600, daysAgo: d, hour: 0),
-         sample(.steps, 8_000 + Double((d % 3) - 1) * 1_000, daysAgo: d, hour: 12)]
+    var result: [HealthSample] = []
+    for d in 0..<days {
+        let pulse: Double = 54 + Double(d % 3)
+        let sleepHours: Double = 7 + Double(d % 2) - 0.25
+        let steps: Double = 8_000 + Double((d % 3) - 1) * 1_000
+        result.append(sample(.restingHeartRate, pulse, daysAgo: d))
+        result.append(sample(.sleepDuration, sleepHours * 3_600, daysAgo: d, hour: 0))
+        result.append(sample(.steps, steps, daysAgo: d, hour: 12))
     }
+    return result
 }
 
 private func fact(_ id: String, _ kind: SampleKind, _ value: Double, unit: String, n: Int = 7, coverage: Double = 1,
@@ -333,17 +338,21 @@ struct QuestionToolsTests {
         let denied = tools.run(name: "get_metric_summary",
                                input: ["kind": "sleep_duration", "start": "2026-11-15", "end": "2026-11-21"], nextID: &next)
         #expect(denied.isError)
-        #expect(!tools.definitions.map { $0["name"]?.stringValue ?? "" }.contains("list_events"))
+        let names: [String] = tools.definitions.map { $0["name"]?.stringValue ?? "" }
+        #expect(!names.contains("list_events"))
     }
 }
 
 @Suite("Body detective")
 struct BodyDetectiveTests {
     @Test func findsDeviationAndAnalogues() throws {
-        var samples = history().filter { !($0.kind == .restingHeartRate && $0.start > now.addingTimeInterval(-2 * 86_400)) }
+        let recent = now.addingTimeInterval(-2 * 86_400)
+        var samples = history().filter { s in !(s.kind == .restingHeartRate && s.start > recent) }
         samples += [sample(.restingHeartRate, 64, daysAgo: 0), sample(.restingHeartRate, 63, daysAgo: 1)]
         // An earlier similar day (20 days ago) followed by a note.
-        samples = samples.filter { !($0.kind == .restingHeartRate && $0.start < now.addingTimeInterval(-19.5 * 86_400) && $0.start > now.addingTimeInterval(-20.5 * 86_400)) }
+        let from = now.addingTimeInterval(-20.5 * 86_400)
+        let to = now.addingTimeInterval(-19.5 * 86_400)
+        samples = samples.filter { s in !(s.kind == .restingHeartRate && s.start > from && s.start < to) }
         samples.append(sample(.restingHeartRate, 64, daysAgo: 20))
         let cold = ContextEvent(date: berlin.date(byAdding: .day, value: -18, to: now)!, tags: [.feelingIll], mood: 2, text: "")
         let detective = BodyDetective(calendar: berlin)
@@ -405,11 +414,13 @@ struct ExperimentLabTests {
 struct BodyBiographyTests {
     /// Sleep and resting pulse move against each other for 60 days.
     func linked() -> [HealthSample] {
-        (0..<60).flatMap { d -> [HealthSample] in
-            let hours = 6 + Double(d % 5) * 0.5
-            return [sample(.sleepDuration, hours * 3_600, daysAgo: d, hour: 0),
-                    sample(.restingHeartRate, 66 - hours * 2, daysAgo: d)]
+        var result: [HealthSample] = []
+        for d in 0..<60 {
+            let hours: Double = 6 + Double(d % 5) * 0.5
+            result.append(sample(.sleepDuration, hours * 3_600, daysAgo: d, hour: 0))
+            result.append(sample(.restingHeartRate, 66 - hours * 2, daysAgo: d))
         }
+        return result
     }
 
     @Test func createsAndRechecksCards() throws {
