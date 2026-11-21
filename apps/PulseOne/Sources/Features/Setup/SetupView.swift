@@ -30,6 +30,8 @@ struct SetupView: View {
                             Button("Später") { finish() }
                                 .font(Typography.label)
                                 .foregroundStyle(Palette.bioCyan)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                                 .accessibilityIdentifier("setup.skipAll")
                         }
                     }
