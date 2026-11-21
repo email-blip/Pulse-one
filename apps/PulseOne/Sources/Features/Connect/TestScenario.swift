@@ -88,7 +88,7 @@ enum TestScenario {
     }
 
     /// Scenarios of the tab app (TODAY, HEALTH, profile) that show five weeks of sample history.
-    static let historyScenarios: Set<String> = ["today", "health", "healthDetail", "profile"]
+    static let historyScenarios: Set<String> = ["today", "health", "healthDetail", "profile", "intelligence"]
 
     /// Five weeks of plausible values for the tab screenshots. Test view only, never in the real store.
     @MainActor
@@ -125,6 +125,7 @@ enum TestScenario {
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
         if historyScenarios.contains(name) { insertTabHistory(into: context) }
+        if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         guard name == "live" || name == "heart" || name == "devices" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
         let device = name == "devices" ? "test-ring" : "test"

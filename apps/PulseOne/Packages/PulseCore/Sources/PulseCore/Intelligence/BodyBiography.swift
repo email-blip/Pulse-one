@@ -55,6 +55,25 @@ public struct InsightCard: Codable, Sendable, Equatable, Identifiable {
     public var recheckDue: Date
     public var status: InsightStatus
 
+    public init(id: UUID = UUID(), statement: String, kindA: SampleKind, kindB: SampleKind?, lagDays: Int, rho: Double?,
+                n: Int, periodText: String, strength: InsightStrength, origin: InsightOrigin, createdAt: Date,
+                checkedAt: Date, recheckDue: Date, status: InsightStatus) {
+        self.id = id
+        self.statement = statement
+        self.kindA = kindA
+        self.kindB = kindB
+        self.lagDays = lagDays
+        self.rho = rho
+        self.n = n
+        self.periodText = periodText
+        self.strength = strength
+        self.origin = origin
+        self.createdAt = createdAt
+        self.checkedAt = checkedAt
+        self.recheckDue = recheckDue
+        self.status = status
+    }
+
     /// Plain evidence line: "ρ = −0,41 · 28 Tage · 23.08.–20.11.2026".
     public var evidenceText: String {
         var parts: [String] = []
