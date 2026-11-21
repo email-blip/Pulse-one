@@ -33,7 +33,8 @@ public struct ExperimentPlan: Codable, Sendable, Equatable {
     public func sanitized() -> ExperimentPlan {
         var copy = self
         copy.blockDays = min(max(blockDays, 3), 7)
-        copy.blocks = min(max(blocks, 4), 8)
+        // Six blocks (3 A, 3 B) are the fewest whose permutation test can reach p ≤ 0.1 (2 of 20 labelings).
+        copy.blocks = min(max(blocks, ExperimentLab.minimumBlocks), 8)
         if copy.blocks % 2 == 1 { copy.blocks -= 1 }
         copy.washoutDays = min(max(washoutDays, 0), 2)
         if !ExperimentLab.targetKinds.contains(targetKind) { copy.targetKind = .sleepDuration }
@@ -92,6 +93,10 @@ public enum ExperimentAdmissibility: Equatable, Sendable {
 }
 
 public enum ExperimentLab {
+    public static let minimumBlocks = 6
+    /// Blocks per condition needed before a verdict; with fewer the test can never show a difference.
+    static let minimumBlocksPerCondition = 3
+
     /// Measurable targets for everyday experiments.
     public static let targetKinds: [SampleKind] = [.sleepDuration, .restingHeartRate, .heartRateVariability, .ringHRV, .steps, .heartRate]
 
@@ -156,13 +161,13 @@ public enum ExperimentLab {
                 blockValues[block, default: []].append(FactUnits.display(plan.targetKind, v).value)
             }
         }
-        // A block counts when at least half of its days have data.
-        let minimum = max(1, plan.blockDays / 2)
+        // A block counts when at least half of its days (rounded up) have data.
+        let minimum = max(1, (plan.blockDays + 1) / 2)
         let used = blockValues.filter { $0.value.count >= minimum }
         let meansA = used.filter { blockCondition[$0.key] == .a }.compactMap { IntelligenceStats.mean($0.value) }
         let meansB = used.filter { blockCondition[$0.key] == .b }.compactMap { IntelligenceStats.mean($0.value) }
         let daysUsed = used.values.reduce(0) { $0 + $1.count }
-        guard meansA.count >= 2, meansB.count >= 2,
+        guard meansA.count >= minimumBlocksPerCondition, meansB.count >= minimumBlocksPerCondition,
               let ma = IntelligenceStats.mean(meansA), let mb = IntelligenceStats.mean(meansB) else {
             return ExperimentResult(meanA: IntelligenceStats.mean(meansA) ?? 0, meanB: IntelligenceStats.mean(meansB) ?? 0,
                                     difference: 0, blockMeansA: meansA, blockMeansB: meansB, pValue: 1,

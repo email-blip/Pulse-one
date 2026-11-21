@@ -11,8 +11,8 @@ struct ClaudeReply: Sendable {
 /// and never touch the network (spec §6).
 protocol ClaudeTransport: Sendable {
     func send(_ body: JSONValue, apiKey: String) async throws -> ClaudeReply
-    /// Model ids the key may use (`GET /v1/models`), also the connection test.
-    func models(apiKey: String) async throws -> [String]
+    /// Whether the key may use this model (`GET /v1/models/{id}`), also the connection test.
+    func hasModel(_ id: String, apiKey: String) async throws -> Bool
 }
 
 struct URLSessionTransport: ClaudeTransport {
@@ -36,12 +36,8 @@ struct URLSessionTransport: ClaudeTransport {
         while true {
             let (data, status, retryAfter) = try await perform(request)
             if status == 200 {
-                let response = try AnthropicResponse.decode(data)
-                switch response.stopReason {
-                case "refusal": throw AnthropicError.refusal
-                case "max_tokens": throw AnthropicError.truncated
-                default: return ClaudeReply(response: response, raw: data)
-                }
+                // Refusals and cut-off answers are billed too; the engine records their usage, then fails.
+                return ClaudeReply(response: try AnthropicResponse.decode(data), raw: data)
             }
             let error = AnthropicError.from(status: status, body: data, retryAfter: retryAfter)
             // At most two repeats with growing pauses (spec §3.2 "Fehler").
@@ -53,14 +49,14 @@ struct URLSessionTransport: ClaudeTransport {
         }
     }
 
-    func models(apiKey: String) async throws -> [String] {
+    func hasModel(_ id: String, apiKey: String) async throws -> Bool {
         guard !apiKey.isEmpty else { throw AnthropicError.missingKey }
-        var request = URLRequest(url: AnthropicAPI.modelsURL)
+        var request = URLRequest(url: AnthropicAPI.modelURL(id))
         for (field, value) in AnthropicAPI.modelHeaders(apiKey: apiKey) { request.setValue(value, forHTTPHeaderField: field) }
         let (data, status, retryAfter) = try await perform(request)
-        guard status == 200 else { throw AnthropicError.from(status: status, body: data, retryAfter: retryAfter) }
-        let list = try JSONDecoder().decode(JSONValue.self, from: data)
-        return list["data"]?.arrayValue?.compactMap { $0["id"]?.stringValue } ?? []
+        if status == 200 { return true }
+        if status == 404 { return false }
+        throw AnthropicError.from(status: status, body: data, retryAfter: retryAfter)
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, Int, String?) {
@@ -78,7 +74,7 @@ struct URLSessionTransport: ClaudeTransport {
 /// Canned answers for screenshots and UI tests. They cite the facts the request carries, so the real
 /// validator runs on them.
 struct MockTransport: ClaudeTransport {
-    func models(apiKey: String) async throws -> [String] { ClaudeModel.all.map(\.id) }
+    func hasModel(_ id: String, apiKey: String) async throws -> Bool { ClaudeModel.all.contains { $0.id == id } }
 
     func send(_ body: JSONValue, apiKey: String) async throws -> ClaudeReply {
         let schema = body["output_config"]?["format"]?["schema"]
@@ -100,7 +96,7 @@ struct MockTransport: ClaudeTransport {
         } else if properties?["circumstances"] != nil {
             text = Self.hypotheses(facts: facts, analogIDs: context?.events.filter { $0.type == "analog_day" }.map(\.id) ?? [])
         } else if properties?["blockDays"] != nil {
-            text = #"{"title":"Kaffee nach 14 Uhr","targetKind":"sleep_duration","conditionA":"Kaffee wie gewohnt","conditionB":"kein Kaffee nach 14 Uhr","blockDays":5,"blocks":4,"washoutDays":1,"notesNeeded":["Uhrzeit des letzten Kaffees"],"rationale":"Schlafdauer reagiert innerhalb weniger Tage; vier Blöcke gleichen Wochentage aus."}"#
+            text = #"{"title":"Kaffee nach 14 Uhr","targetKind":"sleep_duration","conditionA":"Kaffee wie gewohnt","conditionB":"kein Kaffee nach 14 Uhr","blockDays":5,"blocks":6,"washoutDays":1,"notesNeeded":["Uhrzeit des letzten Kaffees"],"rationale":"Schlafdauer reagiert innerhalb weniger Tage; sechs Blöcke gleichen Wochentage aus und reichen für eine Auswertung."}"#
         } else {
             text = #"{"statements":[{"text":"In der Testansicht beantwortet Claude keine echten Fragen.","type":"interpretation","evidence":[]}],"followUps":[]}"#
         }

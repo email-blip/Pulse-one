@@ -5,6 +5,11 @@ import Foundation
 public enum AnthropicAPI {
     public static let messagesURL = URL(string: "https://api.anthropic.com/v1/messages")!
     public static let modelsURL = URL(string: "https://api.anthropic.com/v1/models")!
+
+    /// `GET /v1/models/{id}`: one model, so the connection test does not depend on list pagination.
+    public static func modelURL(_ id: String) -> URL {
+        modelsURL.appendingPathComponent(id)
+    }
     public static let apiVersion = "2026-10-21"
     /// Lets a mistaken safety decline be re-run on another model instead of failing (spec §3.2).
     public static let fallbackBeta = "server-side-fallback-2026-07-01"
@@ -130,7 +135,7 @@ public enum AnthropicError: Error, Equatable, Sendable {
         case .badRequest(let m): "Die Anfrage wurde abgelehnt. \(m)"
         case .refusal: "Claude hat diese Anfrage nicht beantwortet. Es wird nichts Ungeprüftes angezeigt."
         case .truncated: "Die Antwort war zu lang und ist unvollständig. Bitte einen kürzeren Zeitraum wählen."
-        case .offline: "Keine Internetverbindung. Die Analyse bleibt als Entwurf und kann später gesendet werden."
+        case .offline: "Keine Verbindung zu Anthropic (offline oder Zeitüberschreitung). Bitte später noch einmal senden."
         case .server(let s, let m): "Fehler bei Anthropic (\(s)). \(m)"
         }
     }
@@ -261,7 +266,7 @@ public enum IntelligencePrompts {
     public static let experiment = """
     Du planst in PULSE ONE einen kleinen Selbstversuch (N-of-1) zu einer Alltagsfrage. Wähle einen Zielmesswert \
     aus der erlaubten Liste, zwei Bedingungen A und B, Blocklänge 3 bis 7 Tage, eine gerade Zahl von Blöcken \
-    (4 bis 8), 0 bis 2 Auswaschtage und die Notizen, die täglich nötig sind. Nur Alltagsverhalten wie Koffein, \
+    (6 bis 8, damit die Auswertung einen Unterschied überhaupt zeigen kann), 0 bis 2 Auswaschtage und die Notizen, die täglich nötig sind. Nur Alltagsverhalten wie Koffein, \
     Bildschirm, Abendessen, Training oder Zubettgehzeit; nie Medikamente oder Nahrungsergänzung. \
     Antworte ausschließlich im vorgegebenen JSON-Schema, Deutsch, Du-Form.
     """

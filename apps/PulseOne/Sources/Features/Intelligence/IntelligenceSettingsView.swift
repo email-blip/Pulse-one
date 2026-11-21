@@ -182,8 +182,8 @@ struct IntelligenceSettingsView: View {
         let wanted = services.settings.model
         Task {
             do {
-                let models = try await transport.models(apiKey: key)
-                status = models.contains(wanted.id)
+                let available = try await transport.hasModel(wanted.id, apiKey: key)
+                status = available
                     ? "Verbunden. \(wanted.displayName) ist für deinen Schlüssel freigeschaltet."
                     : "Verbunden, aber \(wanted.displayName) ist für deinen Schlüssel nicht freigeschaltet. Wähle ein anderes Modell."
             } catch let error as AnthropicError {

@@ -67,13 +67,16 @@ public enum ConsentCategory: String, Codable, CaseIterable, Sendable {
         case .heart: [.restingHeartRate, .heartRate, .heartRateVariability, .ringHRV, .respiratoryRate]
         case .spo2: [.oxygenSaturation]
         case .sleep: [.sleepDuration]
-        case .activity: [.steps, .activeEnergy, .distance, .elevationGain]
+        case .activity: [.steps, .activeEnergy, .basalEnergy, .distance, .elevationGain]
         case .training: [.trainingDuration, .vo2Max]
-        case .body: [.bodyMass, .skinTemperatureDeviation, .bodyTemperature]
+        case .body: [.bodyMass, .skinTemperature, .skinTemperatureDeviation, .bodyTemperature]
         case .ringStress: [.ringStress]
         case .notes: []
         }
     }
+
+    /// Kinds that never go to Claude: device state and a fixed body measure.
+    public static let neverShared: Set<SampleKind> = [.deviceBattery, .height]
 
     public static func category(for kind: SampleKind) -> ConsentCategory? {
         allCases.first { $0.kinds.contains(kind) }
@@ -299,4 +302,8 @@ extension SampleKind {
     /// A score the device maker computes with an undisclosed method (ring stress index). It is described
     /// as a daily pattern only: no personal band, no rating of single values, no detective feature.
     public var isVendorScore: Bool { self == .ringStress }
+
+    /// A total that grows during the day (steps, energy, distance). The running day is unfinished and is
+    /// never compared with whole days. Sleep is not one: last night's sleep is complete in the morning.
+    public var isRunningTotal: Bool { aggregation == .cumulative }
 }
