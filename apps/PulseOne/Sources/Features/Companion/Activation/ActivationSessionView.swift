@@ -446,7 +446,7 @@ private struct ActivationHowTo: View {
     var body: some View {
         DisclosureGroup {
             VStack(alignment: .leading, spacing: Spacing.s) {
-                ForEach(Array(exercise.steps.enumerated()), id: \.element) { index, line in
+                ForEach(Array(exercise.steps.enumerated()), id: \.offset) { index, line in
                     Text("\(index + 1). \(line)")
                         .font(Typography.caption)
                         .foregroundStyle(Palette.ink)
