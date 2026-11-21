@@ -56,7 +56,7 @@ Stufen für PULSE ONE: **gebaut** = Code vorhanden; **iPhone** = am R03 nachgewi
 | Persönliches Normalband + Trend | – | A6, 28/30 Tage | gebaut im Coach-Kern, geplant für Diagramme (R1-9) |
 | Datenqualität / Tragezeit | – | A7, Abdeckung je Tag (HEALTH-DATA-SPEC) | geplant |
 | SpO₂-Nachtbild | – | B5 mit Arzt-Hinweis | geplant |
-| Stress-Tagesmuster | Tagesmittel | B4 in RING-AUSWERTUNGEN, aber Spec sagt „nicht anzeigen“ | **Widerspruch klären** |
+| Stress-Tagesmuster | Tagesmittel | B4 in RING-AUSWERTUNGEN | entschieden 2026-11-21: speichern + Tagesmuster |
 | Wochenbericht | – | FC-1 „Deine Woche“ | geplant (R2) |
 
 ## 3. Ist die Oberfläche individualisierbar?
@@ -69,7 +69,7 @@ Stufen für PULSE ONE: **gebaut** = Code vorhanden; **iPhone** = am R03 nachgewi
 
 1. **Ring-Einstellungen schreiben** (0x16 Puls-Intervall, 0x2C SpO₂, 0x38 HRV, 0x36 Stress) als Messprofile Standard/Akku sparen/Minimal (RING-AUSWERTUNGEN §5.1). Ohne das zeichnet der Ring HRV/SpO₂ evtl. gar nicht auf. Erst lesen, dann nach Realtest schreiben.
 2. `Metric`/`SampleKind` um SpO₂, HRV (Ring, eigene Methode), Stress-Index, Schlafphasen, Schritte/kcal/Distanz erweitern; HRV 0x39 aus `hrv_sdnn` lösen.
-3. Stress: Entscheidung „speichern + Muster zeigen“ vs. „gar nicht“ (Johannes).
+3. Stress: **entschieden 2026-11-21 (Johannes): speichern + Tagesmuster zeigen**, als Herstellerwert markiert.
 4. Sync-Pflicht: Ringspeicher ~7 Tage; Hinweis nach 4 Tagen ohne Sync (RING-AUSWERTUNGEN R6).
 5. Kleine Gerätefunktionen: Ring finden (LED), ausschalten.
 6. R09: Temperatur und Gesten/Kamera per Mitschnitt mit QRing ermitteln (Forschung, kein Versprechen).
