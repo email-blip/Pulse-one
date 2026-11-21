@@ -189,10 +189,16 @@ final class CompanionStore {
         if !firstName.isEmpty { preferences.firstName = firstName }
         preferences.maxNudgesPerDay = min(max(preferences.maxNudgesPerDay, 1), CompanionPreferences.nudgeCap)
 
+        let coach = coachContext(now: now)
         let input = CompanionInput(now: now, calendar: calendar, samples: samples, preferences: preferences,
                                    birthYear: birthYear, confirmedWake: wake, alarmTime: alarmTime(now: now),
                                    morningHeartRate: morningHeartRate, weather: currentWeather,
-                                   pendingForecast: pendingRecord?.forecast, findings: findings)
+                                   pendingForecast: pendingRecord?.forecast, findings: findings,
+                                   feelsSick: coach.check?.feelsSick ?? false,
+                                   alarmSymptoms: coach.check?.alarmSymptoms ?? false,
+                                   painRegions: coach.check?.painRegions ?? [],
+                                   limitations: coach.preferences?.limitations ?? [],
+                                   needsMedicalClearance: coach.preferences?.needsMedicalClearance ?? false)
         let day = CompanionEngine.run(input)
         today = day
 
@@ -239,6 +245,16 @@ final class CompanionStore {
     }
 
     /// Today's alarm moment if the alarm is on for today's weekday and the time has passed.
+    /// What the coach knows that limits today's suggestions: the newest evening review of yesterday or today
+    /// and the setup (limitations, medical clearance). Shared via `DayGuard`, so the Begleiter never suggests
+    /// push-ups after shoulder pain was reported or strength work after "fühle mich krank".
+    private func coachContext(now: Date) -> (check: SubjectiveCheck?, preferences: CoachPreferences?) {
+        let repository = CoachRepository(context: context, calendar: calendar)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now)) ?? now
+        let check = repository.reviews(since: yesterday).filter { $0.day <= now }.last?.check
+        return (check, repository.settings()?.preferences)
+    }
+
     private func alarmTime(now: Date) -> Date? {
         guard settings.alarmEnabled else { return nil }
         let days = settings.weekdays

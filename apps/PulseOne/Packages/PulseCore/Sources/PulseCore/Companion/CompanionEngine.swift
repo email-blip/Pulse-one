@@ -34,8 +34,10 @@ public enum CompanionEngine {
         let nudges = DayRhythmPlanner.plan(wake: wake, dayType: dayType, night: night, weather: bodyWeather,
                                            preferences: input.preferences, now: input.now, calendar: calendar)
 
+        let dayGuard = input.dayGuard(dayType: dayType, infection: infection.level)
         let actions = QuickActionPicker.pick(dayType: dayType, night: night, weather: input.weather,
-                                             preferences: input.preferences, now: input.now, calendar: calendar)
+                                             preferences: input.preferences, now: input.now, calendar: calendar,
+                                             dayGuard: dayGuard)
 
         let parts = BriefingParts(night: night, dayType: dayType, infection: infection, forecastOutcome: outcome,
                                   bodyPace: bodyPace, bodyWeather: bodyWeather, actions: actions,
