@@ -449,6 +449,18 @@ struct BodyDetectiveTests {
         #expect(ctx.events.contains { $0.type == "analog_day" })
     }
 
+    /// In the morning today's steps are low only because the day has just begun: no deviation.
+    @Test func runningDayStepsAreNoDeviation() {
+        let yesterday = berlin.date(byAdding: .day, value: -1, to: berlin.startOfDay(for: now))!
+        var samples = history().filter { !($0.kind == .steps && $0.start >= yesterday) }
+        samples.append(sample(.steps, 900, daysAgo: 0, hour: 9))
+        samples.append(sample(.steps, 1_200, daysAgo: 1, hour: 12))
+        let cases = BodyDetective(calendar: berlin).cases(samples: samples, events: [], now: now)
+        #expect(!cases.contains { $0.deviation.kind == .steps })
+        let profiles = BodyDetective(calendar: berlin).profiles(from: samples, now: now)
+        #expect(profiles.last.map { $0.values[.steps] == nil } == true)
+    }
+
     @Test func calmDataGivesNoCase() {
         #expect(BodyDetective(calendar: berlin).cases(samples: history(), events: [], now: now).isEmpty)
     }
@@ -480,13 +492,36 @@ struct ExperimentLabTests {
         #expect(ExperimentLab.evaluate(plan, start: now, values: [:], calendar: berlin).verdict == .notEnoughData)
     }
 
+    /// The smallest allowed plan can still show a clear difference; four blocks never could (p ≥ 1/3).
+    @Test func smallestPlanCanShowADifference() {
+        let six = ExperimentPlan(title: "x", targetKind: .sleepDuration, conditionA: "a", conditionB: "b", blockDays: 3,
+                                 blocks: 4, washoutDays: 0).sanitized()
+        #expect(six.blocks == 6)
+        var values: [Date: Double] = [:]
+        for day in ExperimentLab.schedule(six, start: now, calendar: berlin) {
+            values[berlin.startOfDay(for: day.date)] = day.condition == .a ? 6.5 * 3_600 : 7.4 * 3_600
+        }
+        let result = ExperimentLab.evaluate(six, start: now, values: values, calendar: berlin)
+        #expect(abs(result.pValue - 2.0 / 20.0) < 0.0001)
+        #expect(result.verdict == .difference)
+        // A three-day block needs two days with data: one value per block is not enough.
+        var sparse: [Date: Double] = [:]
+        var seen: Set<Int> = []
+        for day in ExperimentLab.schedule(six, start: now, calendar: berlin) {
+            guard let block = day.block, !seen.contains(block) else { continue }
+            seen.insert(block)
+            sparse[berlin.startOfDay(for: day.date)] = 7 * 3_600
+        }
+        #expect(ExperimentLab.evaluate(six, start: now, values: sparse, calendar: berlin).verdict == .notEnoughData)
+    }
+
     @Test func limits() {
         #expect(ExperimentLab.admissibility(of: "Schlafe ich besser mit Magnesium?") != .ok)
         #expect(ExperimentLab.admissibility(of: "Schlafe ich besser ohne Bildschirm nach 22 Uhr?") == .ok)
         #expect(ExperimentLab.admissibility(of: "Bin ich nach Reisen müder?") == .ok)
         let wild = ExperimentPlan(title: "x", targetKind: .bodyMass, conditionA: "a", conditionB: "b", blockDays: 30, blocks: 5, washoutDays: 9)
         let clean = wild.sanitized()
-        #expect(clean.blockDays == 7 && clean.blocks == 4 && clean.washoutDays == 2 && clean.targetKind == .sleepDuration)
+        #expect(clean.blockDays == 7 && clean.blocks == 6 && clean.washoutDays == 2 && clean.targetKind == .sleepDuration)
         #expect(ExperimentLab.requiredDaysPerCondition(sd: 0.5, effect: 0.25) == 63)
     }
 }
@@ -605,5 +640,41 @@ struct ConsultationTests {
         #expect(!IntelligencePrompts.report(.descriptive).contains("Differenzialdiagnosen"))
         #expect(IntelligencePrompts.consultation.contains("anamnesisQuestions"))
         #expect(IntelligencePrompts.version == 4)
+    }
+}
+
+@Suite("Analyse inputs")
+struct AnalyseInputTests {
+    /// Every kind reaches Claude through a consent category, or is deliberately never shared.
+    @Test func everyKindHasACategory() {
+        for kind in SampleKind.allCases where !ConsentCategory.neverShared.contains(kind) {
+            #expect(ConsentCategory.category(for: kind) != nil, "\(kind.rawValue) has no consent category")
+        }
+        #expect(ConsentCategory.category(for: .skinTemperature) == .body)
+    }
+
+    /// The same SpO₂ reading from ring and Apple Health counts once.
+    @Test func lowSpO2ReadingsAreNotDoubled() throws {
+        var samples = history()
+        for d in 0..<3 {
+            let health = sample(.oxygenSaturation, 88, daysAgo: d, hour: 3)
+            let ring = HealthSample(profileID: health.profileID, kind: .oxygenSaturation, value: 88, unit: health.unit,
+                                    start: health.start, end: health.end, timeZoneIdentifier: "Europe/Berlin", source: .colmiRing,
+                                    deviceID: "ring-1", originalSampleID: "ring-spo2-\(d)", importedAt: now, quality: .valid,
+                                    method: .deviceHistory, originDetail: "Colmi R03")
+            samples += [health, ring]
+        }
+        let ctx = ContextBuilder(calendar: berlin).build(samples: samples, events: [], kind: .weekly, now: now,
+                                                         consent: [.spo2], profile: .empty)
+        let low = try #require(ctx.facts.first { $0.kind == "spo2_low_readings" })
+        #expect(low.value == 3)
+    }
+
+    /// Question tools leave out today's unfinished steps.
+    @Test func questionToolsSkipTheRunningDay() {
+        let tools = QuestionTools(samples: history(), events: [], consent: [.activity], calendar: berlin, now: now)
+        let days = tools.daily(.steps, from: berlin.date(byAdding: .day, value: -3, to: berlin.startOfDay(for: now))!, to: now.addingTimeInterval(86_400))
+        #expect(!days.keys.contains(berlin.startOfDay(for: now)))
+        #expect(days.count == 3)
     }
 }

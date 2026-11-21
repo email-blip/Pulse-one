@@ -8,10 +8,13 @@ public struct QuestionTools: Sendable {
     public let consent: Set<ConsentCategory>
     public let calendar: Calendar
     public let policy: SourcePolicy
+    /// The running day: totals (steps, energy, distance) of this day are unfinished and left out.
+    public let now: Date
     public static let maxCalls = 8
 
     public init(samples: [HealthSample], events: [ContextEvent], consent: Set<ConsentCategory>,
-                calendar: Calendar = .current, policy: SourcePolicy = SourcePolicy()) {
+                calendar: Calendar = .current, policy: SourcePolicy = SourcePolicy(), now: Date = Date()) {
+        self.now = now
         self.samples = samples.filter { $0.quality.usableForAnalysis && $0.profileID != nil }
         self.events = events
         self.consent = consent
@@ -141,7 +144,8 @@ public struct QuestionTools: Sendable {
     }
 
     func daily(_ kind: SampleKind, from: Date, to: Date) -> [Date: Double] {
-        let relevant = samples.filter { $0.kind == kind && $0.start >= from && $0.start < to }
+        let end = kind.isRunningTotal ? min(to, calendar.startOfDay(for: now)) : to
+        let relevant = samples.filter { $0.kind == kind && $0.start >= from && $0.start < end }
         return Dictionary(DailySeries.build(relevant, kind: kind, calendar: calendar, policy: policy).map { ($0.day, $0.value) },
                           uniquingKeysWith: { a, _ in a })
     }

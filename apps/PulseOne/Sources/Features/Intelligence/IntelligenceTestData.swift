@@ -62,9 +62,9 @@ enum IntelligenceTestData {
         context.insert(consultation)
 
         let plan = ExperimentPlan(title: "Kaffee nach 14 Uhr", targetKind: .sleepDuration, conditionA: "Kaffee wie gewohnt",
-                                  conditionB: "kein Kaffee nach 14 Uhr", blockDays: 5, blocks: 4, washoutDays: 1,
+                                  conditionB: "kein Kaffee nach 14 Uhr", blockDays: 5, blocks: 6, washoutDays: 1,
                                   notesNeeded: ["Uhrzeit des letzten Kaffees"],
-                                  rationale: "Schlafdauer reagiert innerhalb weniger Tage; vier Blöcke gleichen Wochentage aus.")
+                                  rationale: "Schlafdauer reagiert innerhalb weniger Tage; sechs Blöcke gleichen Wochentage aus und reichen für eine Auswertung.")
         let experiment = StoredExperiment(question: "Schlafe ich ohne Kaffee am Nachmittag länger?", plan: plan, start: day(-3, hour: 0))
         experiment.createdAt = now.addingTimeInterval(-3 * 86_400)
         context.insert(experiment)

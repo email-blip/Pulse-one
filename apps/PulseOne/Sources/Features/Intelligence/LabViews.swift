@@ -241,6 +241,9 @@ struct ExperimentCard: View {
             Button("Abbrechen") { setStatus("cancelled") }
                 .buttonStyle(SecondaryButtonStyle())
         } else {
+            if !experiment.resultSummary.isEmpty {
+                Text(experiment.resultSummary).font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+            }
             Button("Auswerten") { evaluate(plan) }
                 .buttonStyle(PrimaryButtonStyle())
         }
@@ -269,7 +272,8 @@ struct ExperimentCard: View {
         for value in series { values[value.day] = value.value }
         let result = ExperimentLab.evaluate(plan, start: experiment.startDate, values: values, calendar: calendar)
         experiment.resultSummary = result.summary
-        experiment.statusRaw = "finished"
+        // Without enough data the experiment keeps running; the summary says how many days are missing.
+        if result.verdict != .notEnoughData { experiment.statusRaw = "finished" }
         if let card = BodyBiography.card(from: result, plan: plan, start: experiment.startDate, now: engine.now) {
             modelContext.insert(StoredInsight(card))
         }

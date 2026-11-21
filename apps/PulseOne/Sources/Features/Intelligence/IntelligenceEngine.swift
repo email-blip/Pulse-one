@@ -81,7 +81,7 @@ final class IntelligenceEngine {
                          sendBudget: sendBudget(in: modelContext))
     }
 
-    /// Reason a send is blocked, or nil. Checked again right before every call.
+    /// Reason a send is blocked, or nil. During a run, `call` stops a tool loop before it goes over budget.
     func blocker(for preview: SendPreview, modelContext: ModelContext) -> String? {
         if !services.hasKey {
             return "Es ist noch kein Claude-Schlüssel hinterlegt. Du kannst ihn unter Profil → KI-Anbieter eingeben."
@@ -103,7 +103,8 @@ final class IntelligenceEngine {
         record.promptVersion = IntelligencePrompts.version
         modelContext.insert(record)
         activity = "Claude schreibt den \(kind.title) …"
-        defer { activity = nil }
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
         do {
             let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.report(settings.safetyMode),
                                          messages: [AnthropicAPI.userText(context.compactJSON())],
@@ -115,6 +116,7 @@ final class IntelligenceEngine {
             record.issuesJSON = Self.json(validated.issues)
             record.flaggedJSON = Self.json(validated.flagged)
         } catch {
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.fail(error)
         }
         try? modelContext.save()
@@ -135,12 +137,13 @@ final class IntelligenceEngine {
     func ask(_ question: String, modelContext: ModelContext, owner: UUID) async -> StoredAnalysis {
         let model = settings.model
         let tools = QuestionTools(samples: samples(in: modelContext, owner: owner), events: events(in: modelContext),
-                                  consent: settings.consent)
+                                  consent: settings.consent, now: now)
         let record = StoredAnalysis(kind: "question", title: "Frage", model: model, contextJSON: "", question: question)
         record.promptVersion = IntelligencePrompts.version
         modelContext.insert(record)
         activity = "Claude fragt deine Daten ab …"
-        defer { activity = nil }
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
 
         var messages: [JSONValue] = [AnthropicAPI.userText(question)]
         var nextID = 1
@@ -194,6 +197,7 @@ final class IntelligenceEngine {
         } catch {
             record.toolLog = log.joined(separator: "\n")
             record.apply(usage, responder: responder, model: model)
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.fail(error)
         }
         try? modelContext.save()
@@ -241,13 +245,14 @@ final class IntelligenceEngine {
         modelContext.insert(record)
         try? modelContext.save()
         activity = "Claude wertet aus und antwortet …"
-        defer { activity = nil }
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
 
         let base = consultation.context ?? QuestionTools.context(facts: [], correlations: [], events: [],
                                                                   consent: settings.consent, now: now)
         let memory = consultationMemory(excluding: consultation, modelContext: modelContext)
         let tools = QuestionTools(samples: samples(in: modelContext, owner: owner), events: events(in: modelContext),
-                                  consent: settings.consent)
+                                  consent: settings.consent, now: now)
         var messages = Self.conversation(turns, opening: { first in
             ConsultationBuilder.opening(context: base, memory: memory, message: first)
         })
@@ -306,12 +311,13 @@ final class IntelligenceEngine {
             record.flaggedJSON = Self.json(validated.flagged)
         } catch {
             claudeTurn.errorMessage = Self.message(for: error)
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.fail(error)
         }
         claudeTurn.toolLog = log
         claudeTurn.date = now
         record.toolLog = log.joined(separator: "\n")
-        record.apply(usage, responder: responder, model: model)
+        record.apply(billed, responder: billedResponder ?? responder, model: model)
         var all = consultation.turns
         all.append(claudeTurn)
         consultation.turns = all
@@ -369,7 +375,8 @@ final class IntelligenceEngine {
         record.promptVersion = IntelligencePrompts.version
         modelContext.insert(record)
         activity = "Claude sucht Begleitumstände …"
-        defer { activity = nil }
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
         do {
             let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.detective(settings.safetyMode),
                                          messages: [AnthropicAPI.userText(context.compactJSON())],
@@ -380,6 +387,7 @@ final class IntelligenceEngine {
             record.resultJSON = Self.json(result.board)
             record.issuesJSON = Self.json(result.issues)
         } catch {
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.fail(error)
         }
         try? modelContext.save()
@@ -401,7 +409,8 @@ final class IntelligenceEngine {
         record.promptVersion = IntelligencePrompts.version
         modelContext.insert(record)
         activity = "Claude plant den Selbstversuch …"
-        defer { activity = nil }
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
         var plan: ExperimentPlan?
         do {
             let body = AnthropicAPI.body(model: model, system: IntelligencePrompts.experiment,
@@ -420,6 +429,7 @@ final class IntelligenceEngine {
             record.resultJSON = Self.json(clamped)
             plan = clamped
         } catch {
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.fail(error)
         }
         try? modelContext.save()
@@ -445,9 +455,41 @@ final class IntelligenceEngine {
 
     nonisolated static let localModelID = "local"
 
+    /// Usage of every call of the current run, also of calls that end in a refusal or are cut off, so
+    /// the monthly budget counts what Anthropic bills.
+    @ObservationIgnored private var billed = TokenUsage()
+    @ObservationIgnored private var billedResponder: String?
+    /// What the current run may still spend; a tool loop stops before it would go over the budget.
+    @ObservationIgnored private var runLimitUSD: Double?
+
+    private func beginRun(modelContext: ModelContext) {
+        billed = TokenUsage()
+        billedResponder = nil
+        runLimitUSD = spendingBudget(in: modelContext).remainingUSD
+    }
+
+    private func endRun() {
+        activity = nil
+        runLimitUSD = nil
+    }
+
     private func call(_ body: JSONValue) async throws -> ClaudeReply {
         guard let key = services.secrets.read(), !key.isEmpty else { throw AnthropicError.missingKey }
-        return try await services.transport.send(body, apiKey: key)
+        if let limit = runLimitUSD, CostEstimator.cost(of: billed, model: settings.model) >= limit {
+            throw BudgetError.exhausted
+        }
+        let reply = try await services.transport.send(body, apiKey: key)
+        billed = billed + reply.response.usage
+        billedResponder = reply.response.model
+        switch reply.response.stopReason {
+        case "refusal": throw AnthropicError.refusal
+        case "max_tokens": throw AnthropicError.truncated
+        default: return reply
+        }
+    }
+
+    enum BudgetError: Error {
+        case exhausted
     }
 
     nonisolated static func json<T: Encodable>(_ value: T) -> String {
@@ -470,6 +512,7 @@ final class IntelligenceEngine {
         if let error = error as? ValidationError { return error.message }
         if let error = error as? PlanError, case .rejected(let reason) = error { return reason }
         if error is QuestionError { return "Claude hat zu viele Abfragen gebraucht. Bitte die Frage enger stellen." }
+        if error is BudgetError { return "Das Monatsbudget ist während der Abfragen aufgebraucht worden. Du kannst es unter KI-Anbieter ändern." }
         return "Die Analyse ist fehlgeschlagen. Bitte später noch einmal versuchen."
     }
 }
