@@ -182,3 +182,22 @@ struct RingHistoryIdentityTests {
         #expect(RingHistoryIDMigration.plan(stored: [live], existingKeys: [], fallbackZone: .current).isEmpty)
     }
 }
+
+/// TODAY for ring-only users: the night resting pulse gets the same personal band as a daily value.
+@Suite("Night resting band")
+struct NightRestingBandTests {
+    @Test func plainDayValuesGiveTheSameBandAsDailyValues() {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let today = utc.date(from: DateComponents(year: 2026, month: 11, day: 21))!
+        let nights = (1...10).map { offset in
+            DayValue(day: utc.date(byAdding: .day, value: -offset, to: today)!, value: Double(50 + offset % 4))
+        }
+        let status = PersonalBaseline.status(of: nights, kind: .restingHeartRate, before: today, calendar: utc)
+        let baseline = status.baseline
+        #expect(baseline?.dayCount == 10)
+        #expect(baseline.map { $0.lower <= $0.median && $0.median <= $0.upper } == true)
+        let few = PersonalBaseline.status(of: Array(nights.prefix(3)), kind: .restingHeartRate, before: today, calendar: utc)
+        #expect(few.baseline == nil)
+    }
+}
