@@ -51,7 +51,9 @@ struct ConsultationView: View {
             SendPreviewView(preview: item.preview, blocker: item.blocker, onSend: item.send)
         }
         .onAppear { turns = consultation?.turns ?? [] }
-        .screenIdentifier("consultation")
+        // Pushed from the Analyse tab, so the scenario never matches: always mark the screen for UI tests.
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("screen.consultation")
     }
 
     private var introCard: some View {
