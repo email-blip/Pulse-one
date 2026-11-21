@@ -274,11 +274,13 @@ private struct ActivationOverview: View {
             Text(plan.summary)
                 .font(Typography.title)
                 .foregroundStyle(Palette.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .wraps()
                 .accessibilityAddTraits(.isHeader)
             Text(plan.reason)
                 .font(Typography.body)
                 .foregroundStyle(Palette.inkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .wraps()
         }
         .accessibilityElement(children: .contain)
