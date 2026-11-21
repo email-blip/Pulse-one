@@ -6,6 +6,7 @@ import SwiftUI
 /// detail with charts for day, week, month and three months.
 struct HealthScreen: View {
     @Environment(SourcesStore.self) private var sources
+    @Environment(RingStore.self) private var ring
     @Environment(\.modelContext) private var modelContext
     @State private var rows: [HealthRow] = []
     @State private var loaded = false
@@ -75,7 +76,7 @@ struct HealthScreen: View {
             .navigationTitle("Gesundheit")
             .profileToolbar()
             .navigationDestination(for: SampleKind.self) { MetricDetailScreen(kind: $0) }
-            .task(id: sources.syncing.count) { reload() }
+            .task(id: "\(sources.syncing.count)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)") { reload() }
         }
         .screenIdentifier("health")
     }
