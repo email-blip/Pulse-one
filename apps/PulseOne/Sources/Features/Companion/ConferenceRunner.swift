@@ -38,6 +38,9 @@ final class ConferenceRunner {
 
     var hasKey: Bool { engine.services.hasKey }
 
+    /// Clinical (default, owner decision 2026-11-21) or descriptive, as set under KI-Anbieter.
+    var safetyMode: SafetyMode { engine.settings.safetyMode }
+
     /// Builds the preview for today's companion day; nil without a day (no morning briefing yet).
     func prepare(day: CompanionDay?, modelContext: ModelContext) -> ConferencePreparation? {
         guard let day else { return nil }
@@ -86,15 +89,16 @@ final class ConferenceRunner {
         var usage = TokenUsage()
         var responder = model.id
         var statements: [ConferenceStatement] = []
+        let mode = engine.settings.safetyMode
         do {
             for role in CompanionPrompts.conferenceRoles {
                 activeStepID = role.id
-                let prompt = CompanionPrompts.conferenceRound(role: role, facts: facts)
+                let prompt = CompanionPrompts.conferenceRound(role: role, facts: facts, mode: mode)
                 let response = try await engine.sendPlainText(system: prompt.system, user: prompt.user, model: model,
                                                               effort: CompanionConference.roleEffort)
                 usage = usage + response.usage
                 responder = response.model
-                let screened = CompanionConference.screen(response.text)
+                let screened = CompanionConference.screen(response.text, mode: mode)
                 statements.append(ConferenceStatement(role: role, text: screened.text, withheld: screened.withheld))
                 finishedStepIDs.insert(role.id)
             }
@@ -104,12 +108,12 @@ final class ConferenceRunner {
             for (role, statement) in zip(CompanionPrompts.conferenceRoles, statements) {
                 contributions.append((role, statement.withheld ? CompanionConference.withheldForSynthesis : statement.text))
             }
-            let prompt = CompanionPrompts.conferenceSynthesis(facts: facts, statements: contributions)
+            let prompt = CompanionPrompts.conferenceSynthesis(facts: facts, statements: contributions, mode: mode)
             let response = try await engine.sendPlainText(system: prompt.system, user: prompt.user, model: model,
                                                           effort: CompanionConference.synthesisEffort)
             usage = usage + response.usage
             responder = response.model
-            let synthesis = CompanionConference.screen(response.text)
+            let synthesis = CompanionConference.screen(response.text, mode: mode)
             finishedStepIDs.insert(Self.synthesisID)
 
             record.apply(usage, responder: responder, model: model)

@@ -277,14 +277,16 @@ private struct ActivationOverview: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .wraps()
                 .accessibilityAddTraits(.isHeader)
-            Text(plan.reason)
-                .font(Typography.body)
-                .foregroundStyle(Palette.inkMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .wraps()
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("activation.overview")
+        // Outside the card: inside it the last line was cut at XXXL on the smallest phone.
+        Text(plan.reason)
+            .font(Typography.body)
+            .foregroundStyle(Palette.inkMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .wraps()
+            .accessibilityIdentifier("activation.reason")
         if !plan.warmUp.isEmpty {
             SectionHeader(title: "Aufwärmen")
             ForEach(plan.warmUp) { block in
