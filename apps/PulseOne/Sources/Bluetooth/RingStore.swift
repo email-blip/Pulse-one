@@ -21,11 +21,14 @@ final class RingStore {
     /// How often the ring measures on its own; applied on every connect.
     private(set) var measurementProfile: RingMeasurementProfile = RingStore.savedProfile()
     private static let profileKey = "ring.measurementProfile"
+    /// When the ring's stored history was last fetched completely (nil in test scenarios).
+    private(set) var lastHistorySync: Date?
     @ObservationIgnored private var central: ColmiCentral?
 
     private init(snapshot: RingSnapshot, isTestScenario: Bool) {
         self.snapshot = snapshot
         self.isTestScenario = isTestScenario
+        self.lastHistorySync = isTestScenario ? nil : UserDefaults.standard.object(forKey: ColmiCentral.lastSyncKey) as? Date
     }
 
     static func live() -> RingStore {
@@ -83,6 +86,18 @@ final class RingStore {
     }
 
     func syncHistoryNow() { central?.syncHistory(force: true) }
+    /// Gadgetbridge "find device": the ring blinks.
+    func findRing() { central?.findRing() }
+    /// Switches the ring off until it is charged again.
+    func powerOff() { central?.powerOff() }
+
+    func noteHistorySynced(at date: Date) { lastHistorySync = date }
+
+    /// Hint from day 4 without a history fetch; the ring keeps about 7 days.
+    var syncReminder: String? {
+        guard snapshot.rememberedRing != nil || snapshot.deviceName != nil else { return nil }
+        return RingSyncSchedule().reminder(lastSync: lastHistorySync, now: .now, calendar: .current)
+    }
     /// Foreground hook: fetches the history at most every few hours (`RingSyncSchedule`).
     func syncIfDue() { central?.syncIfDue() }
 

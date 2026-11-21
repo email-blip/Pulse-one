@@ -29,7 +29,7 @@ struct MetricDetailScreen: View {
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("detail.range")
                     chartCard
-                    bandCard
+                    if kind == .ringStress { vendorCard } else { bandCard }
                     methodCard
                     recentCard
                 }
@@ -44,7 +44,21 @@ struct MetricDetailScreen: View {
     }
 
     private var isBar: Bool { kind.aggregation == .cumulative || kind.aggregation == .interval }
-    private var showsBand: Bool { range != .day && baseline?.baseline != nil }
+    private var showsBand: Bool { range != .day && kind != .ringStress && baseline?.baseline != nil }
+
+    /// The ring's stress index is a vendor value: shown as a pattern over the day, never rated.
+    private var vendorCard: some View {
+        Card {
+            Label("Herstellerwert", systemImage: "info.circle")
+                .font(Typography.label)
+                .foregroundStyle(Palette.bioCyan)
+                .wraps()
+            Text("Der Stressindex (0–100) wird vom Ring selbst berechnet; wie, legt der Hersteller nicht offen. PULSE ONE zeigt nur, wie er über den Tag verläuft, und bewertet einzelne Werte nicht.")
+                .font(Typography.caption)
+                .foregroundStyle(Palette.inkMuted)
+                .wraps()
+        }
+    }
 
     private var chartCard: some View {
         Card {

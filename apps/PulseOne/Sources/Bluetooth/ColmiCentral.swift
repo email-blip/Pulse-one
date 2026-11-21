@@ -320,6 +320,16 @@ final class ColmiCentral: NSObject {
         continueSync(first)
     }
 
+    func findRing() {
+        trace(.event, "Ring finden: Ring soll blinken")
+        write(ColmiProtocol.findRingRequest())
+    }
+
+    func powerOff() {
+        trace(.event, "Ring ausschalten")
+        write(ColmiProtocol.powerOffRequest())
+    }
+
     /// Called when the app comes to the foreground: fetch if due, or reconnect the known ring first.
     func syncIfDue() {
         if handshake.isReady {
@@ -368,7 +378,10 @@ final class ColmiCentral: NSObject {
         if !sync.observations.isEmpty, let id = store?.snapshot.deviceIdentifier {
             store?.recordHistory(sync.observations, deviceIdentifier: id)
         }
-        if !interrupted { UserDefaults.standard.set(now, forKey: Self.lastSyncKey) }
+        if !interrupted {
+            UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
+            store?.noteHistorySynced(at: now)
+        }
         let summary = sync.report.summary
         trace(.event, (interrupted ? "Verlauf unterbrochen: " : "Verlauf fertig: ") + summary)
         update {

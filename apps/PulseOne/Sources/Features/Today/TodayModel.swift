@@ -14,8 +14,7 @@ struct TodayMetric: Identifiable, Equatable {
 @MainActor
 enum TodayModel {
     /// Kinds TODAY shows when data exists, in this order.
-    static let kinds: [SampleKind] = [.restingHeartRate, .heartRateVariability, .sleepDuration, .steps,
-                                      .oxygenSaturation, .heartRate, .activeEnergy, .respiratoryRate]
+    static let kinds: [SampleKind] = TodayLayout.metricKinds
 
     static func metrics(reader: SampleReader, profileID: UUID?, now: Date = .now,
                         calendar: Calendar = .current) -> [TodayMetric] {
@@ -38,6 +37,11 @@ enum TodayModel {
             value = kind.display(latest.value)
             parts = [timeLabel(latest.start, today: today, calendar: calendar)]
             band = nil
+        } else if kind == .ringStress {
+            // Vendor index: shown as the day's pattern only, never rated against a band (HEALTH-DATA-SPEC).
+            value = kind.display(last.value)
+            parts.append("Tagesmittel")
+            band = "Herstellerwert des Rings, keine Bewertung"
         } else {
             value = kind.display(last.value)
             parts.append(kind.dailyMeaning)

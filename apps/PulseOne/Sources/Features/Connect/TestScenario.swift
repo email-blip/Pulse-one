@@ -119,7 +119,7 @@ enum TestScenario {
             let wave = sin(Double(offset) * 0.7)
             let hour = { (h: Double) in day.addingTimeInterval(h * 3600) }
             add(.restingHeartRate, 58 + 3 * wave, at: hour(6), source: .appleHealth)
-            add(.heartRateVariability, 46 + 7 * cos(Double(offset) * 0.5), at: hour(6.5), source: .colmiRing)
+            add(.ringHRV, 46 + 7 * cos(Double(offset) * 0.5), at: hour(6.5), source: .colmiRing)
             add(.oxygenSaturation, 97 + (offset % 3 == 0 ? -1 : 0), at: hour(3), source: .colmiRing)
             add(.sleepDuration, (7 + 0.6 * wave) * 3600, at: hour(-1), duration: (7 + 0.6 * wave) * 3600, source: .appleHealth)
             for (h, steps) in [(9.0, 1800.0), (12.0, 2600.0), (15.0, 1900.0 + 900 * wave), (18.0, 2200.0)] {

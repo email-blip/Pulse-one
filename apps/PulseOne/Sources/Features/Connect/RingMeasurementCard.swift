@@ -6,6 +6,7 @@ import SwiftUI
 /// so an R09 or a later ring shows what it can do without changes here.
 struct RingMeasurementCard: View {
     @Environment(RingStore.self) private var ring
+    @State private var confirmPowerOff = false
 
     var body: some View {
         let snapshot = ring.snapshot
@@ -50,10 +51,31 @@ struct RingMeasurementCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("historySyncState")
 
+            if let reminder = ring.syncReminder {
+                Label(reminder, systemImage: "clock.arrow.circlepath")
+                    .font(Typography.caption.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+            }
+
             Button("Verlauf jetzt abrufen") { ring.syncHistoryNow() }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(snapshot.connection != .ready || snapshot.historySync.isRunning)
                 .accessibilityIdentifier("syncHistory")
+            Button("Ring finden (blinkt)") { ring.findRing() }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(snapshot.connection != .ready)
+                .accessibilityIdentifier("findRing")
+            Button("Ring ausschalten") { confirmPowerOff = true }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(snapshot.connection != .ready)
+                .accessibilityIdentifier("powerOffRing")
+        }
+        .confirmationDialog("Ring ausschalten?", isPresented: $confirmPowerOff, titleVisibility: .visible) {
+            Button("Ausschalten", role: .destructive) { ring.powerOff() }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Der Ring misst danach nicht mehr. Er schaltet sich erst wieder ein, wenn du ihn auflädst.")
         }
         .accessibilityIdentifier("ringMeasurementCard")
     }
