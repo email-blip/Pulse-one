@@ -27,6 +27,8 @@ public enum ColmiProtocol {
         case battery = 3
         case readHeartRateLog = 21
         case heartRateLogSettings = 22
+        /// Sent by the ring after connect; Gadgetbridge `CMD_PACKET_SIZE`, logged only.
+        case packetSize = 47
         case steps = 67
         case realTimeStart = 105
         case realTimeStop = 106
@@ -169,6 +171,10 @@ public enum ColmiProtocol {
         case battery(Battery)
         case realTime(RealTimeReading)
         case setTimeAck
+        /// The ring confirmed the real-time stop (seen on the R03, 2026-11-21).
+        case realTimeStopAck
+        /// Packet size the ring announces (Gadgetbridge `CMD_PACKET_SIZE`); informational.
+        case packetSize(Int)
         case heartRateLog([UInt8])
         case unknown(hex: String)
     }
@@ -190,7 +196,11 @@ public enum ColmiProtocol {
             return .heartRateLog(packet)
         case .statusPush where packet[1] == 0x0C:
             return .battery(Battery(level: Int(packet[2]), charging: packet[3] == 1))
-        case .heartRateLogSettings, .steps, .realTimeStop, .statusPush:
+        case .realTimeStop:
+            return .realTimeStopAck
+        case .packetSize:
+            return .packetSize(Int(packet[1]))
+        case .heartRateLogSettings, .steps, .statusPush:
             return .unknown(hex: hex(packet))
         }
     }

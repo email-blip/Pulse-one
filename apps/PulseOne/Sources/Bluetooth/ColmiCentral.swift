@@ -363,7 +363,7 @@ final class ColmiCentral: NSObject {
                 sendStopIfNeeded()
             }
             publishMeasurement()
-        case .setTimeAck:
+        case .setTimeAck, .realTimeStopAck, .packetSize:
             break
         case .heartRateLog, .unknown:
             update { $0.logUnknown(ColmiProtocol.hex(packet)) }

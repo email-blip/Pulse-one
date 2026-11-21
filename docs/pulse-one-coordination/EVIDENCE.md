@@ -27,3 +27,12 @@ Nicht vorhanden (ausdrücklich): signierte Installation, TestFlight, echter R03-
 | Bewertung | Ring in Ordnung; PULSE-ONE-Ablauf weicht ab. Details und Änderung: `docs/colmi-protokoll.md` |
 
 Status R03-Puls: **Gebaut**, nicht iPhone. Kein echter Messwert in PULSE ONE.
+
+## R03-Realtest 2 (2026-11-21, Build 1.0.1 (8))
+
+| Nachweis | Ergebnis |
+|---|---|
+| Firmware | RY03_3.00.28_250401 (vorher 3.00.21, Update über QRing) |
+| Pulsmessung Variante A | erfolgreich, 61–63 bpm, erste Werte nach 25,6 s (Diagnosedatei Johannes 06:01Z) |
+| Pulsmessung Variante B | erfolgreich, 63–64 bpm |
+| Status R03-Puls | **iPhone** (echter Wert in PULSE ONE); „Abgenommen“ entscheidet Codex |
