@@ -10,12 +10,22 @@ struct PulseOneApp: App {
     private let storeProblem: String?
     @State private var ring: RingStore
     @State private var sources: SourcesStore
+    @State private var profile: ProfileStore
 
     init() {
         let options = LaunchOptions.current
         let (container, storeProblem) = Self.makeContainer(inMemory: options.isUITesting)
         let ring: RingStore
         let sources: SourcesStore
+        let profile: ProfileStore
+        if options.usesTestScenario {
+            profile = .preview(setupCompleted: options.scenario != "onboarding")
+        } else if options.isUITesting {
+            // Real-mode UI test: fresh install without a saved profile on disk.
+            profile = .preview(UserProfile(), setupCompleted: false)
+        } else {
+            profile = .live()
+        }
         if options.usesTestScenario, let scenario = options.scenario {
             ring = RingStore.preview(TestScenario.snapshot(for: scenario), trace: TestScenario.trace(for: scenario))
             sources = SourcesStore.preview(TestScenario.registry(for: scenario), owner: TestScenario.owner)
@@ -35,6 +45,7 @@ struct PulseOneApp: App {
         self.storeProblem = storeProblem
         _ring = State(initialValue: ring)
         _sources = State(initialValue: sources)
+        _profile = State(initialValue: profile)
     }
 
     var body: some Scene {
@@ -42,6 +53,7 @@ struct PulseOneApp: App {
             RootView(options: options, storeProblem: storeProblem)
                 .environment(ring)
                 .environment(sources)
+                .environment(profile)
                 .modelContainer(container)
                 // Cinematic dark is the PULSE ONE base; "Clinical Light" arrives with the design profiles.
                 .preferredColorScheme(.dark)
@@ -52,7 +64,7 @@ struct PulseOneApp: App {
     /// Opens the store. If the file cannot be opened, the ring still works on a temporary store,
     /// but the user is told that nothing is saved (no silent data loss, architecture 5.0 §6).
     private static func makeContainer(inMemory: Bool) -> (ModelContainer, String?) {
-        let schema = Schema([StoredMeasurement.self, StoredSample.self])
+        let schema = Schema(PulseSchema.models)
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         let failure: Error
         do {
@@ -79,6 +91,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(RingStore.self) private var ring
     @Environment(SourcesStore.self) private var sources
+    @Environment(ProfileStore.self) private var profile
 
     var body: some View {
         Group {
@@ -87,8 +100,13 @@ struct RootView: View {
                 HeartChamberView()
             } else if options.usesTestScenario, options.scenario == "devices" {
                 DevicesScreen(showsClose: false)
-            } else {
+            } else if options.usesTestScenario, let scenario = options.scenario, TestScenario.ringScenarios.contains(scenario) {
+                // Ring states are captured on the ring screen itself, as before the tab app.
                 ConnectScreen(options: options)
+            } else if !profile.setupCompleted {
+                SetupView()
+            } else {
+                MainTabView(options: options)
             }
         }
             .environment(\.reduceMotionEffective, options.reduceMotion ?? systemReduceMotion)

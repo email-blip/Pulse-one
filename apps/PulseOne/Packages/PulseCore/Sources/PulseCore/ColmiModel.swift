@@ -26,9 +26,10 @@ public struct ColmiModel: Equatable, Sendable {
     public var isKnown: Bool { Self.known[name] != nil }
 }
 
-/// Firmware versions confirmed on a real ring by us. Empty until the first R03 test.
+/// Firmware versions confirmed on a real ring by us: connection, battery and live heart rate
+/// delivered real values in PULSE ONE (R03 test 2026-11-21, docs/colmi-protokoll.md).
 public enum TestedFirmware {
-    public static let versions: Set<String> = []
+    public static let versions: Set<String> = ["RY03_3.00.28_250401"]
 
     public static func isTested(_ version: String?) -> Bool {
         guard let version else { return false }

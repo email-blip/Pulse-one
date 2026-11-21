@@ -89,6 +89,14 @@ struct ColmiProtocolTests {
         #expect(ColmiProtocol.decode(error) == .realTime(.error(type: 1, code: 2)))
     }
 
+    /// Seen on the R03 (2026-11-21): stop acknowledgement and packet-size announcement.
+    @Test func decodesStopAckAndPacketSize() {
+        let stop: [UInt8] = [0x6a, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x6b]
+        #expect(ColmiProtocol.decode(stop) == .realTimeStopAck)
+        let size: [UInt8] = [0x2f, 0xf4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x23]
+        #expect(ColmiProtocol.decode(size) == .packetSize(244))
+    }
+
     @Test func unknownCommandsStayVisible() {
         var packet = [UInt8](repeating: 0, count: 16)
         packet[0] = 0x7F

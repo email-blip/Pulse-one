@@ -30,3 +30,9 @@ Danach kam vom Ring kein einziger Pulswert. Abgleich mit den Referenzen:
 - **Gadgetbridge `onHeartRateTest`**: sendet nur `69 01` (ohne Aktionsbyte), kein Fortsetzen, kein Stopp, kein Zeitlimit. `liveHeartRate`: Byte 2 = Fehler (1 = falsch getragen, 2 = vorübergehend, nur loggen), Byte 3 = Wert, 0 wird ignoriert.
 
 Änderung (Build 8): kein „Fortsetzen“ mehr, Wartezeit 60 s statt 30 s, Fehlercodes 1/2 wie Gadgetbridge, zweite Startvariante B (`69 01`) als eigener Knopf. Welche Variante der R03 braucht, zeigt erst der nächste Realtest. Firmware RY03_3.00.21_241028 ist **noch nicht** als getestet eingetragen.
+
+## R03-Realtest 2 (2026-11-21, Build 1.0.1 (8), Firmware RY03_3.00.28_250401)
+
+Beide Startvarianten liefern echte Werte: A (`69 01 01`) 61–63 bpm, B (`69 01`) 63–64 bpm. Ablauf: Quittung `69 01 00 00` sofort, erste Werte nach ~25 s, dann alle 0,5 s ein Paket `69 01 00 <bpm>`. Stopp `6A 01 00 00` wird mit `6A 01 00 …` quittiert. Nach dem Verbinden meldet der Ring `2F F4` (Paketgröße 244, Gadgetbridge `CMD_PACKET_SIZE`).
+
+Einschränkung: Zwischen Realtest 1 und 2 wurde die Firmware über die QRing-App aktualisiert (3.00.21 → 3.00.28). Ob die Ablaufänderung oder die Firmware den Ausschlag gab, ist nicht trennbar. Getestet ist deshalb nur `RY03_3.00.28_250401` (`TestedFirmware.versions`). Variante A bleibt Standard, B bleibt als Rückfall.

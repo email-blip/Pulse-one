@@ -21,7 +21,10 @@ struct ColmiModelTests {
         #expect(ColmiModel.detect(advertisedName: "R03_1")?.hasTemperature == false)
     }
 
-    @Test func noFirmwareIsTestedYet() {
+    /// Only the firmware that delivered real heart-rate values in PULSE ONE counts as tested.
+    @Test func onlyTheVerifiedFirmwareIsTested() {
+        #expect(TestedFirmware.isTested("RY03_3.00.28_250401"))
+        #expect(!TestedFirmware.isTested("RY03_3.00.21_241028"))
         #expect(!TestedFirmware.isTested("RY03_3.00.10"))
         #expect(!TestedFirmware.isTested(nil))
     }
