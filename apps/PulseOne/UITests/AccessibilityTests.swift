@@ -12,6 +12,8 @@ final class AccessibilityTests: XCTestCase {
     func testTodayAudit() throws { try audit(scenario: "today") }
     func testHealthAudit() throws { try audit(scenario: "health") }
     func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
+    func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
+    func testCoachAudit() throws { try audit(scenario: "coach") }
     func testNutritionAudit() throws { try audit(scenario: "nutrition") }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
@@ -42,6 +44,12 @@ final class AccessibilityTests: XCTestCase {
             }
             if issue.auditType == .contrast, let frame = element?.frame,
                barFrames.contains(where: { $0.intersects(frame) }) {
+                return true
+            }
+            // Toolbar buttons in the navigation bar are drawn by the system at its fixed bar size and get the
+            // Large Content Viewer instead of scaling (run on PR #26). Content buttons still must scale.
+            if issue.auditType == .dynamicType, element?.elementType == .button, let frame = element?.frame,
+               app.navigationBars.allElementsBoundByIndex.contains(where: { $0.exists && $0.frame.intersects(frame) }) {
                 return true
             }
             // Text the audit finds only in the pixels (no element) is the content seen through the bar glass.

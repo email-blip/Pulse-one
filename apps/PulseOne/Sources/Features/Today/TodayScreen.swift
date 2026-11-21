@@ -11,6 +11,14 @@ struct TodayScreen: View {
     @Environment(\.modelContext) private var modelContext
     @State private var metrics: [TodayMetric] = []
     @State private var loaded = false
+    @State private var customizing = false
+    @AppStorage("today.layout") private var layoutData = Data()
+
+    private var layout: TodayLayout { TodayLayout.decode(layoutData.isEmpty ? nil : layoutData) }
+
+    private var visibleMetrics: [TodayMetric] {
+        metrics.filter { layout.isVisible(.metric($0.kind)) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -20,23 +28,12 @@ struct TodayScreen: View {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
                         header
-                        ringCard
-                        if sources.healthAvailable, !sources.hasHealth { healthCard }
-                        CoachTodayCard()
-                        SectionHeader(title: "Deine Werte")
-                        if metrics.isEmpty, loaded {
+                        ForEach(layout.visibleTiles) { tile in tileView(tile) }
+                        if visibleMetrics.isEmpty, loaded {
                             EmptyState(title: "Noch keine Werte",
                                        message: "Sobald dein Ring misst oder Apple Health Daten liefert, erscheinen sie hier mit Uhrzeit und Quelle.",
                                        systemImage: "waveform.path.ecg")
                         }
-                        ForEach(metrics) { metric in
-                            MetricCard(title: metric.kind.title, systemImage: metric.kind.systemImage, value: metric.value,
-                                       unit: metric.unit, detail: metric.detail, bandText: metric.bandText,
-                                       tint: metric.kind == .heartRate || metric.kind == .restingHeartRate ? Palette.pulseCoral : Palette.bioCyan)
-                                .accessibilityIdentifier("today.\(metric.kind.rawValue)")
-                        }
-                        NutritionTodayCard()
-                        EveningNoteCard()
                         Text("PULSE ONE beschreibt deine Werte im Vergleich zu deinem eigenen üblichen Bereich. Keine Diagnose, keine Vorhersage.")
                             .font(Typography.caption)
                             .foregroundStyle(Palette.inkMuted)
@@ -48,9 +45,42 @@ struct TodayScreen: View {
             }
             .navigationTitle("Heute")
             .profileToolbar()
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Anpassen") { customizing = true }
+                        .accessibilityIdentifier("today.customize")
+                }
+            }
+            .sheet(isPresented: $customizing) {
+                TodayCustomizeSheet(layoutData: $layoutData)
+                    .preferredColorScheme(.dark)
+            }
             .task(id: refreshToken) { reload() }
         }
         .screenIdentifier("today")
+    }
+
+    @ViewBuilder
+    private func tileView(_ tile: TodayTile) -> some View {
+        switch tile {
+        case .ring:
+            ringCard
+        case .appleHealth:
+            if sources.healthAvailable, !sources.hasHealth { healthCard }
+        case .coach:
+            CoachTodayCard()
+        case .metric(let kind):
+            if let metric = metrics.first(where: { $0.kind == kind }) {
+                MetricCard(title: metric.kind.title, systemImage: metric.kind.systemImage, value: metric.value,
+                           unit: metric.unit, detail: metric.detail, bandText: metric.bandText,
+                           tint: metric.kind == .heartRate || metric.kind == .restingHeartRate ? Palette.pulseCoral : Palette.bioCyan)
+                    .accessibilityIdentifier("today.\(metric.kind.rawValue)")
+            }
+        case .nutrition:
+            NutritionTodayCard()
+        case .eveningNote:
+            EveningNoteCard()
+        }
     }
 
     /// Reload when a new ring value arrives or a Health sync finishes.
@@ -91,6 +121,13 @@ struct TodayScreen: View {
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)
                 .wraps()
+            if let reminder = ring.syncReminder {
+                Label(reminder, systemImage: "clock.arrow.circlepath")
+                    .font(Typography.caption.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+                    .accessibilityIdentifier("today.syncReminder")
+            }
             NavigationLink {
                 ConnectScreen(options: LaunchOptions.current)
             } label: {

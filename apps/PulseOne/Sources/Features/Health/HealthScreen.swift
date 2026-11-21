@@ -20,7 +20,7 @@ struct HealthScreen: View {
     }
 
     /// Display order on HEALTH.
-    static let order: [SampleKind] = [.heartRate, .restingHeartRate, .heartRateVariability, .oxygenSaturation,
+    static let order: [SampleKind] = [.heartRate, .restingHeartRate, .heartRateVariability, .ringHRV, .oxygenSaturation, .ringStress,
                                       .respiratoryRate, .sleepDuration, .steps, .activeEnergy, .distance,
                                       .trainingDuration, .elevationGain, .basalEnergy, .vo2Max, .skinTemperature,
                                       .skinTemperatureDeviation, .bodyTemperature, .bodyMass, .height]

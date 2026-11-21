@@ -91,6 +91,39 @@ final class SourcesStore {
         }
     }
 
+    /// Stores values read from the ring's history. Idempotent: repeated syncs only add new values.
+    func ingestHistory(_ observations: [RawObservation], deviceIdentifier: String) {
+        guard !isTestScenario, let context = modelContext, !observations.isEmpty else { return }
+        let device = ringDevice(deviceIdentifier)
+        let store = SampleStore(context: context)
+        var inserted = 0
+        var rejected = 0
+        do {
+            var start = 0
+            while start < observations.count {
+                let chunk = Array(observations[start..<min(start + 500, observations.count)])
+                let plan = try store.ingest(SyncBatch(observations: chunk), deviceID: deviceIdentifier,
+                                            profiles: device?.timeline ?? .constant(ownerProfileID))
+                inserted += plan.inserts.count
+                rejected += plan.rejected.count
+                start += chunk.count
+            }
+        } catch {
+            if let device { change(device.id) { $0.log("Verlauf speichern fehlgeschlagen: \(error.localizedDescription)") } }
+            return
+        }
+        guard let device else { return }
+        change(device.id) {
+            if inserted > 0 {
+                $0.reach(.dataAccess)
+                $0.reach(.synced)
+                $0.lastSampleAt = observations.map(\.start).max()
+            }
+            $0.lastSuccessfulSync = .now
+            $0.log("Ring-Verlauf: \(inserted) neue Werte" + (rejected > 0 ? ", \(rejected) abgelehnt" : ""))
+        }
+    }
+
     private func ringDevice(_ identifier: String) -> RegisteredDevice? {
         devices.first { $0.sourceIdentifier == identifier && $0.adapterID.hasPrefix("colmi.") }
     }
