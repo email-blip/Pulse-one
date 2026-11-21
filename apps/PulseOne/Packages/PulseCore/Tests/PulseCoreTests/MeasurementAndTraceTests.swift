@@ -68,7 +68,7 @@ struct LiveMeasurementTests {
     }
 
     @Test func endsAfterMaxDurationKeepingTheValue() {
-        var m = LiveMeasurement(maxDuration: 60)
+        var m = LiveMeasurement(maxDuration: 60, quietAfterValue: 100)
         m.handle(.start(t0))
         m.handle(.ringValue(66, at(5)))
         m.handle(.tick(at(59)))
@@ -80,9 +80,54 @@ struct LiveMeasurementTests {
     @Test func ringErrorFails() {
         var m = LiveMeasurement()
         m.handle(.start(t0))
-        m.handle(.ringError(code: 2, at(1)))
-        #expect(m.phase == .failed(.ringError(code: 2), at: at(1)))
-        #expect(m.phase.detail.contains("Code 2"))
+        m.handle(.ringError(code: 3, at(1)))
+        #expect(m.phase == .failed(.ringError(code: 3), at: at(1)))
+        #expect(m.phase.detail.contains("Code 3"))
+    }
+
+    /// Gadgetbridge `liveHeartRate`: code 2 is temporary and only logged; the measurement goes on.
+    @Test func temporaryRingErrorKeepsMeasuring() {
+        var m = LiveMeasurement()
+        m.handle(.start(t0))
+        m.handle(.ringValue(0, at(1)))
+        m.handle(.ringError(code: 2, at(2)))
+        #expect(m.phase == .running(since: at(1)))
+        m.handle(.ringValue(72, at(20)))
+        #expect(m.phase.value?.bpm == 72)
+    }
+
+    /// Gadgetbridge `liveHeartRate`: code 1 means "worn incorrectly".
+    @Test func wornIncorrectlyHasItsOwnMessage() {
+        var m = LiveMeasurement()
+        m.handle(.start(t0))
+        m.handle(.ringError(code: 1, at(1)))
+        #expect(m.phase == .failed(.wornIncorrectly, at: at(1)))
+        #expect(m.phase.detail.contains("nicht richtig sitzt"))
+    }
+
+    /// R03 diagnosis 2026-11-21: one "no value yet" answer, then silence for more than 30 s.
+    /// The default wait must not give up after 30 s any more.
+    @Test func defaultWaitOutlastsASilentRingForAMinute() {
+        var m = LiveMeasurement()
+        m.handle(.start(t0))
+        m.handle(.ringValue(0, at(0.1)))
+        m.handle(.tick(at(45)))
+        #expect(m.phase.isActive)
+        m.handle(.ringValue(81, at(50)))
+        #expect(m.phase.value?.bpm == 81)
+        m.handle(.tick(at(70)))
+        #expect(m.phase.isActive == false)
+        #expect(m.phase == .finished(value: 81, at: at(50)))
+    }
+
+    @Test func endsSoonAfterTheRingStopsSendingValues() {
+        var m = LiveMeasurement(quietAfterValue: 8)
+        m.handle(.start(t0))
+        m.handle(.ringValue(70, at(10)))
+        m.handle(.tick(at(17)))
+        #expect(m.phase.isActive)
+        m.handle(.tick(at(18)))
+        #expect(m.phase == .finished(value: 70, at: at(10)))
     }
 
     @Test func disconnectWhileMeasuringIsReported() {
@@ -105,7 +150,7 @@ struct LiveMeasurementTests {
         m.handle(.ringError(code: 1, at(1)))
         m.handle(.ringValue(70, at(2)))
         m.handle(.disconnected(at(3)))
-        #expect(m.phase == .failed(.ringError(code: 1), at: at(1)))
+        #expect(m.phase == .failed(.wornIncorrectly, at: at(1)))
     }
 }
 

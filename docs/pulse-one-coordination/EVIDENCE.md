@@ -15,3 +15,15 @@ Umgebung Claude: Cloud-Container Linux, **kein Swift-Compiler, kein Xcode, kein 
 | Screenshots | Branch `ci-screenshots/claude/project-thread-p4cjhd` |
 
 Nicht vorhanden (ausdrücklich): signierte Installation, TestFlight, echter R03-Kontakt, echter Messwert vom Ring.
+
+## R03-Realtest 1 (2026-11-21, Build 1.0.1 (7))
+
+| Nachweis | Ergebnis |
+|---|---|
+| Verbindung, Dienste, Firmware lesen | erfolgreich (Diagnosedatei Johannes, 00:29Z) |
+| Akku | 100 % per Befehl 3, 99 % per Benachrichtigung 0x73/0x0C |
+| Pulsmessung PULSE ONE | 2 × fehlgeschlagen: Ring quittiert Start mit Wert 0, danach keine Werte |
+| Gegenprobe QRing-App | Puls 81 bpm, SpO₂ 97 %, HRV 34 ms (Screenshots Johannes, 00:38–00:41Z) |
+| Bewertung | Ring in Ordnung; PULSE-ONE-Ablauf weicht ab. Details und Änderung: `docs/colmi-protokoll.md` |
+
+Status R03-Puls: **Gebaut**, nicht iPhone. Kein echter Messwert in PULSE ONE.

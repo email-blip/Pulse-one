@@ -62,6 +62,16 @@ struct ColmiProtocolTests {
         #expect(Array(ColmiProtocol.realTimeStop(.heartRate)[0...3]) == [106, 1, 0, 0])
     }
 
+    /// Byte for byte as in the references: colmi_r02_client (variant A) and Gadgetbridge (variant B).
+    @Test func heartRateStartVariants() {
+        let a = ColmiProtocol.HeartRateStartMode.realTime.startPacket
+        let b = ColmiProtocol.HeartRateStartMode.manual.startPacket
+        #expect(ColmiProtocol.hex(a) == "6901010000000000000000000000006b")
+        #expect(ColmiProtocol.hex(b) == "6901000000000000000000000000006a")
+        #expect(ColmiProtocol.HeartRateStartMode.realTime.sendsStop)
+        #expect(ColmiProtocol.HeartRateStartMode.manual.sendsStop == false)
+    }
+
     @Test func heartRateLogRequestIsLittleEndianSeconds() {
         let packet = ColmiProtocol.heartRateLogRequest(dayStart: Date(timeIntervalSince1970: 0x0102_0304))
         #expect(Array(packet[0...4]) == [21, 0x04, 0x03, 0x02, 0x01])
