@@ -55,6 +55,16 @@ public enum CompanionConference {
 
     /// Headings the synthesis prompt asks for, in order.
     public static let sectionTitles = ["Beobachtungen", CompanionPrompts.disagreementHeading, "Vorschläge", "Offene Frage"]
+    /// Headings of the clinical synthesis (owner decision 2026-11-21).
+    public static let clinicalSectionTitles = ["Einschätzung", "Mögliche Ursachen", CompanionPrompts.disagreementHeading,
+                                               "Abklärung", "Vorschläge", "Offene Frage"]
+    static let knownHeadings: [String] = {
+        var all = sectionTitles
+        for title in clinicalSectionTitles where !all.contains(title) { all.append(title) }
+        return all
+    }()
+    /// Appended to a clinical reply that suggests changing prescribed medication (SafetyRules S3 flag).
+    public static let medicationNote = "Hinweis: Verordnete Medikamente nur nach Rücksprache mit deiner Ärztin oder deinem Arzt umstellen."
 
     /// Consent categories the round cannot do without (heart and sleep are the core of the fact list).
     public static let requiredConsent: [ConsentCategory] = [.heart, .sleep]
@@ -116,22 +126,33 @@ public enum CompanionConference {
 
     // MARK: - Safety
 
-    /// True when the text passes the companion phrase list and no sentence is rejected by `SafetyRules`
-    /// (diagnosis, disease risk, medication). Causal wording (S4) is only a flag there and stays allowed.
-    public static func isAllowed(_ text: String) -> Bool {
+    /// Descriptive mode: true when the text passes the companion phrase list and no sentence is rejected by
+    /// `SafetyRules` (diagnosis, disease risk, medication). Causal wording (S4) is only a flag and stays allowed.
+    /// Clinical mode: everything is allowed; disclaimers are removed in `screen` instead.
+    public static func isAllowed(_ text: String, mode: SafetyMode = .clinical) -> Bool {
+        if mode == .clinical { return true }
         guard CompanionSafety.violations(in: text).isEmpty else { return false }
         for sentence in sentences(of: text) {
-            // Descriptive rules as before; loosening the Expertenrunde is up to the Begleiter team.
             if case .reject = SafetyRules.check(sentence, mode: .descriptive) { return false }
         }
         return true
     }
 
-    /// The reply as it may be shown: trimmed, or the withheld notice when it failed the check.
-    public static func screen(_ reply: String) -> (text: String, withheld: Bool) {
+    /// The reply as it may be shown. Descriptive: trimmed, or the withheld notice when it failed the check.
+    /// Clinical: disclaimers removed (S7); a suggested change of prescribed medication gets `medicationNote`.
+    public static func screen(_ reply: String, mode: SafetyMode = .clinical) -> (text: String, withheld: Bool) {
         let trimmed = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return (emptyNotice, false) }
-        return isAllowed(trimmed) ? (trimmed, false) : (withheldNotice, true)
+        guard mode == .clinical else {
+            return isAllowed(trimmed, mode: mode) ? (trimmed, false) : (withheldNotice, true)
+        }
+        let cleaned = SafetyRules.removingBoilerplate(trimmed)
+        if cleaned.isEmpty { return (emptyNotice, false) }
+        var flagged = false
+        for sentence in sentences(of: cleaned) {
+            if case .flag = SafetyRules.check(sentence, mode: .clinical) { flagged = true }
+        }
+        return (flagged ? cleaned + "\n\n" + medicationNote : cleaned, false)
     }
 
     static func sentences(of text: String) -> [String] {
@@ -163,12 +184,12 @@ public enum CompanionConference {
         return result
     }
 
-    /// The canonical heading when `line` is one of `sectionTitles`, else nil.
+    /// The canonical heading when `line` is one of the known headings (both modes), else nil.
     static func heading(in line: String) -> String? {
         let marks = CharacterSet(charactersIn: "#*_:„“\"").union(.whitespaces)
         let stripped = line.trimmingCharacters(in: marks)
         guard !stripped.isEmpty, stripped.count <= 40 else { return nil }
-        return sectionTitles.first { title in
+        return knownHeadings.first { title in
             stripped.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
         }
     }
