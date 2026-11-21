@@ -61,7 +61,8 @@ public struct SubjectiveCheck: Codable, Equatable, Sendable {
 }
 
 /// Coach threshold from a 30-day window: p75 + 0.5 × IQR (upper) / p25 − 0.5 × IQR (lower). Named
-/// "Coach-Schwelle" in the UI so it is not confused with the personal band (`PersonalBaseline`).
+/// Never named in the UI as its own term: texts say "deutlich über/unter deinem üblichen Bereich" (one word for
+/// the band everywhere, see DECISIONS 2026-11-21); it is deliberately wider than the personal band (`PersonalBaseline`).
 public struct RecoveryBand: Equatable, Sendable {
     public let median: Double
     public let p25: Double
@@ -118,39 +119,39 @@ public enum RecoveryAssessment {
         let (recent, window) = split(values, today: today, calendar: calendar)
         guard let band = RecoveryBand.make(window), recent.count >= 2 else {
             return RecoverySignal(kind: .restingHeartRate, state: .unknown,
-                                  text: "Noch zu wenige Ruhepuls-Tage für die Coach-Schwelle (\(window.count) von 15 nötig).")
+                                  text: "Noch zu wenige Ruhepuls-Tage für den Vergleich (\(window.count) von 15 nötig).")
         }
         let above = recent.filter { $0.value > band.upperLimit }.count
         if above >= 2 {
             return RecoverySignal(kind: .restingHeartRate, state: .notable,
-                                  text: "Dein Ruhepuls lag an \(above) der letzten \(recent.count) Tage über der Coach-Schwelle "
-                                      + "(\(Int(band.upperLimit.rounded())) bpm).")
+                                  text: "Dein Ruhepuls lag an \(above) der letzten \(recent.count) Tage deutlich über deinem üblichen Bereich "
+                                      + "(über \(Int(band.upperLimit.rounded())) bpm).")
         }
         return RecoverySignal(kind: .restingHeartRate, state: .usual,
-                              text: "Dein Ruhepuls liegt unter der Coach-Schwelle (Mittel der letzten 30 Tage um \(Int(band.median.rounded())) bpm).")
+                              text: "Dein Ruhepuls ist nicht auffällig erhöht (Mittel der letzten 30 Tage um \(Int(band.median.rounded())) bpm).")
     }
 
     static func hrv(_ values: [DayValue], today: Date, calendar: Calendar) -> RecoverySignal {
         let (recent, window) = split(values, today: today, calendar: calendar)
         guard let band = RecoveryBand.make(window), recent.count >= 2 else {
             return RecoverySignal(kind: .heartRateVariability, state: .unknown,
-                                  text: "Noch zu wenige HRV-Tage für die Coach-Schwelle (\(window.count) von 15 nötig).")
+                                  text: "Noch zu wenige HRV-Tage für den Vergleich (\(window.count) von 15 nötig).")
         }
         let below = recent.filter { $0.value < band.lowerLimit }.count
         if below >= 2 {
             return RecoverySignal(kind: .heartRateVariability, state: .notable,
-                                  text: "Deine HRV lag an \(below) der letzten \(recent.count) Tage unter der Coach-Schwelle "
-                                      + "(\(Int(band.lowerLimit.rounded())) ms).")
+                                  text: "Deine HRV lag an \(below) der letzten \(recent.count) Tage deutlich unter deinem üblichen Bereich "
+                                      + "(unter \(Int(band.lowerLimit.rounded())) ms).")
         }
         return RecoverySignal(kind: .heartRateVariability, state: .usual,
-                              text: "Deine HRV liegt über der Coach-Schwelle (Mittel der letzten 30 Tage um \(Int(band.median.rounded())) ms).")
+                              text: "Deine HRV ist nicht auffällig niedrig (Mittel der letzten 30 Tage um \(Int(band.median.rounded())) ms).")
     }
 
     static func sleepSignal(_ values: [DayValue], today: Date, calendar: Calendar) -> RecoverySignal {
         let (recent, window) = split(values, today: today, calendar: calendar)
         guard let band = RecoveryBand.make(window), recent.count >= 2 else {
             return RecoverySignal(kind: .sleep, state: .unknown,
-                                  text: "Noch zu wenige Nächte für die Coach-Schwelle (\(window.count) von 15 nötig).")
+                                  text: "Noch zu wenige Nächte für den Vergleich (\(window.count) von 15 nötig).")
         }
         let short = recent.filter { $0.value < band.median - 3_600 }.count
         if short >= 2 {
@@ -213,11 +214,11 @@ public enum ReadinessDecision: Equatable, Sendable {
     public var explanation: String {
         switch self {
         case .asPlanned:
-            "Kein Signal liegt jenseits der Coach-Schwelle."
+            "Kein Wert weicht deutlich von deinem üblichen Bereich ab."
         case .offerLighter:
-            "Ein Signal liegt jenseits der Coach-Schwelle. Du kannst die Einheit eine Stufe leichter machen; du entscheidest."
+            "Ein Wert weicht deutlich von deinem üblichen Bereich ab. Du kannst die Einheit eine Stufe leichter machen; du entscheidest."
         case .easyOrRecovery:
-            "Mehrere Signale liegen jenseits der Coach-Schwelle. Der Coach schlägt heute eine lockere Einheit oder Erholung vor."
+            "Mehrere Werte weichen deutlich von deinem üblichen Bereich ab. Der Coach schlägt heute eine lockere Einheit oder Erholung vor."
         case .rest:
             "Wenn du dich krank fühlst, pausiert der Coach das Training. Ruhige Bewegung nur, wenn sie angenehm ist."
         case .seekHelp:

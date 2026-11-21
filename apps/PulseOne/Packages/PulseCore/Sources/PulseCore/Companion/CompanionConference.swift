@@ -187,16 +187,16 @@ public enum CompanionConference {
 
     /// Sample statements matching the companion test data (ordinary night, values inside the personal band).
     public static let sampleStatements: [String: String] = [
-        "heart": "Dein Nachtruhepuls lag mit 55 Schlägen pro Minute in deinem persönlichen Bereich. Die Ring-HRV von 46 ms liegt ebenfalls im üblichen Bereich, die Ring-Methode lese ich nur als Verlauf. Für heute würde ich eher bei lockerer Bewegung bleiben, bis die Werte ein paar Tage stabil sind.",
+        "heart": "Dein Nachtruhepuls lag mit 55 Schlägen pro Minute in deinem üblichen Bereich. Die Ring-HRV von 46 ms liegt ebenfalls im üblichen Bereich, die Ring-Methode lese ich nur als Verlauf. Für heute würde ich eher bei lockerer Bewegung bleiben, bis die Werte ein paar Tage stabil sind.",
         "sleep": "Mit 7 h 12 min hast du im Bereich deiner üblichen Nächte geschlafen. Die Sauerstoffsättigung von 97 % in der Nacht ist beim Ring nur ein grober Wert. Versuch heute Abend eine ähnliche Zubettgehzeit wie gestern.",
-        "sport": "Deine Erholungswerte liegen im persönlichen Bereich. Eine lockere bis mittlere Einheit passt heute gut in den Nachmittag. Wenn sich der Puls ungewohnt hoch anfühlt, hör lieber früher auf.",
+        "sport": "Deine Erholungswerte liegen im üblichen Bereich. Eine lockere bis mittlere Einheit passt heute gut in den Nachmittag. Wenn sich der Puls ungewohnt hoch anfühlt, hör lieber früher auf.",
         "nutrition": "Zu Mahlzeiten und Koffein liegen heute keine Notizen vor, dazu kann ich wenig sagen. Ein großes Glas Wasser am Morgen und der letzte Kaffee vor dem frühen Nachmittag sind einfache Alltagsschritte."
     ]
 
     public static let sampleSynthesis = """
     Beobachtungen
-    - Nachtruhepuls 55 Schläge pro Minute, im persönlichen Bereich.
-    - Schlafdauer 7 h 12 min, im persönlichen Bereich.
+    - Nachtruhepuls 55 Schläge pro Minute, im üblichen Bereich.
+    - Schlafdauer 7 h 12 min, im üblichen Bereich.
     - Ring-HRV 46 ms, im üblichen Bereich, nur als Verlauf lesbar.
 
     Hier sind wir uns nicht einig
@@ -214,9 +214,9 @@ public enum CompanionConference {
     /// Fact list shown with the stored sample round (test view only).
     public static let sampleFacts = """
     Tagestyp: Normaler Start
-    Schlafdauer: 7 h 12 min, im persönlichen Bereich
-    Nachtruhepuls: 55 Schläge pro Minute, im persönlichen Bereich
-    HRV (Ring-Methode, nicht mit SDNN vergleichbar): 46 ms, im persönlichen Bereich
+    Schlafdauer: 7 h 12 min, im üblichen Bereich
+    Nachtruhepuls: 55 Schläge pro Minute, im üblichen Bereich
+    HRV (Ring-Methode, nicht mit SDNN vergleichbar): 46 ms, im üblichen Bereich
     Sauerstoffsättigung Nacht (Mittel): 97 %
     """
 }

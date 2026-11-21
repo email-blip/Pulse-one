@@ -73,7 +73,7 @@ struct MetricCard: View {
     let unit: String
     /// e.g. "heute 07:12 · Ring R03"
     let detail: String
-    /// e.g. "im üblichen Bereich" or "Noch 3 Tage bis zu deinem persönlichen Bereich"
+    /// e.g. "im üblichen Bereich" or "Noch 3 Tage bis zu deinem üblichen Bereich"
     var bandText: String?
     var tint: Color = Palette.bioCyan
     @ScaledMetric(relativeTo: .largeTitle) private var valueSize: CGFloat = 34
