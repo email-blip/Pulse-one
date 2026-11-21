@@ -9,4 +9,5 @@ enum PulseSchema {
         + IntelligenceModels.all
         + CoachPersistence.models
         + NutritionPersistence.models
+        + CompanionPersistence.models
 }
