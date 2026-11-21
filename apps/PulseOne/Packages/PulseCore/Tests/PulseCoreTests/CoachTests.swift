@@ -43,7 +43,7 @@ struct CoachSignalTests {
         let values = series(base: [54, 55, 56, 57, 58], recent: [56, 63, 64])
         let s = RecoveryAssessment.restingHR(values, today: nov21, calendar: utc)
         #expect(s.state == .notable)
-        #expect(s.text.contains("über deinem üblichen Bereich"))
+        #expect(s.text.contains("über der Coach-Schwelle"))
         let one = RecoveryAssessment.restingHR(series(base: [54, 55, 56, 57, 58], recent: [56, 57, 64]), today: nov21, calendar: utc)
         #expect(one.state == .usual)
     }

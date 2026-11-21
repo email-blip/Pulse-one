@@ -134,6 +134,7 @@ enum TestScenario {
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
         if historyScenarios.contains(name) { insertTabHistory(into: context) }
+        if name == "coach" { CoachScenario.insert(into: context) }
         guard name == "live" || name == "heart" || name == "devices" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
         let device = name == "devices" ? "test-ring" : "test"
