@@ -158,7 +158,7 @@ public enum DailyPlanner {
             if suggested.kind == .main {
                 suggested.intensity = min(suggested.intensity, .easy)
                 if suggested.sport?.allowsEasyVariant == false { suggested = PlannedSession(kind: .recovery, sport: nil, minutes: min(20, p.minutesPerSession), intensity: .recovery) }
-                reason = "Angepasst, weil mehrere Signale außerhalb deines üblichen Bereichs liegen."
+                reason = "Angepasst, weil mehrere Signale jenseits der Coach-Schwelle liegen."
             }
         case .rest, .seekHelp:
             suggested = .rest

@@ -7,4 +7,5 @@ enum PulseSchema {
 
     static let models: [any PersistentModel.Type] = core
         + IntelligenceModels.all
+        + CoachPersistence.models
 }
