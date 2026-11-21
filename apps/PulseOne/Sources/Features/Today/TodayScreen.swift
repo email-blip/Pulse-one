@@ -12,6 +12,9 @@ struct TodayScreen: View {
     @State private var metrics: [TodayMetric] = []
     @State private var loaded = false
     @State private var customizing = false
+    /// Companion test scenarios open the Begleiter screen directly (pushed, so it sits in this stack).
+    @State private var showCompanion = LaunchOptions.current.usesTestScenario
+        && ["companion", "companionWake"].contains(LaunchOptions.current.scenario ?? "")
     @AppStorage("today.layout") private var layoutData = Data()
 
     private var layout: TodayLayout { TodayLayout.decode(layoutData.isEmpty ? nil : layoutData) }
@@ -56,6 +59,7 @@ struct TodayScreen: View {
                     .preferredColorScheme(.dark)
             }
             .task(id: refreshToken) { reload() }
+            .navigationDestination(isPresented: $showCompanion) { CompanionScreen() }
         }
         .screenIdentifier("today")
     }
@@ -69,6 +73,9 @@ struct TodayScreen: View {
             if sources.healthAvailable, !sources.hasHealth { healthCard }
         case .coach:
             CoachTodayCard()
+        case .companion:
+            NavigationLink { CompanionScreen() } label: { CompanionTodayCard() }
+                .buttonStyle(.plain)
         case .metric(let kind):
             if let metric = metrics.first(where: { $0.kind == kind }) {
                 MetricCard(title: metric.kind.title, systemImage: metric.kind.systemImage, value: metric.value,

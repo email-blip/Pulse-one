@@ -6,6 +6,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
     case ring
     case appleHealth
     case coach
+    case companion
     case metric(SampleKind)
     case nutrition
     case eveningNote
@@ -15,6 +16,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
         case .ring: "ring"
         case .appleHealth: "health"
         case .coach: "coach"
+        case .companion: "companion"
         case .metric(let kind): "metric.\(kind.rawValue)"
         case .nutrition: "nutrition"
         case .eveningNote: "eveningNote"
@@ -26,6 +28,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
         case .ring: "Ring"
         case .appleHealth: "Apple Health verbinden"
         case .coach: "Coach"
+        case .companion: "Begleiter"
         case .metric(let kind): kind.title
         case .nutrition: "Ernährung"
         case .eveningNote: "Abendnotiz"
@@ -43,7 +46,7 @@ public struct TodayLayout: Codable, Equatable, Sendable {
                                                    .steps, .oxygenSaturation, .heartRate, .activeEnergy,
                                                    .respiratoryRate, .ringStress]
 
-    public static let defaultOrder: [TodayTile] = [.ring, .appleHealth, .coach] + metricKinds.map(TodayTile.metric)
+    public static let defaultOrder: [TodayTile] = [.ring, .companion, .appleHealth, .coach] + metricKinds.map(TodayTile.metric)
         + [.nutrition, .eveningNote]
 
     /// The ring's stress score is a vendor scale; it appears only when the user switches it on.
