@@ -4,7 +4,8 @@ import SwiftData
 
 /// SwiftData models of the Analyse module. Every field has a default, so later additions migrate lightly.
 enum IntelligenceModels {
-    static let all: [any PersistentModel.Type] = [StoredAnalysis.self, StoredNote.self, StoredInsight.self, StoredExperiment.self]
+    static let all: [any PersistentModel.Type] = [StoredAnalysis.self, StoredNote.self, StoredInsight.self, StoredExperiment.self,
+                                                   StoredConsultation.self]
 }
 
 /// One run of Claude (report, question, detective, experiment plan) with what was sent, what came back,
@@ -129,4 +130,57 @@ final class StoredExperiment {
     }
 
     var plan: ExperimentPlan? { try? JSONDecoder().decode(ExperimentPlan.self, from: planJSON) }
+}
+
+/// One turn of a consultation. The person's text, or Claude's checked reply; `apiText` is exactly what
+/// Claude wrote, so the next request can replay the conversation.
+struct ConsultationTurn: Codable, Identifiable, Equatable {
+    enum Role: String, Codable { case person, claude }
+
+    var id = UUID()
+    var date: Date
+    var role: Role
+    var text: String
+    var apiText: String = ""
+    var reply: ConsultationReply?
+    var flagged: [String: String] = [:]
+    var issues: [ValidationIssue] = []
+    var toolLog: [String] = []
+    var errorMessage: String = ""
+    var emergencyNotice: Bool = false
+}
+
+/// The consultation ("Sprechstunde", owner decision 2026-11-21): a conversation with Claude as a
+/// physician team. Stays on the device; its `memory` goes into the next consultation.
+@Model
+final class StoredConsultation {
+    var id: UUID = UUID()
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
+    var title: String = "Sprechstunde"
+    /// Facts sent at the start plus every fact a tool handed out, as one context (validator and evidence).
+    var contextJSON: String = ""
+    var turnsData: Data = Data()
+    /// Claude's running summary (anamnesis, assessment, agreed steps) for the next consultation.
+    var memory: String = ""
+    var nextToolID: Int = 1
+    var urgencyRaw: String = "none"
+
+    init(context: HealthAnalysisContext) {
+        id = UUID()
+        createdAt = .now
+        updatedAt = .now
+        contextJSON = context.compactJSON()
+    }
+
+    var context: HealthAnalysisContext? {
+        try? JSONDecoder().decode(HealthAnalysisContext.self, from: Data(contextJSON.utf8))
+    }
+
+    var turns: [ConsultationTurn] {
+        get { (try? JSONDecoder().decode([ConsultationTurn].self, from: turnsData)) ?? [] }
+        set { turnsData = (try? JSONEncoder().encode(newValue)) ?? turnsData }
+    }
+
+    var urgency: ConsultationUrgency { ConsultationUrgency(rawValue: urgencyRaw) ?? ConsultationUrgency.none }
 }

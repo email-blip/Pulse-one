@@ -32,6 +32,16 @@ struct CompanionSettingsView: View {
         Form {
             greetingSection
             daySection
+            Section {
+                NavigationLink {
+                    ActivationSettingsEntry()
+                } label: {
+                    Label("Aktivierung", systemImage: "figure.strengthtraining.functional")
+                }
+                .accessibilityIdentifier("companion.settings.activation")
+            } footer: {
+                Text("Kurze Einheiten morgens, mittags und abends, Bewegungs-Checks bei wenig Bewegung.")
+            }
             placeSection
             alarmSection
         }

@@ -45,6 +45,22 @@ enum IntelligenceTestData {
         record.apply(usage, responder: ClaudeModel.opus.id, model: .opus)
         context.insert(record)
 
+        let consultation = StoredConsultation(context: weekly)
+        consultation.title = "Seit ein paar Tagen müde"
+        consultation.createdAt = now.addingTimeInterval(-2 * 3600)
+        consultation.updatedAt = consultation.createdAt
+        var turns = [ConsultationTurn(date: consultation.createdAt, role: .person, text: "Seit ein paar Tagen müde")]
+        let canned = MockTransport.consultation(facts: weekly.facts, followUp: false)
+        if let validated = try? ResponseValidator(context: weekly).validateConsultation(json: canned, userText: "") {
+            turns.append(ConsultationTurn(date: consultation.createdAt, role: .claude, text: validated.reply.reply,
+                                          apiText: canned, reply: validated.reply, flagged: validated.flagged,
+                                          issues: validated.issues))
+            consultation.memory = validated.reply.memory
+            consultation.urgencyRaw = validated.reply.urgency.rawValue
+        }
+        consultation.turns = turns
+        context.insert(consultation)
+
         let plan = ExperimentPlan(title: "Kaffee nach 14 Uhr", targetKind: .sleepDuration, conditionA: "Kaffee wie gewohnt",
                                   conditionB: "kein Kaffee nach 14 Uhr", blockDays: 5, blocks: 4, washoutDays: 1,
                                   notesNeeded: ["Uhrzeit des letzten Kaffees"],

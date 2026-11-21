@@ -86,7 +86,9 @@ struct MetricDetailScreen: View {
                                 .foregroundStyle(Palette.bioCyan)
                                 .interpolationMethod(.monotone)
                             PointMark(x: .value("Zeit", point.date), y: .value(kind.title, kind.displayNumber(point.value)))
-                                .foregroundStyle(point.value < (baseline?.baseline?.lower ?? -.infinity) || point.value > (baseline?.baseline?.upper ?? .infinity)
+                                // Only where the band is shown: hourly points against a band of daily means would mislead.
+                                .foregroundStyle(showsBand && (point.value < (baseline?.baseline?.lower ?? -.infinity)
+                                                               || point.value > (baseline?.baseline?.upper ?? .infinity))
                                                  ? Palette.neuralViolet : Palette.bioCyan)
                                 .symbolSize(30)
                         }

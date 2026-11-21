@@ -187,5 +187,6 @@ final class StoredConference {
 
 enum CompanionPersistence {
     static let models: [any PersistentModel.Type] = [CompanionSettingsRecord.self, StoredBriefing.self,
-                                                     StoredForecast.self, StoredFinding.self, StoredConference.self]
+                                                     StoredForecast.self, StoredFinding.self, StoredConference.self,
+                                                     ActivationSettingsRecord.self, ActivationSessionRecord.self]
 }

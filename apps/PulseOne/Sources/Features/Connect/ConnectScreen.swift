@@ -171,7 +171,7 @@ struct ConnectScreen: View {
     }
 
     private var footer: some View {
-        Text("PULSE ONE ist kein Medizinprodukt. Werte beschreiben Trends, keine Befunde. Alle Daten bleiben auf diesem iPhone.")
+        Text("PULSE ONE ist kein zugelassenes Medizinprodukt. Alle Daten bleiben auf diesem iPhone, an Claude geht nur, was du vorher siehst.")
             .font(Typography.caption)
             .foregroundStyle(Palette.inkMuted)
             .multilineTextAlignment(.center)

@@ -13,15 +13,27 @@ final class AccessibilityTests: XCTestCase {
     func testHealthAudit() throws { try audit(scenario: "health") }
     func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
     func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
+    /// The stored consultation of the test scenario, opened from the Analyse tab.
+    func testConsultationAudit() throws {
+        try audit(scenario: "intelligence", screen: "consultation") { app in
+            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            row.tap()
+        }
+    }
     func testCoachAudit() throws { try audit(scenario: "coach") }
     func testNutritionAudit() throws { try audit(scenario: "nutrition") }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
-    private func audit(scenario: String) throws {
+    private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15))
+        if let prepare {
+            prepare(app)
+            XCTAssertTrue(app.descendants(matching: .any)["screen.\(screen ?? scenario)"].waitForExistence(timeout: 15))
+        }
         // Let the launch transition finish: run 4 reported contrast on text that is still fading in.
         // Tab screens load SwiftData queries and charts first; 1.5 s still caught text mid-fade on them (run 36).
         Thread.sleep(forTimeInterval: 3)
@@ -32,10 +44,11 @@ final class AccessibilityTests: XCTestCase {
             return element.exists ? element.frame : nil
         }
         // System bars (navigation, tab bar) are translucent glass on iOS 26 and content scrolls beneath them.
-        // The audit then measures text through the glass. Checked on the screenshot matrix instead (DECISIONS.md).
+        // The audit then measures text through the glass and the scroll edge effect (about 56 pt, PR #34).
+        // Checked on the screenshot matrix instead (DECISIONS.md).
         let barFrames = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex)
-            .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -32) }
-        try app.performAccessibilityAudit { issue in
+            .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -56) }
+        let handler: (XCUIAccessibilityAuditIssue) throws -> Bool = { issue in
             let element = issue.element
             print("AUDIT[\(scenario)] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-") type=\(element?.elementType.rawValue ?? 0) frame=\(element?.frame ?? .zero)")
             if issue.auditType == .contrast, let frame = element?.frame,
@@ -65,6 +78,13 @@ final class AccessibilityTests: XCTestCase {
             // fully at accessibility sizes. Clipping is checked instead on the xxxl screenshot matrix
             // (studio-visual-qa), see DECISIONS.md.
             return issue.auditType == .textClipped
+        }
+        // A slow runner sometimes stops the audit with "failed to complete in time" (Code -56, PR #34).
+        // That says nothing about the screen, so the audit runs once more; any other error still fails.
+        do {
+            try app.performAccessibilityAudit(for: .all, handler)
+        } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
+            try app.performAccessibilityAudit(for: .all, handler)
         }
     }
 }
