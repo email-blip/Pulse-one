@@ -29,7 +29,8 @@ struct CoachRepository {
     /// Saves preferences and starts a new 4-week program from today.
     func save(preferences: CoachPreferences, now: Date) {
         let reviews = self.reviews(since: calendar.date(byAdding: .day, value: -42, to: now) ?? now)
-        let history = TrainingLoad.summary(reviews, endingOn: now, calendar: calendar).fourWeekMean
+        let history = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+                                           endingOn: now, calendar: calendar).fourWeekMean
         let program = ProgramBuilder.build(preferences: preferences, start: now, recentWeeklyLoad: history, calendar: calendar)
         if let record = settings() {
             record.update(preferences: preferences, program: program, at: now)
@@ -79,7 +80,8 @@ struct CoachRepository {
         let reviews = self.reviews(since: calendar.date(byAdding: .day, value: -42, to: now) ?? now)
         var program = record.program
         if program?.position(of: now, calendar: calendar) == nil {
-            let history = TrainingLoad.summary(reviews, endingOn: now, calendar: calendar).fourWeekMean
+            let history = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+                                           endingOn: now, calendar: calendar).fourWeekMean
             program = ProgramBuilder.build(preferences: preferences, start: now, recentWeeklyLoad: history, calendar: calendar)
             record.update(preferences: preferences, program: program, at: now)
             try? context.save()
@@ -111,26 +113,41 @@ struct CoachRepository {
         let feedback = FeedbackAdaptation.advice(reviews, before: now, style: preferences.style, calendar: calendar)
         let plan = DailyPlanner.plan(now: now, program: program, preferences: preferences, signals: signals, subjective: subjective,
                                      feedback: feedback, hourlySteps: hourlySteps(reader: reader, now: now, profileID: profileID),
-                                     revisions: revisions(on: now), calendar: calendar)
-        let load = TrainingLoad.summary(reviews, endingOn: now, calendar: calendar)
+                                     revisions: revisions(on: now), activationDone: activationResults(on: now),
+                                     calendar: calendar)
+        let load = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+                                        endingOn: now, calendar: calendar)
         return CoachSnapshot(preferences: preferences, program: program, plan: plan, load: load,
                              position: program.position(of: now, calendar: calendar), todayReview: todayReview)
     }
 
-    /// Steps per hour today. Each source is summed per hour; the largest source counts, so Health and
-    /// ring steps are never added twice. nil when there is no step data today at all.
+    /// Steps per hour today (shared rule `HourlySteps`: Health and ring steps are never added twice).
+    /// nil when there is no step data today at all.
     func hourlySteps(reader: SampleReader, now: Date, profileID: UUID?) -> [Int: Double]? {
         let samples = reader.samples([.steps], since: calendar.startOfDay(for: now), profileID: profileID)
-        guard !samples.isEmpty else { return nil }
-        var perSource: [String: [Int: Double]] = [:]
-        for s in samples where s.start <= now {
-            let hour = calendar.component(.hour, from: s.start)
-            perSource[s.deviceID, default: [:]][hour, default: 0] += s.value
+        let hourly = HourlySteps.perHour(samples, day: now, until: now, calendar: calendar)
+        return hourly.isEmpty ? nil : hourly
+    }
+
+    // MARK: Begleiter activation
+
+    /// Load of the Begleiter activation sessions of the last 42 days (the load window), one value per session.
+    func activationLoads(endingOn now: Date) -> [DayValue] {
+        let from = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -42, to: now) ?? now)
+        let descriptor = FetchDescriptor<ActivationSessionRecord>(predicate: #Predicate { $0.day >= from })
+        return ((try? context.fetch(descriptor)) ?? []).compactMap { record in
+            guard record.minutes > 0 else { return nil }
+            return DayValue(day: record.day, value: ActivationLoad.load(minutes: record.minutes, feedback: record.feedback))
         }
-        var result: [Int: Double] = [:]
-        for hours in perSource.values {
-            for (hour, value) in hours { result[hour] = max(result[hour] ?? 0, value) }
-        }
-        return result
+    }
+
+    /// Activation sessions finished on `now`'s day, oldest first.
+    func activationResults(on now: Date) -> [ActivationResult] {
+        let start = calendar.startOfDay(for: now)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
+        let descriptor = FetchDescriptor<ActivationSessionRecord>(
+            predicate: #Predicate { $0.day >= start && $0.day < end },
+            sortBy: [SortDescriptor(\.finishedAt)])
+        return ((try? context.fetch(descriptor)) ?? []).compactMap(\.result)
     }
 }

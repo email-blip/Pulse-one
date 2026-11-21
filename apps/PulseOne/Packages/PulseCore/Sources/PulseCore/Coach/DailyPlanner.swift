@@ -136,9 +136,12 @@ public enum DailyPlanner {
     /// - Parameters:
     ///   - hourlySteps: today's steps per hour of the day (0…23); nil when no step data exists.
     ///   - revisions: confirmed changes for this day, oldest first.
+    ///   - activationDone: Begleiter activation sessions finished today; they count as the day's activation
+    ///     and movement snacks, so the Coach does not ask for the same movement twice.
     public static func plan(now: Date, program: TrainingProgram?, preferences raw: CoachPreferences,
                             signals: [RecoverySignal], subjective: SubjectiveCheck?, feedback: FeedbackAdvice,
-                            hourlySteps: [Int: Double]?, revisions: [PlanRevision], calendar: Calendar) -> DailyPlan {
+                            hourlySteps: [Int: Double]?, revisions: [PlanRevision],
+                            activationDone: [ActivationResult] = [], calendar: Calendar) -> DailyPlan {
         let p = raw.sanitized
         let day = calendar.startOfDay(for: now)
         let decision = CoachRules.decide(signals: signals, subjective: subjective)
@@ -196,8 +199,10 @@ public enum DailyPlanner {
             if case .soreness(let region, _) = revision.intent { avoid.limitations.insert(region) }
         }
         let dayIndex = calendar.ordinality(of: .day, in: .era, for: day) ?? 0
+        let doneToday = activationDone.filter { calendar.isDate($0.finishedAt, inSameDayAs: day) }
         let blocks = makeBlocks(suggested: suggested, decision: decision, reason: reason, preferences: avoid,
-                                hourlySteps: hourlySteps, now: now, dayIndex: dayIndex, calendar: calendar)
+                                hourlySteps: hourlySteps, activationDone: doneToday, now: now, dayIndex: dayIndex,
+                                calendar: calendar)
         return DailyPlan(day: day, decision: decision, signals: signals, planned: planned, suggested: suggested,
                          blocks: blocks, notes: notes)
     }
@@ -208,15 +213,25 @@ public enum DailyPlanner {
     }
 
     static func makeBlocks(suggested: PlannedSession, decision: ReadinessDecision, reason: String?,
-                           preferences p: CoachPreferences, hourlySteps: [Int: Double]?, now: Date, dayIndex: Int,
+                           preferences p: CoachPreferences, hourlySteps: [Int: Double]?,
+                           activationDone: [ActivationResult] = [], now: Date, dayIndex: Int,
                            calendar: Calendar) -> [DayBlock] {
         var blocks: [DayBlock] = []
         let enabled = p.enabledBlocks
         if enabled.contains(.activation), decision != .seekHelp {
-            let exercises = ExerciseLibrary.pick(.activation, count: 3, preferences: p, dayIndex: dayIndex)
-            blocks.append(DayBlock(id: "activation", kind: .activation, title: DayBlockKind.activation.title, minutes: 5,
-                                   intensity: .recovery, detail: "Ruhig wach werden: Atmung und Gelenke bewegen.",
-                                   exercises: exercises, reason: nil))
+            if let morning = activationDone.first(where: { $0.plan.slot == .morning }) {
+                // The Begleiter's morning activation already did this block's job.
+                let minutes = max(1, Int((Double(morning.plan.estimatedSeconds) / 60).rounded()))
+                blocks.append(DayBlock(id: "activation", kind: .activation, title: DayBlockKind.activation.title,
+                                       minutes: minutes, intensity: .recovery,
+                                       detail: "Schon erledigt mit der Morgen-Aktivierung im Begleiter.",
+                                       exercises: [], reason: nil))
+            } else {
+                let exercises = ExerciseLibrary.pick(.activation, count: 3, preferences: p, dayIndex: dayIndex)
+                blocks.append(DayBlock(id: "activation", kind: .activation, title: DayBlockKind.activation.title, minutes: 5,
+                                       intensity: .recovery, detail: "Ruhig wach werden: Atmung und Gelenke bewegen.",
+                                       exercises: exercises, reason: nil))
+            }
         }
         if enabled.contains(.mainWorkout) {
             switch suggested.kind {
@@ -242,7 +257,8 @@ public enum DailyPlanner {
             }
         }
         if enabled.contains(.movementSnack), decision != .seekHelp {
-            blocks += snacks(preferences: p, hourlySteps: hourlySteps, now: now, dayIndex: dayIndex, calendar: calendar)
+            blocks += snacks(preferences: p, hourlySteps: hourlySteps, activationDone: activationDone, now: now,
+                             dayIndex: dayIndex, calendar: calendar)
         }
         if enabled.contains(.recovery), suggested.kind == .main, suggested.intensity >= .moderate, decision != .seekHelp {
             blocks.append(DayBlock(id: "recovery", kind: .recovery, title: "Erholung nach der Einheit", minutes: 10,
@@ -260,10 +276,16 @@ public enum DailyPlanner {
     }
 
     /// 2 snacks by default; up to 4 when the step data shows inactive stretches of at least an hour.
-    static func snacks(preferences p: CoachPreferences, hourlySteps: [Int: Double]?, now: Date, dayIndex: Int,
+    /// Activation sessions after the morning (midday, evening, snack) each replace one snack, and a quiet hour
+    /// answered by a session in that hour or the next is no longer named as a reason.
+    static func snacks(preferences p: CoachPreferences, hourlySteps: [Int: Double]?,
+                       activationDone: [ActivationResult] = [], now: Date, dayIndex: Int,
                        calendar: Calendar) -> [DayBlock] {
+        let doneHours: [Int] = activationDone.map { calendar.component(.hour, from: $0.finishedAt) }
         let inactive = inactiveHours(hourlySteps: hourlySteps, now: now, wakeHours: p.wakeHours, calendar: calendar)
-        let count = min(4, max(2, inactive.count))
+            .filter { hour in !doneHours.contains { $0 == hour || $0 == hour + 1 } }
+        let replaced = activationDone.filter { $0.plan.slot != .morning }.count
+        let count = max(0, min(4, max(2, inactive.count)) - replaced)
         let exercises = ExerciseLibrary.pick(.snack, count: count, preferences: p, dayIndex: dayIndex)
         return (0..<count).map { i in
             let reason: String? = i < inactive.count
@@ -275,12 +297,18 @@ public enum DailyPlanner {
         }
     }
 
-    /// Finished hours inside the waking window with fewer than 250 steps (latest first). nil data = none.
+    /// Finished hours inside the waking window with fewer than 250 steps (latest first).
+    /// An hour without step data is unknown, not inactive; below 50 % coverage of the finished waking hours
+    /// (same rule as the Begleiter, `HourlySteps.hasEnoughCoverage`) nothing is called inactive. nil data = none.
     public static func inactiveHours(hourlySteps: [Int: Double]?, now: Date, wakeHours: ClosedRange<Int>,
                                      calendar: Calendar) -> [Int] {
         guard let hourlySteps else { return [] }
         let currentHour = calendar.component(.hour, from: now)
         let finished = wakeHours.filter { $0 < currentHour }
-        return finished.filter { (hourlySteps[$0] ?? 0) < 250 }.sorted(by: >)
+        guard HourlySteps.hasEnoughCoverage(hourlySteps, finishedHours: finished) else { return [] }
+        return finished.filter { hour in
+            guard let steps = hourlySteps[hour] else { return false }
+            return steps < ActivityCheck.quietStepsPerHour
+        }.sorted(by: >)
     }
 }

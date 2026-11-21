@@ -7,18 +7,10 @@ public enum ActivityCheck {
     /// Steps per hour below this count make a finished waking hour "quiet" (same rule as the Coach).
     public static let quietStepsPerHour: Double = 250
 
-    /// Sum of `.steps` samples per start hour of `day`. Hours without a sample are absent (unknown).
+    /// Steps per start hour of `day` (shared rule `HourlySteps`: per source, largest source per hour).
+    /// Hours without a sample are absent (unknown).
     public static func hourlySteps(_ samples: [HealthSample], day: Date, calendar: Calendar) -> [Int: Double] {
-        var result: [Int: Double] = [:]
-        for sample in samples {
-            if sample.kind != .steps { continue }
-            if sample.quality == .implausible { continue }
-            if !calendar.isDate(sample.start, inSameDayAs: day) { continue }
-            let hour: Int = calendar.component(.hour, from: sample.start)
-            let previous: Double = result[hour] ?? 0
-            result[hour] = previous + sample.value
-        }
-        return result
+        HourlySteps.perHour(samples, day: day, calendar: calendar)
     }
 
     /// `.unknown` without data or when fewer than half of the finished waking hours have data;
@@ -30,9 +22,7 @@ public enum ActivityCheck {
         let currentHour: Int = calendar.component(.hour, from: now)
         let finished: [Int] = wakeHours.filter { $0 < currentHour }
         if finished.isEmpty { return .unknown }
-        var withData: Int = 0
-        for hour in finished where hourlySteps[hour] != nil { withData += 1 }
-        if withData * 2 < finished.count { return .unknown }
+        if !HourlySteps.hasEnoughCoverage(hourlySteps, finishedHours: finished) { return .unknown }
         var quiet: Int = 0
         for hour in finished.sorted(by: >) {
             guard let steps = hourlySteps[hour] else { break }
