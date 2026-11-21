@@ -79,17 +79,12 @@ struct IntelligenceHubView: View {
 
     private var dailyCard: some View {
         Card {
-            HStack {
-                SectionHeader(title: "Heute in Kürze")
-                Spacer()
-                Label(daily?.rephrased == true ? "Apple Intelligence" : "auf dem iPhone", systemImage: "iphone")
-                    .font(.caption2)
-                    .foregroundStyle(Palette.inkMuted)
-            }
+            SectionHeader(title: "Heute in Kürze")
             ForEach(daily?.lines ?? [], id: \.self) { line in
                 Text(line).font(Typography.body).foregroundStyle(Palette.ink).wraps()
             }
-            Text("Berechnet auf deinem iPhone, nichts wurde gesendet.")
+            Text(daily?.rephrased == true ? "Formuliert von Apple Intelligence auf deinem iPhone, nichts wurde gesendet."
+                    : "Berechnet auf deinem iPhone, nichts wurde gesendet.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
         }
         .accessibilityIdentifier("intelligence.daily")
@@ -131,7 +126,7 @@ struct IntelligenceHubView: View {
             if let localAnswer {
                 VStack(alignment: .leading, spacing: Spacing.s) {
                     Label("auf dem iPhone beantwortet", systemImage: "iphone")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(Palette.inkMuted)
+                        .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                     Text(localAnswer).font(Typography.body).foregroundStyle(Palette.ink).wraps()
                 }
             }

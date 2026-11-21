@@ -63,10 +63,27 @@ public struct ContextBuilder: Sendable {
                     }
                     continue
                 }
-                let values = inPeriod.map(\.value)
+                // A running day is not finished for counters (steps, energy, distance, training): it never
+                // enters a mean and is never compared with the usual range of whole days.
+                let today = calendar.startOfDay(for: now)
+                var complete = inPeriod
+                var soFarToday = false
+                if sampleKind.isCumulative, let last = inPeriod.last, last.day >= today {
+                    let finished = inPeriod.filter { $0.day < today }
+                    if kind == .daily || finished.isEmpty {
+                        complete = [last]
+                        soFarToday = true
+                    } else {
+                        complete = finished
+                    }
+                }
+                let values = complete.map(\.value)
                 let stat: String
                 let central: Double
-                if kind == .daily {
+                if soFarToday {
+                    stat = "so_far_today"
+                    central = values.last ?? 0
+                } else if kind == .daily {
                     stat = "day_value"
                     central = values.last ?? 0
                 } else if sampleKind.isCumulative {
@@ -79,7 +96,7 @@ public struct ContextBuilder: Sendable {
                 let shown = FactUnits.display(sampleKind, central)
                 let baseValues = daily.filter { $0.day >= baselineStart && $0.day < start }.map(\.value)
                 var baseline: FactBaseline?
-                if baseValues.count >= Self.baselineMinimumDays,
+                if !soFarToday, baseValues.count >= Self.baselineMinimumDays,
                    let m = IntelligenceStats.median(baseValues),
                    let lo = IntelligenceStats.quantile(baseValues, 0.25),
                    let hi = IntelligenceStats.quantile(baseValues, 0.75) {
@@ -94,8 +111,8 @@ public struct ContextBuilder: Sendable {
                 let quality = periodSamples.allSatisfy { $0.quality == .valid } ? "valid" : "plausible"
                 facts.append(AnalysisFact(
                     id: "F\(facts.count + 1)", kind: sampleKind.rawValue, title: sampleKind.title, stat: stat,
-                    value: shown.value, unit: shown.unit, period: periodLabel, n: inPeriod.count,
-                    coverage: IntelligenceStats.rounded(Double(inPeriod.count) / Double(kind.days), decimals: 2),
+                    value: shown.value, unit: shown.unit, period: periodLabel, n: complete.count,
+                    coverage: IntelligenceStats.rounded(Double(complete.count) / Double(kind.days), decimals: 2),
                     baseline: baseline, source: mainSource, quality: quality))
             }
         }

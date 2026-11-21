@@ -35,6 +35,7 @@ public enum LocalSentences {
         switch fact.stat {
         case "day_value": lead = "\(fact.title): \(value)"
         case "mean_per_day": lead = "\(fact.title): im Mittel \(value) pro Tag"
+        case "so_far_today": lead = "\(fact.title): bisher heute \(value)"
         case "count": lead = "\(fact.title): \(value)"
         default: lead = "\(fact.title): Median \(value)"
         }

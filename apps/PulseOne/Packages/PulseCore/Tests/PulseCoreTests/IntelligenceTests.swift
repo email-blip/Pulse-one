@@ -135,6 +135,22 @@ struct ContextBuilderTests {
         #expect(Set(ctx.facts.map(\.id)).count == ctx.facts.count)
     }
 
+    /// Steps of the running day are never compared with whole days, and never enter a weekly mean.
+    @Test func runningDayIsNotComparedForCounters() throws {
+        let daily = ContextBuilder(calendar: berlin).build(samples: history(), events: [], kind: .daily, now: now,
+                                                           consent: ConsentCategory.defaultConsent, profile: .empty)
+        let today = try #require(daily.facts.first { $0.kind == SampleKind.steps.rawValue })
+        #expect(today.stat == "so_far_today")
+        #expect(today.baseline == nil)
+        #expect(LocalSentences.describe(today).contains("bisher heute"))
+        let weekly = ContextBuilder(calendar: berlin).build(samples: history(), events: [], kind: .weekly, now: now,
+                                                            consent: ConsentCategory.defaultConsent, profile: .empty)
+        let week = try #require(weekly.facts.first { $0.kind == SampleKind.steps.rawValue })
+        #expect(week.stat == "mean_per_day")
+        #expect(week.n == 6)
+        #expect(week.baseline != nil)
+    }
+
     @Test func consentAndMinimisation() {
         let events = [ContextEvent(date: now.addingTimeInterval(-3_600), tags: [.stress], mood: nil, text: "Ärger mit Chef Müller")]
         let ctx = ContextBuilder(calendar: berlin).build(samples: history(), events: events, kind: .weekly, now: now,

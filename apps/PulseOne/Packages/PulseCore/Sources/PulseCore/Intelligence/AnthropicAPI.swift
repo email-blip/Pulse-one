@@ -138,7 +138,7 @@ public enum AnthropicError: Error, Equatable, Sendable {
 
 /// Fixed prompts, versioned like the context (spec §3.1). German, "du", descriptive only.
 public enum IntelligencePrompts {
-    public static let version = 1
+    public static let version = 2
 
     static let rules = """
     Regeln, ohne Ausnahme:
@@ -146,6 +146,8 @@ public enum IntelligencePrompts {
     Differenz zur Basislinie, Prozentabweichung, rho). Erfinde keine Messwerte und rechne keine neuen Kennzahlen.
     2. Jede Aussage nennt in "evidence" die IDs der Fakten, auf die sie sich stützt (z. B. "F1", "C2", "E3"). \
     Aussagen vom Typ measured, computed und observation brauchen mindestens eine ID. Schreibe die IDs nicht in den Text.
+    Ein Fakt mit stat "so_far_today" ist der bisherige Stand des laufenden Tages: nicht mit vollen Tagen vergleichen \
+    und nicht als niedrig bewerten.
     3. Typen: measured = Messwert, computed = berechnete Kennzahl, observation = Beobachtung in den Daten, \
     interpretation = deine Deutung, recommendation = Vorschlag für den Alltag.
     4. Keine Diagnosen, keine Krankheitsnamen als Erklärung, keine Wahrscheinlichkeiten für Erkrankungen, \
