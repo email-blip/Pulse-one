@@ -162,13 +162,19 @@ public struct RingHistorySync: Sendable {
     }
 
     private mutating func feedDayLog(_ packet: [UInt8], log: ColmiHistory.Log, daysAgo: Int) -> Request? {
-        var accumulator = dayLog ?? DayLogAccumulator(log: log)
+        var accumulator = dayLog ?? DayLogAccumulator(log: log, expectedDayStart: expectedDayStart(daysAgo: daysAgo, log: log))
         guard accumulator.feed(packet) else { return nil }
         answered = true
         dayLog = accumulator
         guard accumulator.isComplete, let current else { return nil }
         collect(accumulator, step: current)
         return advance()
+    }
+
+    private func expectedDayStart(daysAgo: Int, log: ColmiHistory.Log) -> UInt32? {
+        guard log == .heartRate,
+              let day = mapper.calendar.date(byAdding: .day, value: -daysAgo, to: mapper.today) else { return nil }
+        return ColmiHistory.ringMidnight(of: day, calendar: mapper.calendar)
     }
 
     private mutating func collect(_ accumulator: DayLogAccumulator, step: Step) {

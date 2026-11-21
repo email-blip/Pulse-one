@@ -22,10 +22,14 @@ public enum ColmiHistory {
     /// `15 <uint32 LE>`: the ring's wall-clock seconds of the local midnight of `day`
     /// (Gadgetbridge adds the zone offset to the epoch; colmi_r02_client sends midnight too).
     public static func heartRateLogRequest(day: Date, calendar: Calendar) -> [UInt8] {
+        (try? ColmiProtocol.makePacket(.readHeartRateLog, payload: littleEndian(ringMidnight(of: day, calendar: calendar)))) ?? []
+    }
+
+    /// Local midnight of `day` as ring wall-clock seconds (epoch plus zone offset).
+    public static func ringMidnight(of day: Date, calendar: Calendar) -> UInt32 {
         let midnight = calendar.startOfDay(for: day)
         let offset = calendar.timeZone.secondsFromGMT(for: midnight)
-        let seconds = UInt32(clamping: max(0, Int(midnight.timeIntervalSince1970) + offset))
-        return (try? ColmiProtocol.makePacket(.readHeartRateLog, payload: littleEndian(seconds))) ?? []
+        return UInt32(clamping: max(0, Int(midnight.timeIntervalSince1970) + offset))
     }
 
     /// `37`: stress values of today.
@@ -87,8 +91,15 @@ public struct DayLogAccumulator: Equatable, Sendable {
     public private(set) var isComplete = false
     public private(set) var isEmpty = false
     private var totalPackets: Int?
+    private var sawHeader = false
+    /// Heart rate only: ring wall-clock midnight of the requested day. Packet 1 carries the day's
+    /// timestamp; a packet from another day is a late answer to an earlier request and is refused.
+    private let expectedDayStart: UInt32?
 
-    public init(log: ColmiHistory.Log) { self.log = log }
+    public init(log: ColmiHistory.Log, expectedDayStart: UInt32? = nil) {
+        self.log = log
+        self.expectedDayStart = expectedDayStart
+    }
 
     var interval: Int { log == .heartRate ? 5 : 30 }
     /// Heart rate packet 1 holds a timestamp in bytes 2–5.
@@ -107,9 +118,17 @@ public struct DayLogAccumulator: Equatable, Sendable {
             return true
         }
         if number == 0 {
+            sawHeader = true
             totalPackets = Int(packet[2])
             if totalPackets == 0 || totalPackets == 1 { isEmpty = true; isComplete = true }
             return true
+        }
+        // Every log starts with packet 0. Data packets before it are late packets of an earlier
+        // request (after a timeout) and would otherwise be booked to this day.
+        guard sawHeader else { return false }
+        if number == 1, log == .heartRate, let expectedDayStart {
+            let stamp = UInt32(packet[2]) | UInt32(packet[3]) << 8 | UInt32(packet[4]) << 16 | UInt32(packet[5]) << 24
+            if stamp != 0, stamp / 86_400 != expectedDayStart / 86_400 { return false }
         }
         let start = number == 1 ? firstOffset : 2
         let earlier = number == 1 ? 0 : (15 - firstOffset) * interval + (number - 2) * 13 * interval
@@ -136,6 +155,16 @@ public struct ActivityEntry: Equatable, Sendable {
     public let distanceMeters: Int
     /// Raw value; the scale differs between firmware versions, so it is not stored yet.
     public let caloriesRaw: Int
+
+    public init(year: Int, month: Int, day: Int, quarter: Int, steps: Int, distanceMeters: Int, caloriesRaw: Int) {
+        self.year = year
+        self.month = month
+        self.day = day
+        self.quarter = quarter
+        self.steps = steps
+        self.distanceMeters = distanceMeters
+        self.caloriesRaw = caloriesRaw
+    }
 
     public func start(calendar: Calendar) -> Date? {
         calendar.date(from: DateComponents(year: year, month: month, day: day, hour: quarter / 4, minute: (quarter % 4) * 15))
@@ -250,8 +279,9 @@ public struct SleepSession: Equatable, Sendable {
     /// Start and end as dates, relative to `today` in the ring's local calendar.
     public func interval(today: Date, calendar: Calendar) -> (start: Date, end: Date)? {
         guard let day = calendar.date(byAdding: .day, value: -daysAgo, to: calendar.startOfDay(for: today)),
-              let end = calendar.date(byAdding: .minute, value: endMinute, to: day),
-              let start = calendar.date(byAdding: .minute, value: startMinute > endMinute ? startMinute - 1_440 : startMinute, to: day)
+              let startDay = startMinute > endMinute ? calendar.date(byAdding: .day, value: -1, to: day) : Optional(day),
+              let end = RingHistoryMapper.wallClock(day, minuteOfDay: endMinute, calendar: calendar),
+              let start = RingHistoryMapper.wallClock(startDay, minuteOfDay: startMinute, calendar: calendar)
         else { return nil }
         return (start, end)
     }
@@ -343,7 +373,8 @@ public struct RingHistoryMapper: Sendable {
         }
         guard let day = calendar.date(byAdding: .day, value: -daysAgo, to: calendar.startOfDay(for: today)) else { return [] }
         return accumulator.values.compactMap { entry in
-            guard let start = calendar.date(byAdding: .minute, value: entry.minuteOfDay, to: day), start <= today else { return nil }
+            guard let start = RingHistoryMapper.wallClock(day, minuteOfDay: entry.minuteOfDay, calendar: calendar),
+                  start <= today else { return nil }
             return observation(kind, Double(entry.value), start: start, end: nil, interval: accumulator.interval)
         }
     }
@@ -365,7 +396,7 @@ public struct RingHistoryMapper: Sendable {
     public func spo2(_ entries: [SpO2HourEntry]) -> [RawObservation] {
         entries.compactMap { entry in
             guard let day = calendar.date(byAdding: .day, value: -entry.daysAgo, to: calendar.startOfDay(for: today)),
-                  let start = calendar.date(byAdding: .hour, value: entry.hour, to: day),
+                  let start = RingHistoryMapper.wallClock(day, minuteOfDay: entry.hour * 60, calendar: calendar),
                   let end = calendar.date(byAdding: .hour, value: 1, to: start), start <= today else { return nil }
             let mid = (Double(entry.minimum + entry.maximum) / 2).rounded()
             var raw = observation(.oxygenSaturation, mid, start: start, end: end, interval: 60)
@@ -379,6 +410,10 @@ public struct RingHistoryMapper: Sendable {
             guard session.asleepMinutes > 0, let span = session.interval(today: today, calendar: calendar) else { return nil }
             var raw = observation(.sleepDuration, Double(session.asleepMinutes * 60), start: span.start, end: span.end,
                                   interval: session.spanMinutes)
+            // One sleep session per night on the ring: the night (wake day) is the identity, so a night that
+            // grows between two syncs replaces the earlier version instead of being stored twice.
+            raw.originalSampleID = RawObservation.ringHistorySampleID(kind: .sleepDuration, nightEnding: span.end,
+                                                                      calendar: calendar)
             raw.rawDataReference = session.stageSummary.isEmpty ? nil : session.stageSummary
             return raw
         }
@@ -387,8 +422,17 @@ public struct RingHistoryMapper: Sendable {
     func observation(_ kind: SampleKind, _ value: Double, start: Date, end: Date?, interval: Int) -> RawObservation {
         RawObservation(kind: kind, value: value, unit: kind.canonicalUnit, start: start, end: end,
                        timeZoneIdentifier: zone, source: .colmiRing, deviceID: deviceID,
-                       originalSampleID: RawObservation.ringSampleID(source: .ringHistory, timestamp: start, kind: kind,
-                                                                     value: Int(value), interval: interval),
+                       originalSampleID: RawObservation.ringHistorySampleID(kind: kind, slotStart: start, interval: interval,
+                                                                            calendar: calendar),
                        method: .deviceHistory, identity: .derived)
+    }
+
+    /// Ring wall-clock time `minuteOfDay` on `day`, built from date components so a daylight-saving day
+    /// does not shift the later hours (adding elapsed minutes to midnight would).
+    static func wallClock(_ day: Date, minuteOfDay: Int, calendar: Calendar) -> Date? {
+        var parts = calendar.dateComponents([.year, .month, .day], from: day)
+        parts.hour = minuteOfDay / 60
+        parts.minute = minuteOfDay % 60
+        return calendar.date(from: parts)
     }
 }
