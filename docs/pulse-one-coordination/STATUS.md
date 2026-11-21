@@ -18,7 +18,7 @@ Stufen nach §14: Geplant → Implementiert → Gebaut (CI) → Simulator getest
 | Werte mit Zeit + Herkunft speichern (SwiftData) | Implementiert | |
 | Anzeige (Orb, Status, Gerät, gespeicherte Werte) | Simulator getestet (Testansicht) | Screenshots CI-Lauf 6 |
 | Installierbar auf iPhone (TestFlight) | **Auf iPhone getestet** | Build 4 installiert (PR #7) |
-| TODAY, Diagramme, Analyse, Claude, Coach, Einstellungen | Nicht implementiert | Directive 4.0, Plan PR 2–9 |
+| TODAY (anpassbar), Gesundheit-Diagramme, Analyse mit Claude, Coach, Ernährung, Begleiter (Wecker, Morgenbericht) | Implementiert, Simulator (Testansicht) | TestFlight Build 9/10; Testteam-Review 2026-11-21, Funde in PRs; am iPhone noch nicht abgenommen |
 | Puls-Verlauf vom Ring (5-min-Log) | Parser implementiert, nicht angebunden | nach Realtest |
 | M2 Kern: Adapter-Protokoll, Adapter-Katalog (Capability-Matrix), DeviceRegistry, HealthSample, Normalizer, idempotenter Sync, Quellenwahl ohne Mittelwert | Implementiert (Kern, Swift-Testing) | CI grün (PR #3) |
 | M2 App: SwiftData `StoredSample` (eindeutiger Dublettenschlüssel), Ring-Werte über den gemeinsamen Sync-Pfad, Apple-Health-Adapter (Freigabe je Typ, inkrementell mit Anker, Löschungen, 30 Tage Erstimport), Geräte-Screen mit Integrationsstufen | Implementiert | CI ausstehend; HealthKit nur auf iPhone prüfbar, braucht HealthKit-Häkchen an der App-ID |

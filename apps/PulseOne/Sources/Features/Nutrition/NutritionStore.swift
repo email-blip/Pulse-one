@@ -73,10 +73,16 @@ final class NutritionStore {
         stored.update(from: entry)
         try? modelContext?.save()
         guard stored.healthWrittenAt != nil, !isTestScenario else { return }
-        // Health samples are immutable: replace them.
+        // Health samples are immutable: replace them. With Health writing switched off, only remove the old ones.
+        let rewrite = writesToHealth && entry.status == .confirmed
         Task {
             try? await health.delete(entryID: entry.id)
-            await writeToHealth(entry)
+            if rewrite {
+                await writeToHealth(entry)
+            } else {
+                stored.healthWrittenAt = nil
+                try? modelContext?.save()
+            }
         }
     }
 
@@ -98,7 +104,9 @@ final class NutritionStore {
         let previous = entries(on: yesterday, calendar: calendar).compactMap(\.entry).filter { $0.mealType == meal }
         for old in previous {
             let time = calendar.dateComponents([.hour, .minute], from: old.date)
-            let date = calendar.date(bySettingHour: time.hour ?? 12, minute: time.minute ?? 0, second: 0, of: day) ?? day
+            let copied = calendar.date(bySettingHour: time.hour ?? 12, minute: time.minute ?? 0, second: 0, of: day) ?? day
+            // Never date a copied entry in the future (dinner copied in the morning lands at "now").
+            let date = min(copied, Date())
             add(MealEntry(date: date, mealType: meal, food: old.food, amount: old.amount, method: .repeated))
         }
         return previous.count

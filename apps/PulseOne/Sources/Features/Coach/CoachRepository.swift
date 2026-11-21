@@ -98,7 +98,15 @@ struct CoachRepository {
         // otherwise Apple's SDNN. Looked up by raw value so this compiles before the ring kind lands on main.
         let ringHRV = SampleKind(rawValue: "hrv_ring").map(days) ?? []
         let hrv = ringHRV.isEmpty ? days(.heartRateVariability) : ringHRV
-        let signals = RecoveryAssessment.assess(restingHeartRate: days(.restingHeartRate), heartRateVariability: hrv,
+        // Resting pulse from one method only: the source's daily value (Apple Health) when present, otherwise
+        // the night resting pulse from heart rate (ring only), the same number the Begleiter uses.
+        let dailyResting = days(.restingHeartRate)
+        let resting = dailyResting.isEmpty
+            ? NightRestingSeries.daily(reader.samples([.heartRate], since: NightRestingSeries.readStart(days: 35, now: now, calendar: calendar),
+                                                      profileID: profileID),
+                                       days: 35, now: now, calendar: calendar)
+            : dailyResting
+        let signals = RecoveryAssessment.assess(restingHeartRate: resting, heartRateVariability: hrv,
                                                 sleep: days(.sleepDuration), subjective: subjective, today: now, calendar: calendar)
         let feedback = FeedbackAdaptation.advice(reviews, before: now, style: preferences.style, calendar: calendar)
         let plan = DailyPlanner.plan(now: now, program: program, preferences: preferences, signals: signals, subjective: subjective,

@@ -71,8 +71,10 @@ public struct PlanRevision: Codable, Equatable, Sendable, Identifiable {
 
 public enum PlanAdjuster {
     /// Applies an intent within the hard limits; returns the new session and a descriptive reason.
+    /// - Parameter neighbourIsHard: the day before or after is a hard day; "Etwas mehr" then stops below hard,
+    ///   so a change can never create hard days back to back.
     public static func apply(_ intent: CoachIntent, to session: PlannedSession, preferences raw: CoachPreferences,
-                             decision: ReadinessDecision) -> (PlannedSession, String) {
+                             decision: ReadinessDecision, neighbourIsHard: Bool = false) -> (PlannedSession, String) {
         let p = raw.sanitized
         var s = session
         switch intent {
@@ -96,9 +98,12 @@ public enum PlanAdjuster {
             return (s, "Eine Stufe leichter: \(s.intensity.title).")
         case .harder:
             guard s.kind == .main else { return (s, "An Ruhe- und Erholungstagen bleibt es locker.") }
-            let cap = min(p.intensityCap, decisionCap(decision))
+            let cap = min(p.intensityCap, decisionCap(decision), neighbourIsHard ? .moderate : .hard)
             let raised = min(s.intensity.raised(), cap)
             if raised <= s.intensity {
+                if neighbourIsHard, s.intensity >= .moderate {
+                    return (s, "Mehr ist heute nicht vorgesehen: direkt daneben liegt ein harter Tag, zwei harte Tage hintereinander plant der Coach nicht.")
+                }
                 return (s, "Mehr ist heute nicht vorgesehen: deine Grenzen und die heutigen Signale lassen \(s.intensity.title) zu.")
             }
             s.intensity = raised
