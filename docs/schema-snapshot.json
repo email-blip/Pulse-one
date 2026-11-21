@@ -1,0 +1,955 @@
+{
+  "ActivationSessionRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/ActivationRecords.swift",
+    "properties": {
+      "day": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "feedbackRaw": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "finishedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "minutes": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "resultJSON": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "slotRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "ActivationSettingsRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/ActivationRecords.swift",
+    "properties": {
+      "profileJSON": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "settingsJSON": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "updatedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "CoachReviewRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/CoachRecords.swift",
+    "properties": {
+      "data": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "day": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "CoachRevisionRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/CoachRecords.swift",
+    "properties": {
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "data": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "day": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "CoachSettingsRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/CoachRecords.swift",
+    "properties": {
+      "preferencesData": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "programData": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "updatedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "CompanionSettingsRecord": {
+    "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
+    "properties": {
+      "alarmEnabled": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      },
+      "alarmHour": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "alarmIDs": {
+        "default": true,
+        "optional": false,
+        "type": "[String]",
+        "unique": false
+      },
+      "alarmMinute": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "lastResearchScan": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      },
+      "latitude": {
+        "default": false,
+        "optional": true,
+        "type": "Double",
+        "unique": false
+      },
+      "longitude": {
+        "default": false,
+        "optional": true,
+        "type": "Double",
+        "unique": false
+      },
+      "placeName": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "preferencesJSON": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "updatedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "weatherJSON": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "weekdaysRaw": {
+        "default": true,
+        "optional": false,
+        "type": "[Int]",
+        "unique": false
+      }
+    }
+  },
+  "StoredAnalysis": {
+    "file": "apps/PulseOne/Sources/Features/Intelligence/IntelligenceModels.swift",
+    "properties": {
+      "cacheReadTokens": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "cacheWriteTokens": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "contextJSON": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "contextVersion": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "costUSD": {
+        "default": true,
+        "optional": false,
+        "type": "Double",
+        "unique": false
+      },
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "errorMessage": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "flaggedJSON": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "inputTokens": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "issuesJSON": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "kindRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "modelID": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "outputTokens": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "promptVersion": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "question": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "respondingModel": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "resultJSON": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "statusRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "title": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "toolLog": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "StoredBriefing": {
+    "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
+    "properties": {
+      "briefingJSON": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "dayTypeRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "headline": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "spokenScript": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "wakeMethodRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "wakeTime": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "StoredConference": {
+    "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
+    "properties": {
+      "costUSD": {
+        "default": false,
+        "optional": true,
+        "type": "Double",
+        "unique": false
+      },
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "factsText": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "modelID": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "roleStatementsJSON": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "synthesis": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "synthesisWithheld": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      }
+    }
+  },
+  "StoredConsultation": {
+    "file": "apps/PulseOne/Sources/Features/Intelligence/IntelligenceModels.swift",
+    "properties": {
+      "contextJSON": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "memory": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "nextToolID": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "title": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "turnsData": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "updatedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "urgencyRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "StoredExperiment": {
+    "file": "apps/PulseOne/Sources/Features/Intelligence/IntelligenceModels.swift",
+    "properties": {
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "planJSON": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "question": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "resultSummary": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "startDate": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "statusRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "StoredFinding": {
+    "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
+    "properties": {
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "json": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      }
+    }
+  },
+  "StoredFoodItem": {
+    "file": "apps/PulseOne/Sources/Persistence/StoredNutrition.swift",
+    "properties": {
+      "barcode": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "fetchedAt": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "foodData": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "isFavorite": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      },
+      "key": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": true
+      },
+      "lastUsed": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      },
+      "nameLower": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "notFound": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      },
+      "useCount": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      }
+    }
+  },
+  "StoredForecast": {
+    "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
+    "properties": {
+      "actualHRVTendency": {
+        "default": false,
+        "optional": true,
+        "type": "Int",
+        "unique": false
+      },
+      "actualRestingHeartRate": {
+        "default": false,
+        "optional": true,
+        "type": "Double",
+        "unique": false
+      },
+      "hit": {
+        "default": false,
+        "optional": true,
+        "type": "Bool",
+        "unique": false
+      },
+      "hrvHit": {
+        "default": false,
+        "optional": true,
+        "type": "Bool",
+        "unique": false
+      },
+      "json": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "outcomeSentence": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "targetDay": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      }
+    }
+  },
+  "StoredInsight": {
+    "file": "apps/PulseOne/Sources/Features/Intelligence/IntelligenceModels.swift",
+    "properties": {
+      "createdAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "payload": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      }
+    }
+  },
+  "StoredMealEntry": {
+    "file": "apps/PulseOne/Sources/Persistence/StoredNutrition.swift",
+    "properties": {
+      "amount": {
+        "default": false,
+        "optional": false,
+        "type": "Double",
+        "unique": false
+      },
+      "createdAt": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "date": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "entryID": {
+        "default": false,
+        "optional": false,
+        "type": "UUID",
+        "unique": true
+      },
+      "foodData": {
+        "default": false,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      },
+      "healthWrittenAt": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      },
+      "mealTypeRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "methodRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "statusRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "StoredMeasurement": {
+    "file": "apps/PulseOne/Sources/Persistence/StoredMeasurement.swift",
+    "properties": {
+      "deviceIdentifier": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "deviceName": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "firmware": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "metricRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "ringModel": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "sourceRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "timestamp": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "unit": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "value": {
+        "default": false,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      }
+    }
+  },
+  "StoredNote": {
+    "file": "apps/PulseOne/Sources/Features/Intelligence/IntelligenceModels.swift",
+    "properties": {
+      "date": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "mood": {
+        "default": false,
+        "optional": true,
+        "type": "Int",
+        "unique": false
+      },
+      "tagsRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "text": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
+  "StoredSample": {
+    "file": "apps/PulseOne/Sources/Persistence/StoredSample.swift",
+    "properties": {
+      "dedupKey": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": true
+      },
+      "deviceID": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "end": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "identityRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "importedAt": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "kindRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "methodRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "originDetail": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "originalSampleID": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "profileID": {
+        "default": false,
+        "optional": true,
+        "type": "UUID",
+        "unique": false
+      },
+      "qualityRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "qualityReason": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "rawDataReference": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "sampleID": {
+        "default": false,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "sourceRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "start": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "timeZoneIdentifier": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "unitRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "value": {
+        "default": false,
+        "optional": false,
+        "type": "Double",
+        "unique": false
+      }
+    }
+  }
+}
