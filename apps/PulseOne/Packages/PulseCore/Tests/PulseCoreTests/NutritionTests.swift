@@ -44,6 +44,14 @@ struct NutrientValueTests {
         #expect(clean.protein == nil && clean.carbohydrates == nil && clean.fat == nil)
     }
 
+    @Test func sanitizingKeepsHighFibreFoodsWhereCarbsIncludeFibre() {
+        // USDA chia seeds: carbohydrates already include the 34.4 g fibre.
+        let v = NutrientValues(energyKcal: 486, protein: 16.5, carbohydrates: 42.1, fat: 30.7, fiber: 34.4)
+        let (clean, dropped) = v.sanitizedPer100()
+        #expect(dropped.isEmpty)
+        #expect(clean.protein == 16.5 && clean.carbohydrates == 42.1 && clean.fat == 30.7 && clean.fiber == 34.4)
+    }
+
     @Test func totalsMarkNutrientsMissingInAnyPart() {
         var totals = NutrientTotals()
         totals.add(NutrientValues(energyKcal: 100, protein: 5))

@@ -205,4 +205,34 @@ struct DailySeriesTests {
         }
         #expect(DailySeries.build(samples, kind: .steps, calendar: berlin).count == 2)
     }
+
+    private func sleep(_ id: String, from: Date, to: Date, asleep: Double? = nil, source: DataSourceKind = .appleHealth) throws -> HealthSample {
+        try MeasurementNormalizer.normalize(
+            RawObservation(kind: .sleepDuration, value: asleep ?? to.timeIntervalSince(from), unit: .seconds, start: from, end: to,
+                           timeZoneIdentifier: "Europe/Berlin", source: source, deviceID: source == .colmiRing ? "ring-1" : "healthkit",
+                           originalSampleID: id, method: source == .colmiRing ? .deviceHistory : .healthStore),
+            profileID: owner, importedAt: to.addingTimeInterval(3_600))
+    }
+
+    @Test func aNightIsNotSplitAcrossTwoDays() throws {
+        // Health asleep segments 23:00–01:00 and 01:00–06:30: one night of 7.5 h on the wake day.
+        let comps = DateComponents(timeZone: TimeZone(identifier: "Europe/Berlin"), year: 2026, month: 11, day: 19, hour: 23)
+        let bed = try #require(berlin.date(from: comps))
+        let samples = try [sleep("a", from: bed, to: bed.addingTimeInterval(7_200)),
+                           sleep("b", from: bed.addingTimeInterval(7_200), to: bed.addingTimeInterval(27_000))]
+        let days = DailySeries.build(samples, kind: .sleepDuration, calendar: berlin)
+        #expect(days.count == 1)
+        #expect(days.first?.value == 27_000)
+        #expect(days.first?.day == berlin.startOfDay(for: bed.addingTimeInterval(27_000)))
+    }
+
+    @Test func ringSleepCountsAsleepTimeNotTheWholeSpan() throws {
+        // Ring session 23:00–07:00 (8 h in bed) with 6.5 h asleep; a second sync of the same session counts once.
+        let comps = DateComponents(timeZone: TimeZone(identifier: "Europe/Berlin"), year: 2026, month: 11, day: 19, hour: 23)
+        let bed = try #require(berlin.date(from: comps))
+        let samples = try [sleep("r1", from: bed, to: bed.addingTimeInterval(28_800), asleep: 23_400, source: .colmiRing),
+                           sleep("r2", from: bed, to: bed.addingTimeInterval(28_800), asleep: 23_400, source: .colmiRing)]
+        let day = try #require(DailySeries.build(samples, kind: .sleepDuration, calendar: berlin).first)
+        #expect(day.value == 23_400)
+    }
 }

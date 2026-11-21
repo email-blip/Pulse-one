@@ -18,6 +18,9 @@ struct CompanionScreen: View {
     @State private var doneActions: Set<String> = []
     @State private var showWake = false
     @State private var showConference = false
+    @State private var activation: ActivationStore?
+    /// The activation session being shown (full screen), nil when none.
+    @State private var activationPlan: ActivationPlan?
 
     init() {}
 
@@ -28,8 +31,9 @@ struct CompanionScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.l) {
                     if LaunchOptions.current.usesTestScenario { TestBanner() }
                     if let store {
-                        CompanionContent(store: store, speaker: speaker, doneActions: $doneActions,
-                                         onStartWake: { showWake = true })
+                        CompanionContent(store: store, activation: activation, speaker: speaker,
+                                         doneActions: $doneActions, onStartWake: { showWake = true },
+                                         onStartActivation: { activationPlan = $0 })
                     } else {
                         ProgressView("Begleiter wird vorbereitet …")
                             .tint(Palette.bioCyan)
@@ -53,11 +57,20 @@ struct CompanionScreen: View {
         }
         .task { await prepare() }
         .onDisappear { speaker.stop() }
-        .fullScreenCover(isPresented: $showWake) {
+        .fullScreenCover(isPresented: $showWake, onDismiss: { Task { await refreshActivation() } }) {
             if let store {
                 WakeUpView(store: store, profileID: sources.ownerProfileID, birthYear: profile.profile.birthYear,
                            firstName: CompanionUI.firstName(preferences: store.preferences, profile: profile.profile))
                     .environment(ring)
+                    .environment(\.reduceMotionEffective, reduceMotion)
+                    .environment(\.freezeAnimations, freeze)
+                    .modifier(DynamicTypeOverride(size: LaunchOptions.current.dynamicTypeSize))
+                    .preferredColorScheme(.dark)
+            }
+        }
+        .fullScreenCover(item: $activationPlan, onDismiss: { Task { await refreshActivation() } }) { plan in
+            if let activation {
+                ActivationSessionView(store: activation, plan: plan, speaks: store?.preferences.speaksBriefing ?? false)
                     .environment(\.reduceMotionEffective, reduceMotion)
                     .environment(\.freezeAnimations, freeze)
                     .modifier(DynamicTypeOverride(size: LaunchOptions.current.dynamicTypeSize))
@@ -70,6 +83,7 @@ struct CompanionScreen: View {
     private func prepare() async {
         guard store == nil else { return }
         store = CompanionStore(context: modelContext)
+        activation = ActivationStore(context: modelContext)
         let options = LaunchOptions.current
         // Test view of the wake-up flow: open it directly, like the alarm button would.
         if options.usesTestScenario && options.scenario == CompanionUI.wakeScenario {
@@ -81,6 +95,10 @@ struct CompanionScreen: View {
         if options.usesTestScenario && options.scenario == CompanionUI.conferenceScenario {
             showConference = true
         }
+        // Test view of the guided activation: today's first open session, like its start button would.
+        if options.usesTestScenario && options.scenario == CompanionUI.activationScenario, let activation {
+            activationPlan = activation.firstOpenPlan ?? activation.plan(for: .snack, now: CompanionUI.now)
+        }
     }
 
     private func refresh() async {
@@ -88,18 +106,34 @@ struct CompanionScreen: View {
         await store.refresh(profileID: sources.ownerProfileID, birthYear: profile.profile.birthYear,
                             firstName: CompanionUI.firstName(preferences: store.preferences, profile: profile.profile),
                             confirmedWake: nil, morningHeartRate: nil)
+        await refreshActivation()
+    }
+
+    /// Re-plans the activation with today's companion day and replaces its notifications.
+    private func refreshActivation() async {
+        guard let activation else { return }
+        let now = CompanionUI.now
+        let day = store?.today
+        activation.refresh(now: now, profileID: sources.ownerProfileID, day: day)
+        await activation.scheduleReminders(now: now, dayType: activation.dayType, infection: activation.infectionLevel,
+                                           wake: nil)
     }
 }
 
 /// All sections of the companion screen; split from the root so each card is its own small view.
 private struct CompanionContent: View {
     let store: CompanionStore
+    let activation: ActivationStore?
     let speaker: BriefingSpeaker
     @Binding var doneActions: Set<String>
     let onStartWake: () -> Void
+    let onStartActivation: (ActivationPlan) -> Void
 
     var body: some View {
         morning
+        if let activation {
+            ActivationSection(store: activation, alarm: alarm, onStart: onStartActivation)
+        }
         insights
         footer
     }
@@ -125,6 +159,11 @@ private struct CompanionContent: View {
             SectionHeader(title: "Tagesimpulse")
             NudgeListCard(nudges: nudges, now: CompanionUI.now)
         }
+    }
+
+    private var alarm: (hour: Int, minute: Int)? {
+        guard store.settings.alarmEnabled else { return nil }
+        return (hour: store.settings.alarmHour, minute: store.settings.alarmMinute)
     }
 
     @ViewBuilder

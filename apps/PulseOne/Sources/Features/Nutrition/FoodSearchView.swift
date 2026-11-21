@@ -96,6 +96,13 @@ struct FoodRow: View {
                 .font(Typography.body)
                 .foregroundStyle(Palette.ink)
                 .wraps()
+            // A German search term is attached to every matching USDA hit; the original name tells them apart.
+            if let german = food.nameDe, german.caseInsensitiveCompare(food.name) != .orderedSame {
+                Text(food.name)
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+            }
             Text(detail)
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)

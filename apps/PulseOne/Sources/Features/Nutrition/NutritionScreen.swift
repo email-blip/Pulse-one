@@ -11,7 +11,9 @@ struct NutritionScreen: View {
 
     var body: some View {
         NavigationStack {
+            // `.id(day)` rebuilds the diary when the day changes, so its @Query filter follows the new day.
             DayDiaryView(day: $day)
+                .id(day)
                 .navigationTitle("Ernährung")
                 .profileToolbar()
                 .navigationDestination(for: NutritionRoute.self) { route in

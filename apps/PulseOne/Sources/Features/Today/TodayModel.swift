@@ -46,7 +46,15 @@ enum TodayModel {
             value = kind.display(last.value)
             parts.append(kind.dailyMeaning)
             let status = PersonalBaseline.status(for: daily, kind: kind, before: last.day, calendar: calendar)
-            if let baseline = status.baseline {
+            // A running total (steps, energy) of an unfinished day is not rated against whole days:
+            // every morning would read "below your usual range".
+            let unfinished = kind.aggregation == .cumulative && calendar.isDate(last.day, inSameDayAs: today)
+            if unfinished {
+                parts.append("bisher")
+            }
+            if unfinished, let baseline = status.baseline {
+                band = "Tag läuft noch · übliche ganze Tage \(kind.display(baseline.lower))–\(kind.display(baseline.upper)) \(kind.displayUnit)"
+            } else if let baseline = status.baseline {
                 band = "\(baseline.position(of: last.value).description) (\(kind.display(baseline.lower))–\(kind.display(baseline.upper)) \(kind.displayUnit))"
             } else {
                 band = status.summary
