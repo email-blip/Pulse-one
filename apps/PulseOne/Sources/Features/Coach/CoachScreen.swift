@@ -92,7 +92,10 @@ struct CoachScreen: View {
         ForEach(s.plan.blocks) { block in
             CoachBlockCard(block: block)
         }
-        adjustCard(s)
+        // On rest days set by the rules (feeling sick, alarm signs) changes are not applied, so none are offered.
+        if s.plan.decision != .rest, s.plan.decision != .seekHelp {
+            adjustCard(s)
+        }
         reviewCard(s)
         SectionHeader(title: "Erholungssignale")
         signalsCard(s.plan.signals)
@@ -173,7 +176,8 @@ struct CoachScreen: View {
     }
 
     private func propose(_ intent: CoachIntent, _ s: CoachSnapshot) {
-        let (after, reason) = PlanAdjuster.apply(intent, to: s.plan.suggested, preferences: s.preferences, decision: s.plan.decision)
+        let (after, reason) = PlanAdjuster.apply(intent, to: s.plan.suggested, preferences: s.preferences, decision: s.plan.decision,
+                                                 neighbourIsHard: s.program.neighbourIsHard(of: s.plan.day, calendar: .current))
         proposal = CoachProposal(intent: intent, before: s.plan.suggested, after: after, reason: reason)
     }
 

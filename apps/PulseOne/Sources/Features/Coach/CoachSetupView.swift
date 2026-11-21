@@ -181,7 +181,12 @@ struct EveningReviewSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
                         var result = r
-                        if !hasRPE || !result.completed { result.rpe = nil }
+                        if !hasRPE || !result.completed {
+                            result.rpe = nil
+                        } else if result.rpe == nil {
+                            // The stepper shows 5 until touched; saving keeps what the person saw.
+                            result.rpe = 5
+                        }
                         onSave(result)
                         dismiss()
                     }

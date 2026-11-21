@@ -27,14 +27,27 @@ public struct DailyValue: Equatable, Sendable {
 
 public enum DailySeries {
     /// Groups samples by the day their `start` falls on. An interval that crosses midnight counts for the
-    /// day it began. Only `valid` and `plausible` samples are used; days without data are absent.
+    /// day it began. Sleep is the exception: it belongs to the night ending on that day (sleep starting from
+    /// 18:00 the evening before), so a night is never split across two days. Only `valid` and `plausible`
+    /// samples are used; days without data are absent.
     public static func build(_ samples: [HealthSample], kind: SampleKind, calendar: Calendar,
                              policy: SourcePolicy = SourcePolicy()) -> [DailyValue] {
         let relevant = samples.filter { $0.kind == kind && $0.quality.usableForAnalysis }
-        let byDay = Dictionary(grouping: relevant) { calendar.startOfDay(for: $0.start) }
+        let byDay = Dictionary(grouping: relevant) { dayKey(for: $0, calendar: calendar) }
         return byDay.keys.sorted().compactMap { day in
             value(for: byDay[day] ?? [], day: day, kind: kind, calendar: calendar, policy: policy)
         }
+    }
+
+    /// Seconds before midnight from which sleep already counts for the next day (18:00).
+    static let sleepDayShift: TimeInterval = 6 * 3_600
+
+    /// The day a sample counts for; see `build`.
+    public static func dayKey(for sample: HealthSample, calendar: Calendar) -> Date {
+        if sample.kind == .sleepDuration {
+            return calendar.startOfDay(for: sample.start.addingTimeInterval(sleepDayShift))
+        }
+        return calendar.startOfDay(for: sample.start)
     }
 
     static func value(for group: [HealthSample], day: Date, kind: SampleKind, calendar: Calendar,
@@ -60,13 +73,43 @@ public enum DailySeries {
             // One origin for the whole day; overlapping spans of that origin are merged, not added.
             guard let best = policy.choose(kind: kind, among: Set(group.map(\.origin)))?.origin else { return nil }
             let used = group.filter { $0.origin == best }
-            return make(mergedDuration(used), used)
+            return make(intervalTotal(used), used)
         case .derived, .vendorScore:
             // Already computed by the source: take the latest value of one origin, never mix vendors.
             guard let best = policy.choose(kind: kind, among: Set(group.map(\.origin)))?.origin,
                   let latest = group.filter({ $0.origin == best }).max(by: { $0.start < $1.start }) else { return nil }
             return make(latest.value, [latest])
         }
+    }
+
+    /// Duration of overlapping spans counted once, but never more than the samples themselves report:
+    /// a ring sleep session spans the whole night while its value is only the asleep time, a workout's
+    /// value excludes pauses. Samples with the same start are one record seen twice; the larger value counts.
+    public static func intervalTotal(_ samples: [HealthSample]) -> Double {
+        var byStart: [Date: HealthSample] = [:]
+        for s in samples {
+            if let other = byStart[s.start], other.value >= s.value { continue }
+            byStart[s.start] = s
+        }
+        let sorted = byStart.values.sorted { $0.start < $1.start }
+        var total: Double = 0
+        var cluster: (start: Date, end: Date, reported: Double)?
+        func close() {
+            guard let c = cluster else { return }
+            total += min(c.end.timeIntervalSince(c.start), c.reported)
+        }
+        for s in sorted {
+            let end = max(s.end, s.start)
+            let reported = max(0, min(s.value, end.timeIntervalSince(s.start)))
+            if let c = cluster, s.start <= c.end {
+                cluster = (c.start, max(c.end, end), c.reported + reported)
+            } else {
+                close()
+                cluster = (s.start, end, reported)
+            }
+        }
+        close()
+        return total
     }
 
     /// Length of the union of all spans, in seconds.
