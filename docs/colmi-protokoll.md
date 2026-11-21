@@ -46,7 +46,7 @@ Diagnosedatei Johannes, 64 Einträge, nichts verworfen.
 - `2F F4` kommt wie in Realtest 2 ungefragt nach dem Verbinden.
 - **Messprofil „Standard“ am Ring bestätigt** (erstmals am R03): Schreiben `16 02 01 05`, `38 02 01`, `36 02 01`, `2C 02 01` wird quittiert. Gegenlesen: `16 01 01 05 05` (an, 5 min; Byte 4 = `05`, Bedeutung offen, wird ignoriert), `38 01 01`, `36 01 01`, `2C 01 01` (jeweils an). Die Tabelle unten gilt damit für das Schreiben und Lesen der Einstellungen als **iPhone**.
 - Live-Puls Variante A erneut erfolgreich: Quittung sofort, erste Werte nach 25,5 s, 69–71 bpm, Stopp `6A 01` quittiert.
-- **Verlauf nicht abgerufen**: Die App hat den Abruf zurückgestellt, weil gleichzeitig die Live-Messung lief („Verlauf später abrufen: Messung läuft“). Schritte-, Puls-, Stress-, HRV-, SpO₂- und Schlafverlauf bleiben am R03 unbestätigt. Nächster Realtest: mit Build 11 verbinden, **ohne** Messung zu starten, und die Diagnose nach dem Abgleich senden.
+- **Verlauf nicht abgerufen**: Die App hat den Abruf zurückgestellt, weil gleichzeitig die Live-Messung lief („Verlauf später abrufen: Messung läuft“). Schritte-, Puls-, Stress-, HRV-, SpO₂- und Schlafverlauf bleiben am R03 unbestätigt. Bis Build 11 wurde ein so zurückgestellter Abruf erst beim nächsten Verbinden oder App-Start nachgeholt. Seit diesem Befund holt die App ihn eine Sekunde nach dem Ende der Messung nach (Diagnosezeile „Verlauf nach der Messung abrufen“). Nächster Realtest: verbinden, **ohne** eine Messung zu starten, und die Diagnose nach dem Abgleich senden.
 
 ## Selbstständige Messungen und Verlauf (Welle 1, 2026-11-21, noch nicht am Ring getestet)
 
