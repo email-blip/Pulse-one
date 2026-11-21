@@ -37,7 +37,7 @@ Spalte „heute“: ob `SampleKind` den Typ schon kennt. „HK“: HealthKit-Typ
 | Gewicht | **neu** `body_mass` | nein | kg | Punkt | bodyMass | – | 1 |
 | Größe | **neu** `height` | nein | m | Punkt | height | – | 1 |
 | Körperfett | **neu** `body_fat` | nein | % | Punkt | bodyFatPercentage | – | 2 |
-| Stress (Ring) | – | nein | Index | Herstellerwert | – | 0x37 | **nicht anzeigen** (unbelegter Herstellerwert) |
+| Stress (Ring) | **neu** `stress_index_ring` | nein | Index 0–100 | Herstellerwert, 30 min | – | 0x37 | speichern; nur als Tagesmuster zeigen, markiert „Herstellerwert“, keine Einzelbewertung (Johannes 2026-11-21) |
 | Geräteakku | `device_battery` | ja | % | Punkt | – | 0x03, 0x73 0C | 1 |
 
 Neue Arten erweitern `SampleKind` und `SampleUnit`. Neue `rawValue`s sind stabil, weil sie in SwiftData gespeichert werden.
