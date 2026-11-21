@@ -205,7 +205,7 @@ struct ActivationSessionView: View {
 
     /// Rests are kept short in UI tests, but long enough to tap "Pause überspringen".
     static func effectiveRest(_ seconds: Int) -> Int {
-        LaunchOptions.current.isUITesting ? min(max(seconds, 0), 5) : max(seconds, 0)
+        LaunchOptions.current.isUITesting ? min(max(seconds, 0), 15) : max(seconds, 0)
     }
 
     // MARK: Timer
