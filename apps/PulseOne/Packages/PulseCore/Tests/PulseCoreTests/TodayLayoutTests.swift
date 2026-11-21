@@ -6,7 +6,7 @@ import Testing
 struct TodayLayoutTests {
     @Test func standardHidesOnlyTheStressScore() {
         let layout = TodayLayout.standard
-        #expect(layout.visibleTiles.first == .ring)
+        #expect(Array(layout.visibleTiles.prefix(2)) == [.now, .ring])
         #expect(!layout.isVisible(.metric(.ringStress)))
         #expect(layout.isVisible(.metric(.ringHRV)))
         #expect(layout.visibleTiles.count == TodayLayout.defaultOrder.count - 1)
@@ -30,10 +30,12 @@ struct TodayLayoutTests {
         #expect(layout.visibleTiles.contains(.metric(.ringStress)))
     }
 
-    @Test func roundTripAndNewTilesAreAppended() {
+    @Test func roundTripAndNewTilesGoToTheirDefaultPlace() {
         let old = TodayLayout(order: [.nutrition, .ring, .ring], hidden: [.ring])
         let restored = TodayLayout.decode(old.encoded())
-        #expect(restored.order.prefix(2) == [.nutrition, .ring])
+        // The user's own order stays; new tiles go next to their default neighbour: "Jetzt dran" on top,
+        // the evening note after nutrition, the companion after the ring. Nothing lands at the bottom out of place.
+        #expect(Array(restored.order.prefix(5)) == [.now, .nutrition, .eveningNote, .ring, .companion])
         #expect(restored.order.count == TodayLayout.defaultOrder.count)
         #expect(!restored.isVisible(.ring))
         #expect(!restored.isVisible(.metric(.ringStress)))
@@ -48,6 +50,15 @@ struct TodayLayoutTests {
         let stored = TodayLayout(order: TodayLayout.defaultOrder, hidden: [.companion, .coach])
         let restored = TodayLayout.decode(stored.encoded())
         #expect(restored.isVisible(.companion))
+        #expect(!restored.isVisible(.coach))
+    }
+
+    @Test func layoutSavedBeforeTheNowTileGetsItOnTop() {
+        let saved = TodayLayout(order: Array(TodayLayout.defaultOrder.filter { $0 != .now }.reversed()), hidden: [.coach])
+        let restored = TodayLayout.decode(saved.encoded())
+        #expect(restored.order.first == .now)
+        #expect(restored.isVisible(.now))
+        #expect(Array(restored.order.dropFirst()) == saved.order)
         #expect(!restored.isVisible(.coach))
     }
 }

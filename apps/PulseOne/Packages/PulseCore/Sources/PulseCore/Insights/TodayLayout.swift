@@ -3,6 +3,8 @@ import Foundation
 /// One block on TODAY. Metric tiles are per sample kind, so a new ring or sensor adds tiles
 /// by capability without a layout change.
 public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
+    /// "Jetzt dran": the one next step of the day (`NowPlanner`).
+    case now
     case ring
     case appleHealth
     case coach
@@ -13,6 +15,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
 
     public var id: String {
         switch self {
+        case .now: "now"
         case .ring: "ring"
         case .appleHealth: "health"
         case .coach: "coach"
@@ -25,6 +28,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
+        case .now: "Jetzt dran"
         case .ring: "Ring"
         case .appleHealth: "Apple Health verbinden"
         case .coach: "Coach"
@@ -37,7 +41,8 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
 }
 
 /// Order and visibility of the TODAY tiles, chosen by the user. Stored as JSON; tiles added by a
-/// later version are appended (visible unless listed in `defaultHidden`), unknown ones dropped.
+/// later version are inserted at their default position, right after the nearest tile that comes before
+/// them in `defaultOrder` (visible unless listed in `defaultHidden`); unknown ones are dropped.
 public struct TodayLayout: Codable, Equatable, Sendable {
     public private(set) var order: [TodayTile]
     public private(set) var hidden: Set<TodayTile>
@@ -46,7 +51,7 @@ public struct TodayLayout: Codable, Equatable, Sendable {
                                                    .steps, .oxygenSaturation, .heartRate, .activeEnergy,
                                                    .respiratoryRate, .ringStress]
 
-    public static let defaultOrder: [TodayTile] = [.ring, .companion, .appleHealth, .coach] + metricKinds.map(TodayTile.metric)
+    public static let defaultOrder: [TodayTile] = [.now, .ring, .companion, .appleHealth, .coach] + metricKinds.map(TodayTile.metric)
         + [.nutrition, .eveningNote]
 
     /// The ring's stress score is a vendor scale; it appears only when the user switches it on.
@@ -65,13 +70,17 @@ public struct TodayLayout: Codable, Equatable, Sendable {
         self.hidden = hidden
     }
 
-    /// Keeps the user's order, drops tiles this version does not know, appends new ones.
+    /// Keeps the user's order, drops tiles this version does not know, inserts new ones at their default
+    /// position (after the nearest earlier default tile the user has, or first when there is none).
     public func normalized() -> TodayLayout {
         var seen = Set<TodayTile>()
         var order = self.order.filter { Self.defaultOrder.contains($0) && seen.insert($0).inserted }
         var hidden = self.hidden.intersection(Self.defaultOrder).subtracting(Self.alwaysVisible)
-        for tile in Self.defaultOrder where !seen.contains(tile) {
-            order.append(tile)
+        for (index, tile) in Self.defaultOrder.enumerated() where !seen.contains(tile) {
+            let predecessor = Self.defaultOrder[..<index].last { order.contains($0) }
+            let position = predecessor.flatMap { order.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
+            order.insert(tile, at: position)
+            seen.insert(tile)
             if Self.defaultHidden.contains(tile) { hidden.insert(tile) }
         }
         return TodayLayout(order: order, hidden: hidden)

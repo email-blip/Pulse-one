@@ -68,6 +68,8 @@ struct TodayScreen: View {
     @ViewBuilder
     private func tileView(_ tile: TodayTile) -> some View {
         switch tile {
+        case .now:
+            NowTodayCard()
         case .ring:
             ringCard
         case .appleHealth:
