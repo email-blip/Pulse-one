@@ -48,6 +48,9 @@ jobs:
           unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
           echo "/tmp/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
 
+      - name: Schema guard (SwiftData changes must stay lightweight)
+        run: python3 scripts/schema-guard.py --app "$APP"
+
       - name: Core package tests (Swift Testing)
         run: |
           for pkg in apps/$APP/Packages/*/; do swift test --package-path "$pkg"; done

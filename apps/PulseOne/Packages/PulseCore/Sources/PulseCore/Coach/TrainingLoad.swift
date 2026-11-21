@@ -54,14 +54,18 @@ public struct LoadSummary: Equatable, Sendable {
 }
 
 public enum TrainingLoad {
-    public static func summary(_ reviews: [EveningReview], endingOn day: Date, calendar: Calendar) -> LoadSummary {
+    /// - Parameter extraLoads: load from outside the evening review (e.g. Begleiter activation sessions, see
+    ///   `ActivationLoad`), one entry per session; added to the day it belongs to.
+    public static func summary(_ reviews: [EveningReview], extraLoads: [DayValue] = [], endingOn day: Date,
+                               calendar: Calendar) -> LoadSummary {
         let end = calendar.startOfDay(for: day)
-        let week = dailyLoads(reviews, lastDay: end, days: 7, calendar: calendar)
+        let week = dailyLoads(reviews, extraLoads: extraLoads, lastDay: end, days: 7, calendar: calendar)
         var weekly: [Double] = []
         for w in 1...4 {
             guard let last = calendar.date(byAdding: .day, value: -7 * w, to: end) else { continue }
-            let loads = dailyLoads(reviews, lastDay: last, days: 7, calendar: calendar)
-            let hasData = reviewsIn(reviews, lastDay: last, days: 7, calendar: calendar).isEmpty == false
+            let loads = dailyLoads(reviews, extraLoads: extraLoads, lastDay: last, days: 7, calendar: calendar)
+            let hasData = !reviewsIn(reviews, lastDay: last, days: 7, calendar: calendar).isEmpty
+                || !extrasIn(extraLoads, lastDay: last, days: 7, calendar: calendar).isEmpty
             if hasData { weekly.append(loads.reduce(0, +)) }
         }
         let missing = reviewsIn(reviews, lastDay: end, days: 7, calendar: calendar).filter { $0.completed && $0.rpe == nil }.count
@@ -71,11 +75,21 @@ public enum TrainingLoad {
     }
 
     /// Load per day, oldest first, for `days` days ending with `lastDay`.
-    public static func dailyLoads(_ reviews: [EveningReview], lastDay: Date, days: Int, calendar: Calendar) -> [Double] {
+    public static func dailyLoads(_ reviews: [EveningReview], extraLoads: [DayValue] = [], lastDay: Date, days: Int,
+                                  calendar: Calendar) -> [Double] {
         (0..<days).reversed().map { offset in
             guard let d = calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: lastDay)) else { return 0 }
-            return reviews.filter { calendar.isDate($0.day, inSameDayAs: d) }.compactMap(\.load).reduce(0, +)
+            let reviewed = reviews.filter { calendar.isDate($0.day, inSameDayAs: d) }.compactMap(\.load).reduce(0, +)
+            let extra = extraLoads.filter { calendar.isDate($0.day, inSameDayAs: d) }.map(\.value).reduce(0, +)
+            return reviewed + extra
         }
+    }
+
+    static func extrasIn(_ extras: [DayValue], lastDay: Date, days: Int, calendar: Calendar) -> [DayValue] {
+        let end = calendar.startOfDay(for: lastDay)
+        guard let start = calendar.date(byAdding: .day, value: -(days - 1), to: end),
+              let after = calendar.date(byAdding: .day, value: 1, to: end) else { return [] }
+        return extras.filter { $0.day >= start && $0.day < after }
     }
 
     static func reviewsIn(_ reviews: [EveningReview], lastDay: Date, days: Int, calendar: Calendar) -> [EveningReview] {
@@ -135,5 +149,22 @@ public enum FeedbackAdaptation {
                                   note: "Die letzten Einheiten waren leichter als geplant. Der Coach verlängert die nächste etwas.")
         }
         return .unchanged
+    }
+}
+
+/// Session load of a Begleiter activation session (agreed between Coach and Begleiter): minutes × an assumed
+/// effort of 3 on the CR-10 scale; 4 after "zu schwer", 2 after "zu leicht". Counts towards the weekly load only,
+/// it never replaces the evening review.
+public enum ActivationLoad {
+    public static func effort(_ feedback: ActivationFeedback?) -> Double {
+        switch feedback {
+        case .tooHard: 4
+        case .tooEasy: 2
+        case .right, nil: 3
+        }
+    }
+
+    public static func load(minutes: Int, feedback: ActivationFeedback?) -> Double {
+        Double(max(0, minutes)) * effort(feedback)
     }
 }
