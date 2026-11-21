@@ -12,6 +12,8 @@ struct PulseOneApp: App {
     @State private var ring: RingStore
     @State private var sources: SourcesStore
     @State private var profile: ProfileStore
+    /// The one companion store: Begleiter screen, TODAY card and Analyse read the same morning report.
+    @State private var companion: CompanionStore
 
     init() {
         let options = LaunchOptions.current
@@ -46,11 +48,14 @@ struct PulseOneApp: App {
         ring.onHistory = { observations, deviceID in
             sources.ingestHistory(observations, deviceIdentifier: deviceID)
         }
+        // After the test scenario's rows are in, so the store starts from the same data the screens show.
+        let companion = CompanionStore(context: container.mainContext)
         self.container = container
         self.storeProblem = storeProblem
         _ring = State(initialValue: ring)
         _sources = State(initialValue: sources)
         _profile = State(initialValue: profile)
+        _companion = State(initialValue: companion)
     }
 
     var body: some Scene {
@@ -59,6 +64,7 @@ struct PulseOneApp: App {
                 .environment(ring)
                 .environment(sources)
                 .environment(profile)
+                .environment(companion)
                 .modelContainer(container)
                 // Cinematic dark is the PULSE ONE base; "Clinical Light" arrives with the design profiles.
                 .preferredColorScheme(.dark)

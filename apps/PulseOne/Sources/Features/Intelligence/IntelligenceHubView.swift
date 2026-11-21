@@ -28,6 +28,7 @@ struct IntelligenceHubView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profileStore
+    @Environment(CompanionStore.self) private var companion
     @State private var engine = IntelligenceEngine()
     @State private var path: [IntelligenceRoute] = []
     @State private var pending: PendingSend?
@@ -82,17 +83,43 @@ struct IntelligenceHubView: View {
 
     // MARK: Cards
 
+    /// One morning report for the whole app: when the Begleiter has today's report, Analyse shows its lines
+    /// instead of computing its own summary (same numbers, same words). Otherwise the iPhone's short lines.
     private var dailyCard: some View {
         Card {
             SectionHeader(title: "Heute in Kürze")
-            ForEach(daily?.lines ?? [], id: \.self) { line in
-                Text(line).font(Typography.body).foregroundStyle(Palette.ink).wraps()
+            if let report = morningReport {
+                Text(report.headline).font(Typography.label).foregroundStyle(Palette.ink).wraps()
+                ForEach(Self.reportLines(report), id: \.self) { line in
+                    Text(line).font(Typography.body).foregroundStyle(Palette.ink).wraps()
+                }
+                Text("Aus dem Morgenbericht des Begleiters, berechnet auf deinem iPhone. Nichts wurde gesendet.")
+                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+            } else {
+                ForEach(daily?.lines ?? [], id: \.self) { line in
+                    Text(line).font(Typography.body).foregroundStyle(Palette.ink).wraps()
+                }
+                Text(daily?.rephrased == true ? "Formuliert von Apple Intelligence auf deinem iPhone, nichts wurde gesendet."
+                        : "Berechnet auf deinem iPhone, nichts wurde gesendet.")
+                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
             }
-            Text(daily?.rephrased == true ? "Formuliert von Apple Intelligence auf deinem iPhone, nichts wurde gesendet."
-                    : "Berechnet auf deinem iPhone, nichts wurde gesendet.")
-                .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
         }
         .accessibilityIdentifier("intelligence.daily")
+    }
+
+    /// Today's Begleiter morning report, nil when there is none for today yet.
+    private var morningReport: MorningBriefing? {
+        guard let report = companion.today?.briefing ?? companion.latestBriefing,
+              Calendar.current.isDate(report.createdAt, inSameDayAs: CompanionUI.now) else { return nil }
+        return report
+    }
+
+    /// The report's body lines about the body (night, infection pattern, outlook, body pace), at most three.
+    static func reportLines(_ report: MorningBriefing) -> [String] {
+        let kinds: [BriefingSectionKind] = [.night, .infection, .outlook, .bodyPace]
+        let lines = kinds.compactMap { kind in report.sections.first { $0.kind == kind }?.text }
+            .filter { !$0.isEmpty }
+        return Array(lines.prefix(3))
     }
 
     private var keyCard: some View {

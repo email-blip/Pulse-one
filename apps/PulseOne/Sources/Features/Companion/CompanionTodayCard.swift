@@ -10,6 +10,7 @@ struct CompanionTodayCard: View {
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
     @Environment(RingStore.self) private var ring
+    @Environment(CompanionStore.self) private var sharedStore
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @State private var store: CompanionStore?
@@ -75,7 +76,7 @@ struct CompanionTodayCard: View {
         if let store {
             created = store
         } else {
-            created = CompanionStore(context: modelContext)
+            created = sharedStore
             store = created
         }
         checkPendingWake()
