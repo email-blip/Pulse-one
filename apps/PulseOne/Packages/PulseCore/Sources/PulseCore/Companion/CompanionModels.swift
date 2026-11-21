@@ -386,6 +386,8 @@ public struct CompanionPreferences: Codable, Equatable, Sendable {
     /// Desired sleep need in hours (default 8).
     public var sleepNeedHours: Double
     public var maxNudgesPerDay: Int
+    /// Hard upper bound for `maxNudgesPerDay` (owner decision: at most 3 per day).
+    public static let nudgeCap = 3
     /// Hours (0–23) during which no nudge is sent.
     public var quietStartHour: Int
     public var quietEndHour: Int

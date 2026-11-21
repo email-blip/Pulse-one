@@ -152,7 +152,41 @@ final class StoredFinding {
     var finding: ResearchFinding? { CompanionJSON.decode(ResearchFinding.self, from: json) }
 }
 
+/// The last rounds of the "Expertenrunde": exactly what was sent and the checked replies. The cost is also
+/// recorded on a `StoredAnalysis` (kind "conference"), so the Analyse budget counts it.
+@Model
+final class StoredConference {
+    var createdAt: Date = Date.distantPast
+    /// The fact list that went to Claude (shown again with the result).
+    var factsText: String = ""
+    /// `[ConferenceStatement]` as JSON, in role order.
+    var roleStatementsJSON: Data = Data()
+    /// Checked synthesis text, or the withheld notice.
+    var synthesis: String = ""
+    var synthesisWithheld: Bool = false
+    /// Real cost of all five requests in US dollars (nil for sample data without usage).
+    var costUSD: Double?
+    /// Model that answered.
+    var modelID: String = ""
+
+    init(createdAt: Date, factsText: String, statements: [ConferenceStatement], synthesis: String,
+         synthesisWithheld: Bool, costUSD: Double?, modelID: String) {
+        self.createdAt = createdAt
+        self.factsText = factsText
+        roleStatementsJSON = CompanionJSON.encode(statements) ?? Data()
+        self.synthesis = synthesis
+        self.synthesisWithheld = synthesisWithheld
+        self.costUSD = costUSD
+        self.modelID = modelID
+    }
+
+    var statements: [ConferenceStatement] {
+        CompanionJSON.decode([ConferenceStatement].self, from: roleStatementsJSON) ?? []
+    }
+}
+
 enum CompanionPersistence {
     static let models: [any PersistentModel.Type] = [CompanionSettingsRecord.self, StoredBriefing.self,
-                                                     StoredForecast.self, StoredFinding.self]
+                                                     StoredForecast.self, StoredFinding.self, StoredConference.self,
+                                                     ActivationSettingsRecord.self, ActivationSessionRecord.self]
 }

@@ -179,7 +179,7 @@ struct ContextBuilderTests {
         #expect(LocalSentences.describe(stress).contains("ohne Bewertung"))
         #expect(!BodyDetective.featureKinds.contains(.ringStress))
         #expect(!CorrelationPair.standard.contains { $0.a == .ringStress || $0.b == .ringStress })
-        #expect(IntelligencePrompts.version == 3)
+        #expect(IntelligencePrompts.version >= 3)
     }
 
     @Test func consentAndMinimisation() {
@@ -252,10 +252,24 @@ struct ResponseValidatorTests {
     @Test func safetyRulesApply() {
         let diagnosis = ReportStatement(text: "Das deutet auf eine Infektion hin.", type: .interpretation, evidence: ["F1"])
         let causal = ReportStatement(text: "Der Ruhepuls war höher, weil du wenig geschlafen hast.", type: .interpretation, evidence: ["F1"])
-        let result = ResponseValidator(context: ctx).validate(report(summary: [diagnosis, causal]))
+        let result = ResponseValidator(context: ctx, mode: .descriptive).validate(report(summary: [diagnosis, causal]))
         #expect(result.report.summary == [causal])
         #expect(result.flagged[causal.text] != nil)
         #expect(result.issues.contains { $0.rule == "S1" && $0.severity == .rejected })
+    }
+
+    @Test func clinicalModeKeepsDiagnosesAndReferenceValuesButNotInventedMeasurements() {
+        let diagnosis = ReportStatement(text: "Das deutet mit etwa 30 % Wahrscheinlichkeit auf einen beginnenden Infekt hin, weil der Ruhepuls über 100 bpm Grenze noch weit entfernt ist.",
+                                        type: .interpretation, evidence: ["F1"])
+        let disclaimer = ReportStatement(text: "Ich bin kein Arzt, bitte frag deine Hausärztin.", type: .interpretation, evidence: [])
+        let invented = ReportStatement(text: "Dein Ruhepuls lag bei 61 bpm.", type: .measured, evidence: ["F1"])
+        let medication = ReportStatement(text: "Du könntest mit deiner Ärztin besprechen, den Betablocker zu reduzieren.",
+                                         type: .recommendation, evidence: [])
+        let result = ResponseValidator(context: ctx).validate(report(summary: [diagnosis, disclaimer, invented, medication]))
+        #expect(result.report.summary == [diagnosis, medication])
+        #expect(result.flagged[medication.text] != nil)
+        #expect(result.issues.contains { $0.rule == "S7" })
+        #expect(result.issues.contains { $0.rule == "Zahl" })
     }
 
     @Test func fixedThresholdForcesReferral() {
@@ -292,7 +306,27 @@ struct SafetyRulesTests {
         "Diagnose: Übertraining.",
     ])
     func rejects(_ text: String) {
-        if case .reject = SafetyRules.check(text) {} else { Issue.record("not rejected: \(text)") }
+        if case .reject = SafetyRules.check(text, mode: .descriptive) {} else { Issue.record("not rejected: \(text)") }
+    }
+
+    @Test(arguments: [
+        "Du hast vermutlich eine Schlafapnoe.",
+        "Mit 70 % Wahrscheinlichkeit liegt ein Infekt vor.",
+        "Der Ruhepuls ist gestiegen, weil du wenig geschlafen hast.",
+        "Diagnose: Übertraining.",
+    ])
+    func clinicalAllows(_ text: String) {
+        #expect(SafetyRules.check(text) == .allow)
+    }
+
+    @Test func clinicalFlagsMedicationAndDropsDisclaimers() {
+        if case .flag(let rule, _) = SafetyRules.check("Du könntest deinen Betablocker reduzieren.") {
+            #expect(rule == "S3")
+        } else {
+            Issue.record("medication change not flagged")
+        }
+        let text = "Dein Ruhepuls ist erhöht. Ich bin kein Arzt. Lass das in zwei Wochen prüfen."
+        #expect(SafetyRules.removingBoilerplate(text) == "Dein Ruhepuls ist erhöht. Lass das in zwei Wochen prüfen.")
     }
 
     @Test(arguments: [
@@ -301,7 +335,7 @@ struct SafetyRulesTests {
         "Wenn das anhält, lass es ärztlich abklären.",
     ])
     func allows(_ text: String) {
-        #expect(SafetyRules.check(text) == .allow)
+        #expect(SafetyRules.check(text, mode: .descriptive) == .allow)
     }
 
     @Test func emergency() {
@@ -500,11 +534,76 @@ struct TwoBrainsTests {
         #expect(LocalSentences.summary(ctx) == ["Ruhepuls: Median 58 bpm, über deinem üblichen Bereich (53–57 bpm)."])
         #expect(LocalSentences.answer("Wie war mein Ruhepuls?", context: ctx) != nil)
         let preview = SendPreview.make(title: "Wochenbericht", context: ctx, consent: [.heart], model: .opus,
-                                       systemPrompt: IntelligencePrompts.report, expectedOutputTokens: 6_000,
+                                       systemPrompt: IntelligencePrompts.report(.clinical), expectedOutputTokens: 6_000,
                                        sendBudget: SendBudget(maxSends: 30, used: 2))
         #expect(preview.categoriesWithheld.contains(.sleep))
         #expect(preview.sendsRemaining == 28)
         #expect(preview.factCount == 1)
         #expect(preview.payload.contains("\"F1\""))
+    }
+}
+
+@Suite("Consultation")
+struct ConsultationTests {
+    let ctx = context([
+        fact("F1", .restingHeartRate, 58, unit: "bpm",
+             baseline: FactBaseline(median: 55, p25: 53, p75: 57, windowDays: 28, n: 28)),
+    ])
+
+    func json(urgency: String = "none", reply: String = "Dein Ruhepuls ist leicht erhöht. Ich bin kein Arzt.") -> String {
+        """
+        {"reply":"\(reply)","assessment":[{"text":"Dein Ruhepuls lag bei 58 bpm.","type":"measured","evidence":["F1"]},\
+        {"text":"Dein Ruhepuls lag bei 64 bpm.","type":"measured","evidence":["F1"]}],\
+        "differentials":[{"name":"Beginnender Infekt","likelihoodPercent":35,"reasoning":"Ruhepuls über dem Band.",\
+        "supporting":["Ruhepuls erhöht"],"against":["kein Fieber berichtet"],"workup":["Temperatur messen"],"evidence":["F1","F9"]},\
+        {"name":"Übertraining","likelihoodPercent":140,"reasoning":"","supporting":[],"against":[],"workup":[],"evidence":[]}],\
+        "recommendations":[{"area":"training","priority":"high","text":"Zwei Tage nur locker trainieren.","evidence":["F1"]},\
+        {"area":"treatment","priority":"low","text":"Den Betablocker solltest du reduzieren.","evidence":[]}],\
+        "anamnesisQuestions":["Hast du Fieber?","Ich bin kein Arzt."],"urgency":"\(urgency)","urgencyReason":"","memory":"Ruhepuls erhöht."}
+        """
+    }
+
+    @Test func validatesAndSortsDifferentials() throws {
+        let result = try ResponseValidator(context: ctx).validateConsultation(json: json(), userText: "Ich bin müde.")
+        let reply = result.reply
+        #expect(reply.reply == "Dein Ruhepuls ist leicht erhöht.")
+        #expect(reply.assessment.map(\.text) == ["Dein Ruhepuls lag bei 58 bpm."])
+        #expect(reply.differentials.map(\.name) == ["Übertraining", "Beginnender Infekt"])
+        #expect(reply.differentials.first?.likelihoodPercent == 100)
+        #expect(reply.differentials.last?.evidence == ["F1"])
+        #expect(reply.recommendations.count == 2)
+        #expect(result.flagged["Den Betablocker solltest du reduzieren."] != nil)
+        #expect(reply.anamnesisQuestions == ["Hast du Fieber?"])
+        #expect(reply.urgency == ConsultationUrgency.none)
+    }
+
+    @Test func emergencyAndThresholdsRaiseUrgency() throws {
+        let emergency = try ResponseValidator(context: ctx).validateConsultation(json: json(), userText: "Ich habe Brustschmerzen beim Treppensteigen")
+        #expect(emergency.reply.urgency == .today)
+        #expect(emergency.reply.urgencyReason == SafetyRules.consultationEmergencyNotice)
+        let high = context([fact("F1", .restingHeartRate, 105, unit: "bpm", n: 7)])
+        let threshold = try ResponseValidator(context: high).validateConsultation(json: json(), userText: "")
+        #expect(threshold.reply.urgency == .soon)
+        let claudeHigher = try ResponseValidator(context: high).validateConsultation(json: json(urgency: "emergency"), userText: "")
+        #expect(claudeHigher.reply.urgency == .emergency)
+    }
+
+    @Test func openingCarriesContextMemoryAndMessage() {
+        let text = ConsultationBuilder.opening(context: ctx, memory: ["Knie links seit März.", " "], message: "")
+        #expect(text.contains("\"F1\""))
+        #expect(text.contains("1. Knie links seit März."))
+        #expect(text.contains(ConsultationBuilder.startMessage))
+        let merged = ConsultationBuilder.merged(ctx, facts: [fact("Q1", .steps, 9_000, unit: "count"), fact("F1", .steps, 1, unit: "count")],
+                                                correlations: [], events: [])
+        #expect(merged.facts.map(\.id) == ["F1", "Q1"])
+    }
+
+    @Test func promptsFollowTheMode() {
+        let clinical = IntelligencePrompts.report(.clinical)
+        #expect(clinical.contains("Differenzialdiagnosen"))
+        #expect(clinical.contains("Notruf 112"))
+        #expect(!IntelligencePrompts.report(.descriptive).contains("Differenzialdiagnosen"))
+        #expect(IntelligencePrompts.consultation.contains("anamnesisQuestions"))
+        #expect(IntelligencePrompts.version == 4)
     }
 }

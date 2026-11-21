@@ -17,6 +17,10 @@ struct ReportView: View {
                         ReportBody(report: report, context: analysis.context, flagged: analysis.flagged)
                     } else if let answer = analysis.decodeResult(QuestionAnswer.self) {
                         AnswerBody(answer: answer, context: analysis.context, flagged: analysis.flagged)
+                    } else if let reply = analysis.decodeResult(ConsultationReply.self) {
+                        ConsultationTurnView(turn: ConsultationTurn(date: analysis.createdAt, role: .claude, text: reply.reply,
+                                                                    reply: reply, flagged: analysis.flagged),
+                                             context: analysis.context) { _ in }
                     } else if let board = analysis.decodeResult(HypothesisBoard.self) {
                         HypothesisBody(board: board, context: analysis.context)
                     }

@@ -13,6 +13,7 @@ struct CompanionTodayCard: View {
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @State private var store: CompanionStore?
+    @State private var activation: ActivationStore?
     @Environment(\.scenePhase) private var scenePhase
     @State private var showWake = false
     /// The alarm button opened the app and the wake-up flow has not run yet.
@@ -24,11 +25,14 @@ struct CompanionTodayCard: View {
                 if alarmWaiting {
                     wakePrompt
                 } else {
-                    CompanionTodaySummary(store: store)
+                    CompanionTodaySummary(store: store, activation: activation)
                 }
             }
         }
         .task { await prepare() }
+        .onReceive(NotificationCenter.default.publisher(for: PendingWake.markedNotification)) { _ in
+            checkPendingWake()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Alarm button while TODAY is already open: the app only returns to the foreground.
             if phase == .active { checkPendingWake() }
@@ -64,17 +68,38 @@ struct CompanionTodayCard: View {
         .accessibilityIdentifier("today.companion")
     }
 
+    /// Runs on every appearance: creates the store once, then refreshes when the day is missing, from
+    /// yesterday or older than 15 minutes (the TODAY tab stays alive across days).
     private func prepare() async {
-        guard store == nil else { return }
-        let created = CompanionStore(context: modelContext)
-        store = created
+        let created: CompanionStore
+        if let store {
+            created = store
+        } else {
+            created = CompanionStore(context: modelContext)
+            store = created
+        }
         checkPendingWake()
         if alarmWaiting { return }
-        if created.today == nil {
+        if created.needsRefresh(now: CompanionUI.now) {
             await created.refresh(profileID: sources.ownerProfileID, birthYear: profile.profile.birthYear,
                                   firstName: CompanionUI.firstName(preferences: created.preferences, profile: profile.profile),
                                   confirmedWake: nil, morningHeartRate: nil)
         }
+        await refreshActivation(day: created.today)
+    }
+
+    /// Re-plans today's activation on every appearance (cheap, local) and replaces its notifications.
+    private func refreshActivation(day: CompanionDay?) async {
+        let current: ActivationStore
+        if let activation {
+            current = activation
+        } else {
+            current = ActivationStore(context: modelContext)
+            activation = current
+        }
+        let now = CompanionUI.now
+        current.refresh(now: now, profileID: sources.ownerProfileID, day: day)
+        await current.scheduleReminders(now: now, dayType: current.dayType, infection: current.infectionLevel, wake: nil)
     }
 
     /// Opened by the alarm button: start the wake-up flow right away (never in UI tests; the store's
@@ -89,6 +114,7 @@ struct CompanionTodayCard: View {
 /// Compact companion state: day type, headline and the next nudge.
 private struct CompanionTodaySummary: View {
     let store: CompanionStore
+    let activation: ActivationStore?
 
     var body: some View {
         let briefing = store.today?.briefing ?? store.latestBriefing
@@ -125,9 +151,40 @@ private struct CompanionTodaySummary: View {
                     .font(Typography.caption)
                     .foregroundStyle(Palette.ink)
                     .wraps()
+                if !store.nudgesDelivered {
+                    Text("Mitteilungen sind aus, dieser Hinweis erscheint nur hier.")
+                        .font(Typography.caption)
+                        .foregroundStyle(Palette.inkMuted)
+                        .wraps()
+                }
+            }
+            if let activation {
+                ActivationTodayLine(store: activation, now: now)
             }
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("today.companion")
+    }
+}
+
+/// One quiet line about the activation: the movement-snack hint after quiet hours, else the next open
+/// session of today. Text only (the card is inside a NavigationLink).
+private struct ActivationTodayLine: View {
+    let store: ActivationStore
+    let now: Date
+
+    var body: some View {
+        if let hint = store.snackHint(now: now) {
+            Label(hint, systemImage: ActivationSlot.snack.symbol)
+                .font(Typography.caption)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+        } else if let next = store.nextOpenPlan(now: now) {
+            Label("Nächste Aktivierung \(CompanionUI.time(next.time)) · \(ActivationText.duration(next.plan.estimatedSeconds))",
+                  systemImage: "figure.strengthtraining.functional")
+                .font(Typography.caption)
+                .foregroundStyle(Palette.ink)
+                .wraps()
+        }
     }
 }

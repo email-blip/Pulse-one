@@ -79,7 +79,7 @@ public enum LocalSentences {
 
     /// Words the local model's answer must not contain (same safety as Claude).
     public static func isSafe(_ text: String) -> Bool {
-        if case .reject = SafetyRules.check(text) { return false }
+        if case .reject = SafetyRules.check(text, mode: .descriptive) { return false }
         return true
     }
 }

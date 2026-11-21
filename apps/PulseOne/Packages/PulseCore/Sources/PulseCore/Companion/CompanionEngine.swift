@@ -30,7 +30,7 @@ public enum CompanionEngine {
             bodyWeather = nil
         }
 
-        let wake = night.wake.time ?? input.confirmedWake ?? input.now
+        let wake = night.wake.time ?? input.confirmedWake ?? Self.assumedWake(input, todayStart: todayStart)
         let nudges = DayRhythmPlanner.plan(wake: wake, dayType: dayType, night: night, weather: bodyWeather,
                                            preferences: input.preferences, now: input.now, calendar: calendar)
 
@@ -48,5 +48,15 @@ public enum CompanionEngine {
         return CompanionDay(night: night, dayType: dayType, infection: infection, forecastOutcome: outcome,
                             nextForecast: nextForecast, bodyPace: bodyPace, bodyWeather: bodyWeather,
                             nudges: nudges, briefing: briefing)
+    }
+
+    /// Without a measured or confirmed wake, plan from the alarm time (if it rang today) or 07:00, never from
+    /// "now": opening the app at 20:00 must not shift bedtime to the next afternoon.
+    static func assumedWake(_ input: CompanionInput, todayStart: Date) -> Date {
+        if let alarm = input.alarmTime, input.calendar.isDate(alarm, inSameDayAs: input.now), alarm <= input.now {
+            return alarm
+        }
+        let seven = input.calendar.date(bySettingHour: 7, minute: 0, second: 0, of: todayStart) ?? todayStart
+        return seven
     }
 }

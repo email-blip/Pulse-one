@@ -137,7 +137,10 @@ enum TestScenario {
         if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         if name == "coach" { CoachScenario.insert(into: context) }
         if name == "nutrition" { NutritionTestData.insert(into: context) }
-        if name == "companion" || name == "companionWake" { CompanionTestData.insert(into: context) }
+        if name == "companion" || name == "companionWake" || name == "companionConference" || name == "companionActivation" {
+            CompanionTestData.insert(into: context)
+        }
+        if name == "companionActivation" { CompanionTestData.insertActivation(into: context) }
         guard name == "live" || name == "heart" || name == "devices" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
         let device = name == "devices" ? "test-ring" : "test"

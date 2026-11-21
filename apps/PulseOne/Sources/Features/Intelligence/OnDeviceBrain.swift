@@ -59,7 +59,8 @@ enum OnDeviceBrain {
     /// The model's text may only use numbers from the fixed sentences and must pass S1–S4 without a flag.
     static func accepts(_ text: String, reference: [String]) -> Bool {
         guard !text.isEmpty, text.count < 600 else { return false }
-        guard case .allow = SafetyRules.check(text) else { return false }
+        // The small on-device model only rephrases fixed sentences, so it stays descriptive.
+        guard case .allow = SafetyRules.check(text, mode: .descriptive) else { return false }
         let allowed = Set(reference.flatMap(numbers(in:)))
         return numbers(in: text).allSatisfy { allowed.contains($0) }
     }

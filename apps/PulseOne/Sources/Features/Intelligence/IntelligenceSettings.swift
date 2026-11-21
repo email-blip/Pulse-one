@@ -15,6 +15,9 @@ final class IntelligenceSettings {
     var maxSendsPerMonth: Int { didSet { save() } }
     /// Apple's on-device model may phrase the short daily lines (never leaves the iPhone).
     var useOnDeviceModel: Bool { didSet { save() } }
+    /// Owner decision 2026-11-21: Claude interprets like a physician team (diagnoses, probabilities,
+    /// work-up, treatment). Off: trends only, as before.
+    var clinicalMode: Bool { didSet { save() } }
 
     @ObservationIgnored private let defaults: UserDefaults?
 
@@ -24,6 +27,7 @@ final class IntelligenceSettings {
         static let budget = "intelligence.budgetUSD"
         static let sends = "intelligence.maxSends"
         static let onDevice = "intelligence.onDevice"
+        static let clinical = "intelligence.clinicalMode"
     }
 
     init(defaults: UserDefaults?) {
@@ -39,7 +43,10 @@ final class IntelligenceSettings {
         let sends = defaults?.integer(forKey: Key.sends) ?? 0
         maxSendsPerMonth = sends > 0 ? sends : 30
         useOnDeviceModel = defaults?.object(forKey: Key.onDevice) as? Bool ?? true
+        clinicalMode = defaults?.object(forKey: Key.clinical) as? Bool ?? true
     }
+
+    var safetyMode: SafetyMode { clinicalMode ? .clinical : .descriptive }
 
     var model: ClaudeModel { ClaudeModel.model(id: modelID) }
 
@@ -58,6 +65,7 @@ final class IntelligenceSettings {
         defaults.set(monthlyBudgetUSD, forKey: Key.budget)
         defaults.set(maxSendsPerMonth, forKey: Key.sends)
         defaults.set(useOnDeviceModel, forKey: Key.onDevice)
+        defaults.set(clinicalMode, forKey: Key.clinical)
     }
 }
 

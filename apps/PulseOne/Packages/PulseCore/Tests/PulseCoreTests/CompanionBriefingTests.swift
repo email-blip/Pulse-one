@@ -323,6 +323,23 @@ struct CompanionPromptTests {
         #expect(facts.contains("Das ist keine Diagnose."))
     }
 
+    @Test func minimalFactsLeaveOutCategoriesWithoutConsent() {
+        let day = makeDay()
+        let facts = CompanionPrompts.minimalFacts(day, consent: [.sleep])
+        #expect(!facts.contains("Nachtruhepuls"))
+        #expect(!facts.contains("HRV"))
+        #expect(!facts.contains("Sauerstoffsättigung"))
+        #expect(!facts.contains("Muster-Prüfung"))
+        #expect(!facts.contains("Körper-Tempo"))
+        #expect(facts.contains("Tagestyp:"))
+        let withHeart = CompanionPrompts.minimalFacts(day, consent: [.heart, .sleep])
+        #expect(withHeart.contains("Nachtruhepuls: 54"))
+        #expect(!withHeart.contains("Körper-Tempo"))
+        if day.infection.usedTemperature {
+            #expect(!withHeart.contains("Hauttemperatur"))
+        }
+    }
+
     @Test func rewritePromptCarriesRules() {
         let prompt = CompanionPrompts.briefingRewrite(makeDay(), preferences: CompanionPreferences(firstName: "Johannes"))
         #expect(prompt.system.contains("Keine Diagnosen"))
@@ -391,6 +408,19 @@ struct CompanionEngineTests {
             }
         }
         return samples
+    }
+
+    @Test func withoutAnyWakePlanFromSevenNotFromNow() throws {
+        let evening = berlin(hour: 20)
+        let input = CompanionInput(now: evening, calendar: briefingCalendar, samples: [],
+                                   preferences: CompanionPreferences(maxNudgesPerDay: 20, quietStartHour: 23,
+                                                                     quietEndHour: 5),
+                                   birthYear: nil)
+        let day = CompanionEngine.run(input)
+        let bedtime = try #require(day.nudges.first { $0.kind == .bedtime })
+        #expect(bedtime.time == berlin(hour: 23))
+        #expect(!day.nudges.contains { $0.kind == .daylight })
+        #expect(day.nudges.allSatisfy { briefingCalendar.isDate($0.time, inSameDayAs: evening) })
     }
 
     @Test func runProducesSafeCompleteBriefing() {

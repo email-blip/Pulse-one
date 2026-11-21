@@ -56,7 +56,7 @@ struct SetupView: View {
         switch step {
         case 0:
             page(title: "Willkommen bei PULSE ONE", systemImage: "heart.circle",
-                 text: "PULSE ONE sammelt deine Werte vom Ring und aus Apple Health an einem Ort, zeigt Verläufe und deinen persönlichen üblichen Bereich. Alles bleibt auf diesem iPhone. Die App ist kein Medizinprodukt und stellt keine Diagnosen.")
+                 text: "PULSE ONE sammelt deine Werte vom Ring und aus Apple Health an einem Ort, zeigt Verläufe und deinen persönlichen üblichen Bereich. Alles bleibt auf diesem iPhone. Die App ist kein zugelassenes Medizinprodukt; in der Sprechstunde deutet Claude deine Werte ärztlich.")
             next("Los geht's")
         case 1:
             page(title: "Wie dürfen wir dich nennen?", systemImage: "person",

@@ -76,6 +76,53 @@ enum CompanionTestData {
         settings.cachedWeather = sampleWeather(now: now, calendar: calendar)
         settings.updatedAt = now
         context.insert(settings)
+
+        context.insert(sampleConference(now: now))
+    }
+
+    /// Activation test view: levels for push, pull and core, and today's morning session finished as planned
+    /// ("Passend"). Test view only, never in the real store.
+    @MainActor
+    static func insertActivation(into context: ModelContext, now: Date = TestScenario.fixedTime) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let morning = calendar.date(bySettingHour: 7, minute: 5, second: 0, of: now) ?? today
+        let earlier = calendar.date(byAdding: .day, value: -14, to: today) ?? today
+        var profile = ActivationProfile()
+        profile.levels[.push] = ActivationLevel(family: .push, exerciseID: "pushup", best: 14, updatedAt: earlier)
+        profile.levels[.pull] = ActivationLevel(family: .pull, exerciseID: "table-row", best: 10, updatedAt: earlier)
+        profile.levels[.core] = ActivationLevel(family: .core, exerciseID: "plank", best: 45, updatedAt: earlier)
+
+        let settings = ActivationSettingsRecord()
+        settings.settings = ActivationSettings()
+        settings.profile = profile
+        settings.updatedAt = now
+        context.insert(settings)
+
+        let input = ActivationInput(slot: .morning, now: morning, calendar: calendar, settings: ActivationSettings(),
+                                    profile: profile, coach: CoachPreferences(), dayType: .normal, infectionLevel: .none,
+                                    doneToday: [])
+        let plan = ActivationPlanner.plan(input)
+        let steps = ActivationRun.steps(for: plan)
+        var done: [Int: Int] = [:]
+        for step in steps { done[step.id] = step.targetValue }
+        let finished = morning.addingTimeInterval(Double(max(plan.estimatedSeconds, 60)))
+        let result = ActivationResult(plan: plan, results: ActivationRun.results(plan: plan, steps: steps, done: done),
+                                      feedback: .right, finishedAt: finished)
+        context.insert(ActivationSessionRecord(result: result, day: today,
+                                               minutes: ActivationRun.minutes(from: morning, to: finished)))
+    }
+
+    /// A finished expert round with the canned replies of the test transport (no usage, so no cost and
+    /// nothing counted against the Analyse budget). Test view only.
+    static func sampleConference(now: Date) -> StoredConference {
+        let statements = CompanionPrompts.conferenceRoles.map { role in
+            ConferenceStatement(role: role, text: CompanionConference.sampleStatements[role.id] ?? CompanionConference.emptyNotice,
+                                withheld: false)
+        }
+        return StoredConference(createdAt: now.addingTimeInterval(-2 * 3600), factsText: CompanionConference.sampleFacts,
+                                statements: statements, synthesis: CompanionConference.sampleSynthesis,
+                                synthesisWithheld: false, costUSD: nil, modelID: ClaudeModel.standard.id)
     }
 
     /// A plausible autumn day in Munich around `now` (36 hours from midnight), so the screen shows body weather

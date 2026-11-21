@@ -12,13 +12,26 @@ enum NudgeScheduler {
         return await CompanionNotifications.requestAuthorization()
     }
 
-    static func replace(with nudges: [CompanionNudge], now: Date = Date(), calendar: Calendar = .current) async {
-        guard !LaunchOptions.current.isUITesting else { return }
+    /// Replaces the pending nudges. Returns false when notifications are not allowed or a nudge could not be
+    /// scheduled, so the UI does not promise a reminder that never arrives. Asks for permission once when the
+    /// person has not decided yet and there is something to schedule.
+    @discardableResult
+    static func replace(with nudges: [CompanionNudge], now: Date = Date(), calendar: Calendar = .current) async -> Bool {
+        guard !LaunchOptions.current.isUITesting else { return true }
         await CompanionNotifications.removePending(ids: [], prefix: prefix)
-        for nudge in upcoming(nudges, now: now) {
-            try? await CompanionNotifications.add(id: prefix + nudge.id, title: nudge.title, body: nudge.body,
-                                                  components: components(for: nudge.time, calendar: calendar))
+        let due = upcoming(nudges, now: now)
+        guard !due.isEmpty else { return true }
+        guard await CompanionNotifications.ensureAuthorized() else { return false }
+        var allScheduled = true
+        for nudge in due {
+            do {
+                try await CompanionNotifications.add(id: prefix + nudge.id, title: nudge.title, body: nudge.body,
+                                                     components: components(for: nudge.time, calendar: calendar))
+            } catch {
+                allScheduled = false
+            }
         }
+        return allScheduled
     }
 
     /// Nudges still in the future, in time order, without duplicate ids.

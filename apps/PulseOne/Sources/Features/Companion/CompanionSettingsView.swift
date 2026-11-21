@@ -32,6 +32,16 @@ struct CompanionSettingsView: View {
         Form {
             greetingSection
             daySection
+            Section {
+                NavigationLink {
+                    ActivationSettingsEntry()
+                } label: {
+                    Label("Aktivierung", systemImage: "figure.strengthtraining.functional")
+                }
+                .accessibilityIdentifier("companion.settings.activation")
+            } footer: {
+                Text("Kurze Einheiten morgens, mittags und abends, Bewegungs-Checks bei wenig Bewegung.")
+            }
             placeSection
             alarmSection
         }
@@ -77,13 +87,13 @@ struct CompanionSettingsView: View {
         Section {
             Stepper("Schlafbedarf: \(CompanionUI.hoursText(draft.sleepNeedHours))",
                     value: $draft.sleepNeedHours, in: 6...10, step: 0.25)
-            Stepper("Höchstens \(draft.maxNudgesPerDay) Hinweise am Tag", value: $draft.maxNudgesPerDay, in: 1...5)
+            Stepper("Höchstens \(draft.maxNudgesPerDay) Hinweise am Tag", value: $draft.maxNudgesPerDay, in: 1...CompanionPreferences.nudgeCap)
             Toggle("Tipps rund um Kaffee", isOn: $draft.allowsCaffeineTips)
             Toggle("Kraft-Schritte (z. B. Liegestütze)", isOn: $draft.allowsStrengthTips)
         } header: {
             Text("Tag")
         } footer: {
-            Text("Hinweise kommen als Mitteilung, vorab geplant. Ab dem Schlafenszeit-Fenster ist Ruhe.")
+            Text("Hinweise kommen als Mitteilung, vorab geplant. Zwischen \(draft.quietStartHour) und \(draft.quietEndHour) Uhr kommt nur die Erinnerung an die Schlafenszeit.")
         }
     }
 
