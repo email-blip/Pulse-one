@@ -5,5 +5,7 @@ import SwiftData
 enum PulseSchema {
     static let core: [any PersistentModel.Type] = [StoredMeasurement.self, StoredSample.self]
 
-    static let models: [any PersistentModel.Type] = core + CoachPersistence.models
+    static let models: [any PersistentModel.Type] = core
+        + IntelligenceModels.all
+        + CoachPersistence.models
 }
