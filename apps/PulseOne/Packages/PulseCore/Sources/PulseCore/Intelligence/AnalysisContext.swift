@@ -45,6 +45,8 @@ public enum ConsentCategory: String, Codable, CaseIterable, Sendable {
     case activity
     case training
     case body
+    /// The ring's own stress score (vendor scale, method undisclosed). Off unless switched on.
+    case ringStress
     case notes
 
     public var title: String {
@@ -55,18 +57,20 @@ public enum ConsentCategory: String, Codable, CaseIterable, Sendable {
         case .activity: "Aktivität (Schritte, Energie)"
         case .training: "Training"
         case .body: "Körpermaße und Temperatur"
+        case .ringStress: "Stressindex des Rings (Herstellerwert, ohne Bewertung)"
         case .notes: "Stichworte aus Abend-Notizen"
         }
     }
 
     public var kinds: [SampleKind] {
         switch self {
-        case .heart: [.restingHeartRate, .heartRate, .heartRateVariability, .respiratoryRate]
+        case .heart: [.restingHeartRate, .heartRate, .heartRateVariability, .ringHRV, .respiratoryRate]
         case .spo2: [.oxygenSaturation]
         case .sleep: [.sleepDuration]
         case .activity: [.steps, .activeEnergy, .distance, .elevationGain]
         case .training: [.trainingDuration, .vo2Max]
         case .body: [.bodyMass, .skinTemperatureDeviation, .bodyTemperature]
+        case .ringStress: [.ringStress]
         case .notes: []
         }
     }
@@ -75,8 +79,9 @@ public enum ConsentCategory: String, Codable, CaseIterable, Sendable {
         allCases.first { $0.kinds.contains(kind) }
     }
 
-    /// Default: everything measured, notes too; the user switches off what should stay.
-    public static let defaultConsent: Set<ConsentCategory> = Set(allCases)
+    /// Default: everything measured, notes too; the user switches off what should stay. The ring's
+    /// stress score is the exception: a vendor value with an unknown method leaves only on request.
+    public static let defaultConsent: Set<ConsentCategory> = Set(allCases).subtracting([.ringStress])
 }
 
 /// The personal band as sent to Claude: 28 days before the period, at least 7 days (same rule as the
@@ -271,7 +276,8 @@ public enum FactUnits {
         case .sleepDuration: (IntelligenceStats.rounded(canonical / 3_600, decimals: 1), "h")
         case .trainingDuration: (IntelligenceStats.rounded(canonical / 60, decimals: 0), "min")
         case .distance: (IntelligenceStats.rounded(canonical / 1_000, decimals: 1), "km")
-        case .steps, .activeEnergy, .basalEnergy, .elevationGain, .heartRate, .restingHeartRate, .heartRateVariability:
+        case .steps, .activeEnergy, .basalEnergy, .elevationGain, .heartRate, .restingHeartRate, .heartRateVariability,
+             .ringHRV, .ringStress:
             (IntelligenceStats.rounded(canonical, decimals: 0), kind.canonicalUnit.rawValue)
         default: (IntelligenceStats.rounded(canonical, decimals: 1), kind.canonicalUnit.rawValue)
         }
@@ -287,4 +293,10 @@ public enum FactUnits {
         let number = formatter.string(from: NSNumber(value: value)) ?? String(value)
         return unit.isEmpty || unit == "count" ? number : "\(number) \(unit)"
     }
+}
+
+extension SampleKind {
+    /// A score the device maker computes with an undisclosed method (ring stress index). It is described
+    /// as a daily pattern only: no personal band, no rating of single values, no detective feature.
+    public var isVendorScore: Bool { self == .ringStress }
 }

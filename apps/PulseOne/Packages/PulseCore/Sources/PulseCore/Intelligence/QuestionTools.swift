@@ -155,7 +155,7 @@ public struct QuestionTools: Sendable {
         let central = kind.isCumulative ? IntelligenceStats.mean(values) : IntelligenceStats.median(values)
         let base = daily(kind, from: baseStart, to: start).values.map { $0 }
         var baseline: FactBaseline?
-        if base.count >= ContextBuilder.baselineMinimumDays, let m = IntelligenceStats.median(base),
+        if !kind.isVendorScore, base.count >= ContextBuilder.baselineMinimumDays, let m = IntelligenceStats.median(base),
            let lo = IntelligenceStats.quantile(base, 0.25), let hi = IntelligenceStats.quantile(base, 0.75) {
             baseline = FactBaseline(median: FactUnits.display(kind, m).value, p25: FactUnits.display(kind, lo).value,
                                     p75: FactUnits.display(kind, hi).value,
@@ -164,7 +164,8 @@ public struct QuestionTools: Sendable {
         let days = max(1, calendar.dateComponents([.day], from: start, to: end).day ?? 1)
         let shown = FactUnits.display(kind, central ?? 0)
         return AnalysisFact(id: id, kind: kind.rawValue, title: kind.title,
-                            stat: kind.isCumulative ? "mean_per_day" : "median", value: shown.value, unit: shown.unit,
+                            stat: kind.isVendorScore ? "vendor_median" : kind.isCumulative ? "mean_per_day" : "median",
+                            value: shown.value, unit: shown.unit,
                             period: "\(dayString(start))/\(dayString(endDay))", n: values.count,
                             coverage: IntelligenceStats.rounded(min(1, Double(values.count) / Double(days)), decimals: 2),
                             baseline: baseline, source: "local", quality: "plausible")

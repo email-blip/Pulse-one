@@ -37,6 +37,7 @@ public enum LocalSentences {
         case "mean_per_day": lead = "\(fact.title): im Mittel \(value) pro Tag"
         case "so_far_today": lead = "\(fact.title): bisher heute \(value)"
         case "count": lead = "\(fact.title): \(value)"
+        case "vendor_median": return "\(fact.title): Median \(value), Herstellerwert ohne Bewertung."
         default: lead = "\(fact.title): Median \(value)"
         }
         guard let b = fact.baseline else { return lead + "." }
@@ -47,7 +48,7 @@ public enum LocalSentences {
 
     /// Morning or evening lines: the kinds people look at first, in a fixed order.
     public static func summary(_ context: HealthAnalysisContext, limit: Int = 4) -> [String] {
-        let kinds: [SampleKind] = [.sleepDuration, .restingHeartRate, .heartRateVariability, .steps, .oxygenSaturation]
+        let kinds: [SampleKind] = [.sleepDuration, .restingHeartRate, .heartRateVariability, .ringHRV, .steps, .oxygenSaturation]
         let order = kinds.map(\.rawValue)
         let sorted = context.facts.filter { order.contains($0.kind) }
             .sorted { (order.firstIndex(of: $0.kind) ?? 99) < (order.firstIndex(of: $1.kind) ?? 99) }
@@ -64,6 +65,8 @@ public enum LocalSentences {
             (SampleKind.sleepDuration.rawValue, ["schlaf", "geschlafen", "nacht"]),
             (SampleKind.restingHeartRate.rawValue, ["ruhepuls"]),
             (SampleKind.heartRateVariability.rawValue, ["hrv", "variabilität"]),
+            (SampleKind.ringHRV.rawValue, ["hrv", "variabilität"]),
+            (SampleKind.ringStress.rawValue, ["stress"]),
             (SampleKind.heartRate.rawValue, ["puls"]),
             (SampleKind.oxygenSaturation.rawValue, ["sauerstoff", "spo2", "spo₂"]),
             (SampleKind.activeEnergy.rawValue, ["kalorien", "energie"]),

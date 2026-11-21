@@ -151,6 +151,37 @@ struct ContextBuilderTests {
         #expect(week.baseline != nil)
     }
 
+    @Test func ringHRVStaysApartAndRingStressIsOnlyAPattern() throws {
+        var samples = history()
+        for d in 0..<40 {
+            let ringHRV: Double = 44 + Double(d % 4)
+            let stress: Double = 30 + Double(d % 5)
+            samples.append(sample(.ringHRV, ringHRV, daysAgo: d, hour: 6))
+            samples.append(sample(.ringStress, stress, daysAgo: d, hour: 15))
+        }
+        let builder = ContextBuilder(calendar: berlin)
+        // Stress needs its own opt-in; ring HRV goes with the heart category.
+        #expect(!ConsentCategory.defaultConsent.contains(.ringStress))
+        #expect(ConsentCategory.category(for: .ringHRV) == .heart)
+        let standard = builder.build(samples: samples, events: [], kind: .weekly, now: now,
+                                     consent: ConsentCategory.defaultConsent, profile: .empty)
+        #expect(!standard.facts.contains { $0.kind == SampleKind.ringStress.rawValue })
+        let hrv = try #require(standard.facts.first { $0.kind == SampleKind.ringHRV.rawValue })
+        #expect(hrv.title == SampleKind.ringHRV.title)
+        #expect(hrv.baseline != nil)
+        #expect(!standard.facts.contains { $0.kind == SampleKind.heartRateVariability.rawValue })
+
+        let withStress = builder.build(samples: samples, events: [], kind: .weekly, now: now,
+                                       consent: ConsentCategory.defaultConsent.union([.ringStress]), profile: .empty)
+        let stress = try #require(withStress.facts.first { $0.kind == SampleKind.ringStress.rawValue })
+        #expect(stress.stat == "vendor_median")
+        #expect(stress.baseline == nil)
+        #expect(LocalSentences.describe(stress).contains("ohne Bewertung"))
+        #expect(!BodyDetective.featureKinds.contains(.ringStress))
+        #expect(!CorrelationPair.standard.contains { $0.a == .ringStress || $0.b == .ringStress })
+        #expect(IntelligencePrompts.version == 3)
+    }
+
     @Test func consentAndMinimisation() {
         let events = [ContextEvent(date: now.addingTimeInterval(-3_600), tags: [.stress], mood: nil, text: "Ärger mit Chef Müller")]
         let ctx = ContextBuilder(calendar: berlin).build(samples: history(), events: events, kind: .weekly, now: now,

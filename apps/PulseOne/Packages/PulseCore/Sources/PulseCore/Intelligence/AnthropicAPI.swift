@@ -138,7 +138,7 @@ public enum AnthropicError: Error, Equatable, Sendable {
 
 /// Fixed prompts, versioned like the context (spec §3.1). German, "du", descriptive only.
 public enum IntelligencePrompts {
-    public static let version = 2
+    public static let version = 3
 
     static let rules = """
     Regeln, ohne Ausnahme:
@@ -148,6 +148,9 @@ public enum IntelligencePrompts {
     Aussagen vom Typ measured, computed und observation brauchen mindestens eine ID. Schreibe die IDs nicht in den Text.
     Ein Fakt mit stat "so_far_today" ist der bisherige Stand des laufenden Tages: nicht mit vollen Tagen vergleichen \
     und nicht als niedrig bewerten.
+    "hrv_sdnn" und "hrv_ring" sind verschiedene Messverfahren: Werte nie miteinander vergleichen, verrechnen oder \
+    als dieselbe Größe behandeln. Ein Fakt mit stat "vendor_median" ist ein Herstellerwert mit unbekannter Methode \
+    (Stressindex des Rings): nur als Verlauf beschreiben, nicht bewerten, keinen Normalbereich nennen, keine Ursachen.
     3. Typen: measured = Messwert, computed = berechnete Kennzahl, observation = Beobachtung in den Daten, \
     interpretation = deine Deutung, recommendation = Vorschlag für den Alltag.
     4. Keine Diagnosen, keine Krankheitsnamen als Erklärung, keine Wahrscheinlichkeiten für Erkrankungen, \

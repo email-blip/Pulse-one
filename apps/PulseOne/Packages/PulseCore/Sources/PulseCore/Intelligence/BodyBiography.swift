@@ -111,6 +111,7 @@ public enum BodyBiography {
         switch pair.b {
         case .restingHeartRate: what = "war dein Ruhepuls eher " + (more ? "höher" : "niedriger")
         case .heartRateVariability: what = "war deine HRV eher " + (more ? "höher" : "niedriger")
+        case .ringHRV: what = "war deine HRV laut Ring eher " + (more ? "höher" : "niedriger")
         case .sleepDuration: what = "hast du eher " + (more ? "länger" : "kürzer") + " geschlafen"
         default: what = "lag \(pair.b.title) eher " + (more ? "höher" : "niedriger")
         }

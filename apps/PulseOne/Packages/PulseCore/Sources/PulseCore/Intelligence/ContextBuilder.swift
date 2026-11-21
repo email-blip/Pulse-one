@@ -13,6 +13,9 @@ public struct CorrelationPair: Sendable, Equatable {
         CorrelationPair(a: .steps, b: .sleepDuration, lagDays: 0),
         CorrelationPair(a: .trainingDuration, b: .restingHeartRate, lagDays: 1),
         CorrelationPair(a: .trainingDuration, b: .heartRateVariability, lagDays: 1),
+        // Ring HRV is its own series (method undisclosed), never merged with SDNN.
+        CorrelationPair(a: .sleepDuration, b: .ringHRV, lagDays: 0),
+        CorrelationPair(a: .trainingDuration, b: .ringHRV, lagDays: 1),
         CorrelationPair(a: .steps, b: .restingHeartRate, lagDays: 1),
     ]
 }
@@ -83,6 +86,9 @@ public struct ContextBuilder: Sendable {
                 if soFarToday {
                     stat = "so_far_today"
                     central = values.last ?? 0
+                } else if sampleKind.isVendorScore {
+                    stat = "vendor_median"
+                    central = IntelligenceStats.median(values) ?? 0
                 } else if kind == .daily {
                     stat = "day_value"
                     central = values.last ?? 0
@@ -96,7 +102,7 @@ public struct ContextBuilder: Sendable {
                 let shown = FactUnits.display(sampleKind, central)
                 let baseValues = daily.filter { $0.day >= baselineStart && $0.day < start }.map(\.value)
                 var baseline: FactBaseline?
-                if !soFarToday, baseValues.count >= Self.baselineMinimumDays,
+                if !soFarToday, !sampleKind.isVendorScore, baseValues.count >= Self.baselineMinimumDays,
                    let m = IntelligenceStats.median(baseValues),
                    let lo = IntelligenceStats.quantile(baseValues, 0.25),
                    let hi = IntelligenceStats.quantile(baseValues, 0.75) {
