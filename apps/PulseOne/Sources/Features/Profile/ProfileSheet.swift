@@ -86,6 +86,8 @@ struct ProfileSheet: View {
                 }
             }
             .onAppear(perform: load)
+            // Swiping the sheet down keeps the edits as well; there is no cancel button that promises otherwise.
+            .onDisappear(perform: save)
         }
         .screenIdentifier("profile")
     }

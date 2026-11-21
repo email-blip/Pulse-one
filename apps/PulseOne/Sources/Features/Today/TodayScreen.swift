@@ -9,6 +9,7 @@ struct TodayScreen: View {
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var metrics: [TodayMetric] = []
     @State private var loaded = false
     @State private var customizing = false
@@ -90,9 +91,11 @@ struct TodayScreen: View {
         }
     }
 
-    /// Reload when a new ring value arrives or a Health sync finishes.
+    /// Reload when a new ring value arrives, a ring history or Health sync finishes, or a new day starts
+    /// (checked whenever the app comes back to the foreground).
     private var refreshToken: String {
-        "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(sources.devices.map(\.lastSuccessfulSync).compactMap { $0 }.max()?.timeIntervalSince1970 ?? 0)"
+        let day = Calendar.current.startOfDay(for: .now).timeIntervalSince1970
+        return "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(sources.devices.map(\.lastSuccessfulSync).compactMap { $0 }.max()?.timeIntervalSince1970 ?? 0)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)|\(day)|\(scenePhase == .active)"
     }
 
     private func reload() {

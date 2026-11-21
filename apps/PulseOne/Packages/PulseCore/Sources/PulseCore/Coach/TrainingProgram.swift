@@ -2,7 +2,7 @@ import Foundation
 
 // Multi-week programs (COACH-ENGINE-SPEC §6.3): 4-week mesocycle, 3 build weeks + 1 lighter week.
 // Hard limits the engine enforces and nobody (Claude included) can override:
-// - planned weekly load at most +10 % over the previous week (beginners +5 %), except after a lighter week;
+// - planned weekly load at most +10 % over the mean of the 4 weeks before (beginners +5 %), lighter weeks exempt;
 // - at most 2 hard sessions in a row and at least 1 rest day per week;
 // - the daily time budget is never exceeded; intensity never above the person's cap.
 
@@ -73,6 +73,15 @@ public struct TrainingProgram: Codable, Equatable, Sendable {
         return weeks[position.week].days[position.day]
     }
 
+    /// True when the day before or after `date` is a planned hard main session.
+    public func neighbourIsHard(of date: Date, calendar: Calendar) -> Bool {
+        [-1, 1].contains { offset in
+            guard let other = calendar.date(byAdding: .day, value: offset, to: date),
+                  let session = session(on: other, calendar: calendar) else { return false }
+            return session.kind == .main && session.intensity == .hard
+        }
+    }
+
     /// Week and day index of `date`, or nil outside the program.
     public func position(of date: Date, calendar: Calendar) -> (week: Int, day: Int)? {
         let from = calendar.startOfDay(for: start)
@@ -99,7 +108,7 @@ public enum ProgramBuilder {
         // Week 1 starts below the budget so there is room to build within the time limit.
         let baseFactor = recentWeeklyLoad == nil ? 0.8 : 0.85
         var weeks: [WeekPlan] = []
-        var previousLoad: Double?
+        var loads = ProgramRules.seedLoads(recentWeeklyLoad)
         for index in 0...buildWeeks {
             let lighter = index == buildWeeks
             let factor = lighter ? baseFactor * 0.65 : baseFactor * pow(1 + rise * 0.9, Double(index))
@@ -115,13 +124,14 @@ public enum ProgramBuilder {
                 days[slot] = PlannedSession(kind: .main, sport: sport, minutes: minutes, intensity: intensity)
             }
             var week = WeekPlan(index: index, isLighter: lighter, days: days)
-            // Enforce the rise limit against the previous week (and the history for week 1).
-            let reference: Double? = index == 0 ? recentWeeklyLoad : (lighter ? nil : previousLoad)
+            // Enforce the rise limit against the mean of the 4 weeks before (history fills missing weeks),
+            // so build weeks cannot compound +10 % on +10 % (spec §6.3).
+            let reference: Double? = lighter ? nil : ProgramRules.fourWeekMean(loads)
             if let reference, reference > 0 {
                 let cap = reference * (1 + rise)
                 week = scaled(week, toAtMost: cap, budget: p.minutesPerSession)
             }
-            previousLoad = week.plannedLoad
+            loads.append(week.plannedLoad)
             weeks.append(week)
         }
         return TrainingProgram(start: dayStart, weeks: weeks)
@@ -189,12 +199,12 @@ public enum ProgramRules {
                                   recentWeeklyLoad: Double?) -> [String] {
         let p = raw.sanitized
         var result: [String] = []
-        var previous: (load: Double, lighter: Bool)? = recentWeeklyLoad.map { (load: $0, lighter: false) }
+        var loads = seedLoads(recentWeeklyLoad)
         for week in program.weeks {
             if week.days.count != 7 { result.append("Woche \(week.index + 1) hat nicht 7 Tage.") }
             if week.trainingDays > 6 { result.append("Woche \(week.index + 1) hat keinen Ruhetag.") }
-            if let prev = previous, !prev.lighter, prev.load > 0, !week.isLighter,
-               week.plannedLoad > prev.load * (1 + p.level.maxWeeklyIncrease) + 0.5, !week.isAtMinimum {
+            if let reference = fourWeekMean(loads), reference > 0, !week.isLighter,
+               week.plannedLoad > reference * (1 + p.level.maxWeeklyIncrease) + 0.5, !week.isAtMinimum {
                 result.append("Woche \(week.index + 1) steigt stärker als erlaubt.")
             }
             var hardRun = 0
@@ -206,8 +216,20 @@ public enum ProgramRules {
                     result.append("Woche \(week.index + 1) plant intensiver als erlaubt.")
                 }
             }
-            previous = (load: week.plannedLoad, lighter: week.isLighter)
+            loads.append(week.plannedLoad)
         }
         return result
+    }
+
+    /// Weekly loads before the program: the history's 4-week mean stands for each of the 4 weeks.
+    static func seedLoads(_ recentWeeklyLoad: Double?) -> [Double] {
+        recentWeeklyLoad.map { Array(repeating: $0, count: 4) } ?? []
+    }
+
+    /// Mean of the last (up to) 4 weekly loads, or nil without any.
+    static func fourWeekMean(_ loads: [Double]) -> Double? {
+        let window = loads.suffix(4)
+        guard !window.isEmpty else { return nil }
+        return window.reduce(0, +) / Double(window.count)
     }
 }

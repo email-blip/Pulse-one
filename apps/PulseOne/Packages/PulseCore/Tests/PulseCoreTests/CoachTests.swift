@@ -130,6 +130,35 @@ struct CoachProgramTests {
         #expect(sessions.first?.title == "Alltagsbewegung")
     }
 
+    @Test func buildWeeksStayWithinRiseOfTheFourWeekMean() {
+        let p = CoachPreferences(sports: [.cycling], trainingDaysPerWeek: 4, minutesPerSession: 90, level: .active)
+        let program = ProgramBuilder.build(preferences: p, start: nov21, recentWeeklyLoad: 300, calendar: utc)
+        var loads = [300.0, 300, 300, 300]
+        for week in program.weeks where !week.isLighter {
+            let mean = loads.suffix(4).reduce(0, +) / Double(loads.suffix(4).count)
+            #expect(week.plannedLoad <= mean * (1 + p.level.maxWeeklyIncrease) + 0.5)
+            loads.append(week.plannedLoad)
+        }
+        // No compounding: the last build week stays well below history × 1.1³.
+        #expect(program.weeks[2].plannedLoad < 300 * 1.25)
+    }
+
+    @Test func nightRestingSeriesFromRingHeartRate() {
+        func hr(_ value: Double, _ date: Date) -> HealthSample {
+            HealthSample(profileID: nil, kind: .heartRate, value: value, unit: SampleKind.heartRate.canonicalUnit, start: date, end: nil,
+                         timeZoneIdentifier: "UTC", source: .colmiRing, deviceID: "ring", originalSampleID: UUID().uuidString,
+                         importedAt: date, quality: .valid, method: .deviceHistory)
+        }
+        // Night before day(0): 02:00–03:00 every 5 minutes at 52, evening values higher.
+        var samples: [HealthSample] = []
+        for m in stride(from: 0, to: 60, by: 5) { samples.append(hr(52, nov21.addingTimeInterval(2 * 3_600 + Double(m) * 60))) }
+        for m in stride(from: 0, to: 30, by: 5) { samples.append(hr(70, nov21.addingTimeInterval(-3 * 3_600 + Double(m) * 60))) }
+        let series = NightRestingSeries.daily(samples, days: 3, now: nov21.addingTimeInterval(9 * 3_600), calendar: utc)
+        #expect(series.count == 1)
+        #expect(series.first?.day == nov21)
+        #expect(series.first?.value == 52)
+    }
+
     @Test func historyCapsTheFirstWeek() {
         let p = CoachPreferences(sports: [.cycling], trainingDaysPerWeek: 4, minutesPerSession: 90, level: .active)
         let program = ProgramBuilder.build(preferences: p, start: nov21, recentWeeklyLoad: 300, calendar: utc)
@@ -186,6 +215,16 @@ struct CoachDailyPlanTests {
         let beginner = CoachPreferences(level: .beginner)
         let (beginnerHard, _) = PlanAdjuster.apply(.harder, to: session, preferences: beginner, decision: .asPlanned)
         #expect(beginnerHard.intensity == .moderate)
+    }
+
+    @Test func harderNeverCreatesHardDaysBackToBack() {
+        let session = PlannedSession(kind: .main, sport: .running, minutes: 40, intensity: .moderate)
+        let trained = CoachPreferences(level: .trained)
+        let (free, _) = PlanAdjuster.apply(.harder, to: session, preferences: trained, decision: .asPlanned)
+        #expect(free.intensity == .hard)
+        let (blocked, text) = PlanAdjuster.apply(.harder, to: session, preferences: trained, decision: .asPlanned, neighbourIsHard: true)
+        #expect(blocked.intensity == .moderate)
+        #expect(text.contains("harter Tag"))
     }
 
     @Test func sorenessRevisionRemovesExercisesForThatRegion() {
