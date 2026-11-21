@@ -42,7 +42,7 @@ final class NutritionStore {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1"
         if isTestScenario {
             // Screenshots and UI tests never touch the network.
-            service = FoodLookupService(appVersion: version) { _ in throw URLError(.notConnectedToInternet) }
+            service = FoodLookupService(appVersion: version, transport: { _ in throw URLError(.notConnectedToInternet) })
         } else {
             service = FoodLookupService(appVersion: version, usdaKey: key)
         }
