@@ -7,6 +7,8 @@ import SwiftData
 /// measurements and are never written to the real store (UI tests use an in-memory store).
 enum TestScenario {
     static let all = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices"]
+    /// Scenarios that show the ring screen on its own.
+    static let ringScenarios: Set<String> = ["start", "scanning", "connected", "live", "failed", "reconnecting"]
 
     static func snapshot(for name: String) -> RingSnapshot {
         var s = RingSnapshot()
@@ -85,8 +87,44 @@ enum TestScenario {
         return registry
     }
 
+    /// Scenarios of the tab app (TODAY, HEALTH, profile) that show five weeks of sample history.
+    static let historyScenarios: Set<String> = ["today", "health", "healthDetail", "profile"]
+
+    /// Five weeks of plausible values for the tab screenshots. Test view only, never in the real store.
+    @MainActor
+    static func insertTabHistory(into context: ModelContext) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: fixedTime)
+        func add(_ kind: SampleKind, _ value: Double, at start: Date, duration: TimeInterval = 0, source: DataSourceKind) {
+            guard start <= fixedTime else { return }
+            let sample = HealthSample(profileID: owner, kind: kind, value: value, unit: kind.canonicalUnit, start: start,
+                                      end: start.addingTimeInterval(duration), timeZoneIdentifier: calendar.timeZone.identifier,
+                                      source: source, deviceID: source == .colmiRing ? "test-ring" : "healthkit",
+                                      originalSampleID: "test-\(kind.rawValue)-\(Int(start.timeIntervalSince1970))",
+                                      importedAt: fixedTime, quality: .valid,
+                                      method: source == .colmiRing ? .liveSensor : .healthStore)
+            context.insert(StoredSample(sample))
+        }
+        for offset in 0...34 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let wave = sin(Double(offset) * 0.7)
+            let hour = { (h: Double) in day.addingTimeInterval(h * 3600) }
+            add(.restingHeartRate, 58 + 3 * wave, at: hour(6), source: .appleHealth)
+            add(.heartRateVariability, 46 + 7 * cos(Double(offset) * 0.5), at: hour(6.5), source: .colmiRing)
+            add(.oxygenSaturation, 97 + (offset % 3 == 0 ? -1 : 0), at: hour(3), source: .colmiRing)
+            add(.sleepDuration, (7 + 0.6 * wave) * 3600, at: hour(-1), duration: (7 + 0.6 * wave) * 3600, source: .appleHealth)
+            for (h, steps) in [(9.0, 1800.0), (12.0, 2600.0), (15.0, 1900.0 + 900 * wave), (18.0, 2200.0)] {
+                add(.steps, steps, at: hour(h), duration: 3000, source: .appleHealth)
+            }
+            for (h, bpm) in [(8.0, 66.0), (11.0, 72.0), (14.0, 78.0 + 4 * wave), (15.0, 64.0)] {
+                add(.heartRate, bpm, at: hour(h), source: .colmiRing)
+            }
+        }
+    }
+
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
+        if historyScenarios.contains(name) { insertTabHistory(into: context) }
         guard name == "live" || name == "heart" || name == "devices" else { return }
         let base = Date(timeIntervalSince1970: 1_795_188_773)
         let device = name == "devices" ? "test-ring" : "test"
