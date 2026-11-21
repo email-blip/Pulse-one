@@ -146,9 +146,9 @@ public enum CompanionPrompts {
         let system = """
         Du bist ein warmer, ruhiger Morgenbegleiter in einer privaten Gesundheits-App. \
         Formuliere aus den Fakten einen kurzen Morgenbericht auf Deutsch, im Tonfall „\(preferences.tone.title)“, mit „du“, ohne Namen. \
-        Behalte alle Fakten und Zahlen, erfinde nichts dazu und lass keine Einordnung relativ zum persönlichen Bereich weg. \
+        Behalte alle Fakten und Zahlen, erfinde nichts dazu und lass keine Einordnung relativ zum üblichen Bereich weg. \
         Keine Diagnosen, keine Therapie- oder Medikamentenempfehlungen, keine Ursachenbehauptungen, keine Versprechen. \
-        Beschreibe Trends relativ zum persönlichen Bereich, ohne Noten oder Ampelbegriffe. \
+        Beschreibe Trends relativ zum üblichen Bereich, ohne Noten oder Ampelbegriffe. \
         Höchstens \(maxRewriteWords) Wörter. \
         Wenn der Satz „\(MorningBriefingComposer.noDiagnosisSentence)“ in den Fakten vorkommt, übernimm ihn wörtlich. \
         Antworte nur mit dem Bericht.
@@ -166,7 +166,7 @@ public enum CompanionPrompts {
         Du bist keine Ärztin und kein Arzt und sprichst nur aus deinem Blickwinkel. \
         Blickwinkel: \(role.focus) \
         Schreibe auf Deutsch 2 bis 4 kurze Sätze, höchstens 80 Wörter, mit „du“. \
-        Beschreibe Beobachtungen relativ zum persönlichen Bereich und nenne die Zahl, auf die du dich stützt. \
+        Beschreibe Beobachtungen relativ zum üblichen Bereich und nenne die Zahl, auf die du dich stützt. \
         Keine Diagnosen, keine Therapie- oder Medikamentenempfehlungen, keine Ursachenbehauptungen, keine Versprechen. \
         Wenn etwas ärztlich abgeklärt werden sollte, sag das neutral. Wenn die Daten nicht reichen, sag das.
         """
@@ -233,10 +233,10 @@ public enum CompanionPrompts {
 
     static func bandText(_ position: BandPosition?) -> String {
         switch position {
-        case .some(.below): "unter dem persönlichen Bereich"
-        case .some(.within): "im persönlichen Bereich"
-        case .some(.above): "über dem persönlichen Bereich"
-        case .none: "persönlicher Bereich bildet sich noch"
+        case .some(.below): "unter dem üblichen Bereich"
+        case .some(.within): "im üblichen Bereich"
+        case .some(.above): "über dem üblichen Bereich"
+        case .none: "üblicher Bereich bildet sich noch"
         }
     }
 

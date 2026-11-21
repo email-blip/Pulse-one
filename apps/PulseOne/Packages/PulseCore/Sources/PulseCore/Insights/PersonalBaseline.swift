@@ -87,7 +87,7 @@ public enum BaselineStatus: Equatable, Sendable {
     public var summary: String {
         switch self {
         case .forming(_, let needed):
-            needed == 1 ? "Noch 1 Tag bis zu deinem persönlichen Bereich" : "Noch \(needed) Tage bis zu deinem persönlichen Bereich"
+            needed == 1 ? "Noch 1 Tag bis zu deinem üblichen Bereich" : "Noch \(needed) Tage bis zu deinem üblichen Bereich"
         case .ready(let baseline):
             "Üblicher Bereich aus \(baseline.dayCount) Tagen"
         }

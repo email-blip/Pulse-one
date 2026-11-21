@@ -167,7 +167,7 @@ public enum MorningBriefingComposer {
             if let position = night.restingHeartRatePosition {
                 sentence += ", \(position.description)"
             } else {
-                sentence += ", dein persönlicher Bereich bildet sich noch"
+                sentence += ", dein üblicher Bereich bildet sich noch"
             }
             result.append(sentence + ".")
         }
@@ -197,8 +197,8 @@ public enum MorningBriefingComposer {
         case (.unusualPattern, .motivating): "Gönn dir heute einen ruhigeren Tag. Geh es heute langsamer an: Training eher locker oder Pause, viel trinken, früh ins Bett."
         case (.unusualPattern, .factual): "Geh es heute langsamer an: Training eher locker oder Pause, viel trinken, früh ins Bett."
         case (.notEnoughData, .brief): "Dein Bereich bildet sich noch."
-        case (.notEnoughData, .motivating): "Dein persönlicher Bereich bildet sich noch. Jede Nacht mit dem Ring macht die Vergleiche genauer."
-        case (.notEnoughData, .factual): "Dein persönlicher Bereich bildet sich noch, deshalb beschreibe ich heute nur."
+        case (.notEnoughData, .motivating): "Dein üblicher Bereich bildet sich noch. Jede Nacht mit dem Ring macht die Vergleiche genauer."
+        case (.notEnoughData, .factual): "Dein üblicher Bereich bildet sich noch, deshalb beschreibe ich heute nur."
         }
     }
 
@@ -239,7 +239,7 @@ public enum MorningBriefingComposer {
         let bandForming = dayType == .notEnoughData
             || (night.nightRestingHeartRate != nil && night.restingHeartRatePosition == nil)
         if bandForming {
-            parts.append("Dein persönlicher Bereich bildet sich noch, Vergleiche gibt es nach etwa sieben Tagen mit Daten.")
+            parts.append("Dein üblicher Bereich bildet sich noch, Vergleiche gibt es nach etwa sieben Tagen mit Daten.")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }

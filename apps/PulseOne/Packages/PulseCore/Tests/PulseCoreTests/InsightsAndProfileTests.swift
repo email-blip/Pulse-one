@@ -21,7 +21,7 @@ struct PersonalBaselineTests {
         let days = (1...6).map { day(-$0, 60) }
         let status = PersonalBaseline.status(for: days, kind: .restingHeartRate, before: today, calendar: calendar)
         #expect(status == .forming(daysAvailable: 6, daysNeeded: 1))
-        #expect(status.summary == "Noch 1 Tag bis zu deinem persönlichen Bereich")
+        #expect(status.summary == "Noch 1 Tag bis zu deinem üblichen Bereich")
         #expect(status.baseline == nil)
     }
 

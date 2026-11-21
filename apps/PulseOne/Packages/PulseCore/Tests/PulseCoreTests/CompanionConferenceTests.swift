@@ -106,9 +106,9 @@ struct CompanionConferenceTests {
     }
 
     @Test func allowedReplyIsTrimmedAndKept() {
-        let screened = CompanionConference.screen("  Dein Nachtruhepuls lag im persönlichen Bereich.\n")
+        let screened = CompanionConference.screen("  Dein Nachtruhepuls lag im üblichen Bereich.\n")
         #expect(!screened.withheld)
-        #expect(screened.text == "Dein Nachtruhepuls lag im persönlichen Bereich.")
+        #expect(screened.text == "Dein Nachtruhepuls lag im üblichen Bereich.")
     }
 
     @Test func causalWordingIsOnlyAFlagAndStays() {
