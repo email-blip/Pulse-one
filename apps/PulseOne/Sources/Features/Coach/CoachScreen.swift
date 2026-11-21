@@ -232,7 +232,7 @@ struct CoachScreen: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            Text("Coach-Schwelle: aus deinen eigenen Werten der 30 Tage davor (mittlere Hälfte plus Sicherheitsabstand, mindestens 15 Tage). Sie ist absichtlich weiter als dein persönlicher Bereich unter „Gesundheit“, damit der Coach nur bei deutlichen Abweichungen anpasst. Kein Gesamtwert.")
+            Text("Der Coach vergleicht mit deinen eigenen Werten der 30 Tage davor (mindestens 15 Tage) und passt nur an, wenn ein Wert deutlich außerhalb deines üblichen Bereichs liegt. Kein Gesamtwert.")
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)
                 .wraps()
@@ -242,7 +242,7 @@ struct CoachScreen: View {
 
     private func stateText(_ state: SignalState) -> String {
         switch state {
-        case .notable: "jenseits der Coach-Schwelle"
+        case .notable: "deutlich außerhalb des üblichen Bereichs"
         case .usual: "unauffällig"
         case .unknown: "noch unbekannt"
         }
