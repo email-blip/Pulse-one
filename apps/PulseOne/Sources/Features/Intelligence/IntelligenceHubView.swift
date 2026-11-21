@@ -5,6 +5,8 @@ import SwiftUI
 /// Where the Analyse tab can go.
 enum IntelligenceRoute: Hashable {
     case analysis(StoredAnalysis)
+    /// nil starts a new consultation.
+    case consultation(StoredConsultation?)
     case detective
     case experiments
     case biography
@@ -34,6 +36,7 @@ struct IntelligenceHubView: View {
     @State private var localAnswer: String?
     @State private var caseCount = 0
     @Query(sort: \StoredAnalysis.createdAt, order: .reverse) private var analyses: [StoredAnalysis]
+    @Query(sort: \StoredConsultation.updatedAt, order: .reverse) private var consultations: [StoredConsultation]
 
     private var services: IntelligenceServices { engine.services }
 
@@ -47,6 +50,7 @@ struct IntelligenceHubView: View {
                         if let activity = engine.activity { WorkingCard(text: activity) }
                         dailyCard
                         if !services.hasKey { keyCard }
+                        consultationCard
                         reportsCard
                         questionCard
                         labCard
@@ -60,6 +64,7 @@ struct IntelligenceHubView: View {
             .navigationDestination(for: IntelligenceRoute.self) { route in
                 switch route {
                 case .analysis(let analysis): ReportView(analysis: analysis)
+                case .consultation(let consultation): ConsultationView(engine: engine, consultation: consultation)
                 case .detective: DetectiveView(engine: engine)
                 case .experiments: ExperimentsView(engine: engine)
                 case .biography: BiographyView(engine: engine)
@@ -94,6 +99,26 @@ struct IntelligenceHubView: View {
         EmptyState(title: "Claude verbinden",
                    message: "Für Berichte und Fragen brauchst du deinen eigenen Claude-Schlüssel von Anthropic. Er bleibt im Schlüsselbund dieses iPhones.",
                    systemImage: "key", actionTitle: "Schlüssel eingeben") { path.append(.settings) }
+    }
+
+    private var consultationCard: some View {
+        Card {
+            SectionHeader(title: "Sprechstunde")
+            Text(engine.settings.clinicalMode
+                 ? "Claude deutet deine Werte wie Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen mit Wahrscheinlichkeit, Abklärung und Plan. Mit Rückfragen zu deinem Befinden."
+                 : "Ein Gespräch mit Claude über deine Werte. Ärztliche Einschätzungen sind unter KI-Anbieter ausgeschaltet.")
+                .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+            Button("Neue Sprechstunde") { path.append(.consultation(nil)) }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(!engine.settings.clinicalMode || engine.activity != nil)
+                .accessibilityIdentifier("intelligence.consultation.new")
+            ForEach(consultations.prefix(3)) { consultation in
+                row(consultation.title,
+                    detail: consultation.updatedAt.formatted(date: .abbreviated, time: .shortened)
+                        + (consultation.urgency == ConsultationUrgency.none ? "" : " · " + consultation.urgency.title),
+                    systemImage: "stethoscope", route: .consultation(consultation))
+            }
+        }
     }
 
     private var reportsCard: some View {
@@ -187,7 +212,7 @@ struct IntelligenceHubView: View {
     private func prepareReport(_ kind: AnalysisPeriodKind) {
         let context = engine.reportContext(kind, modelContext: modelContext, owner: sources.ownerProfileID,
                                            profile: profileStore.profile)
-        let preview = engine.preview(title: kind.title, context: context, system: IntelligencePrompts.report,
+        let preview = engine.preview(title: kind.title, context: context, system: IntelligencePrompts.report(engine.settings.safetyMode),
                                      expectedOutputTokens: kind.expectedOutputTokens, modelContext: modelContext)
         pending = PendingSend(preview: preview, blocker: engine.blocker(for: preview, modelContext: modelContext)) {
             Task {
@@ -207,7 +232,7 @@ struct IntelligenceHubView: View {
         }
         let empty = QuestionTools.context(facts: [], correlations: [], events: [], consent: services.settings.consent,
                                           now: engine.now)
-        let preview = engine.preview(title: "Frage: \(text)", context: empty, system: IntelligencePrompts.question,
+        let preview = engine.preview(title: "Frage: \(text)", context: empty, system: IntelligencePrompts.question(engine.settings.safetyMode),
                                      expectedOutputTokens: 2_500, modelContext: modelContext)
         pending = PendingSend(preview: preview, blocker: engine.blocker(for: preview, modelContext: modelContext)) {
             Task {

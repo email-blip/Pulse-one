@@ -78,7 +78,7 @@ struct DetectiveView: View {
     private func prepare(_ detectiveCase: DetectiveCase) {
         let context = engine.hypothesesContext(for: detectiveCase, modelContext: modelContext)
         let title = "Detektiv: \(detectiveCase.deviation.kind.title)"
-        let preview = engine.preview(title: title, context: context, system: IntelligencePrompts.detective,
+        let preview = engine.preview(title: title, context: context, system: IntelligencePrompts.detective(engine.settings.safetyMode),
                                      expectedOutputTokens: 1_500, modelContext: modelContext)
         pending = PendingSend(preview: preview, blocker: engine.blocker(for: preview, modelContext: modelContext)) {
             Task { result = await engine.runHypotheses(context: context, title: title, modelContext: modelContext) }

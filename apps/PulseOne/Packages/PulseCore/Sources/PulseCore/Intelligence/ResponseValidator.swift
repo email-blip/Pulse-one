@@ -47,9 +47,11 @@ public enum ValidationError: Error, Equatable, Sendable {
 /// fact, every id must exist, and the safety rules apply to each sentence.
 public struct ResponseValidator: Sendable {
     public let context: HealthAnalysisContext
+    public let mode: SafetyMode
 
-    public init(context: HealthAnalysisContext) {
+    public init(context: HealthAnalysisContext, mode: SafetyMode = .clinical) {
         self.context = context
+        self.mode = mode
     }
 
     /// Integers that are always fine: small counts ("an 3 Tagen") and the period lengths.
@@ -134,7 +136,7 @@ public struct ResponseValidator: Sendable {
     }
 
     func allowText(_ text: String, at location: String, log: inout Log) -> Bool {
-        switch SafetyRules.check(text) {
+        switch SafetyRules.check(text, mode: mode) {
         case .reject(let rule, let reason):
             log.issues.append(ValidationIssue(location: location, text: text, rule: rule, reason: reason, severity: .rejected))
             return false
@@ -156,7 +158,9 @@ public struct ResponseValidator: Sendable {
             let unknown = s.evidence.filter { !context.allIDs.contains($0) }
             if !unknown.isEmpty { return reject("ID", "unbekannte Beleg-ID \(unknown.joined(separator: ", "))") }
             if s.type.needsEvidence, s.evidence.isEmpty { return reject("Beleg", "Aussage ohne Beleg") }
-            let numbers = Self.numbers(in: s.text)
+            // Measured values must match the facts in every mode. In clinical mode an interpretation may
+            // also name medical reference values ("über 100 bpm"), which are not facts.
+            let numbers = mode == .descriptive || s.type.needsEvidence ? Self.numbers(in: s.text) : []
             if !numbers.isEmpty {
                 let allowed = context.citableNumbers(for: s.evidence)
                 for number in numbers where !Self.matches(number, allowed: allowed) {

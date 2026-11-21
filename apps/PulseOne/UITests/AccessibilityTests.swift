@@ -13,15 +13,27 @@ final class AccessibilityTests: XCTestCase {
     func testHealthAudit() throws { try audit(scenario: "health") }
     func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
     func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
+    /// The stored consultation of the test scenario, opened from the Analyse tab.
+    func testConsultationAudit() throws {
+        try audit(scenario: "intelligence", screen: "consultation") { app in
+            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            row.tap()
+        }
+    }
     func testCoachAudit() throws { try audit(scenario: "coach") }
     func testNutritionAudit() throws { try audit(scenario: "nutrition") }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
-    private func audit(scenario: String) throws {
+    private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15))
+        if let prepare {
+            prepare(app)
+            XCTAssertTrue(app.descendants(matching: .any)["screen.\(screen ?? scenario)"].waitForExistence(timeout: 15))
+        }
         // Let the launch transition finish: run 4 reported contrast on text that is still fading in.
         // Tab screens load SwiftData queries and charts first; 1.5 s still caught text mid-fade on them (run 36).
         Thread.sleep(forTimeInterval: 3)
