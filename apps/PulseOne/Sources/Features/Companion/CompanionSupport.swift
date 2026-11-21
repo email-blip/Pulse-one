@@ -31,7 +31,7 @@ enum CompanionUI {
     static func clock(hour: Int, minute: Int) -> String {
         let h = min(max(hour, 0), 23)
         let m = min(max(minute, 0), 59)
-        return (h < 10 ? "0" : "") + "\(h):" + (m < 10 ? "0" : "") + "\(m)"
+        return String(format: "%02ld:%02ld", h, m)
     }
 
     /// "7 h 30 min" for a duration in hours.

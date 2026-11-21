@@ -156,15 +156,22 @@ struct CompanionOpenMeteoTests {
 @Suite("Begleiter – Kleidung und Körperwetter")
 struct CompanionClothingTests {
     @Test func coldDayAsksForWinterLayers() {
-        let hours = (6...22).map { ctxHour($0, temp: 1, apparent: -3 + Double($0 - 6) * 0.1) }
+        var hours: [WeatherHour] = []
+        for h in 6...22 {
+            let apparent: Double = -3 + Double(h - 6) * 0.1
+            hours.append(ctxHour(h, temp: 1, apparent: apparent))
+        }
         let advice = ClothingAdvisor.advise(ctxSnapshot(hours), from: ctxDate(21, 6), to: ctxDate(21, 22), calendar: ctxCalendar)
         #expect(advice.items == ["Wintermantel", "Mütze", "Handschuhe"])
         #expect(advice.sentence == "Zieh heute einen Wintermantel, eine Mütze und Handschuhe an.")
     }
 
     @Test func rainFromThreePmInTheSentence() {
-        let hours = (6...22).map { h in
-            ctxHour(h, temp: 12, apparent: 9 + Double(h - 6) * 0.25, rain: h >= 15 ? 60.0 : 10.0)
+        var hours: [WeatherHour] = []
+        for h in 6...22 {
+            let apparent: Double = 9 + Double(h - 6) * 0.25
+            let rain: Double = h >= 15 ? 60 : 10
+            hours.append(ctxHour(h, temp: 12, apparent: apparent, rain: rain))
         }
         let advice = ClothingAdvisor.advise(ctxSnapshot(hours), from: ctxDate(21, 6), to: ctxDate(21, 22), calendar: ctxCalendar)
         #expect(advice.items == ["leichte Jacke", "Pullover", "Regenjacke oder Schirm"])
@@ -172,12 +179,20 @@ struct CompanionClothingTests {
     }
 
     @Test func hotSunnyDayAndWideSpread() {
-        let hot = (6...22).map { ctxHour($0, temp: 29, apparent: $0 < 14 ? 27.0 : 31.0, uv: 8) }
+        var hot: [WeatherHour] = []
+        for h in 6...22 {
+            let apparent: Double = h < 14 ? 27 : 31
+            hot.append(ctxHour(h, temp: 29, apparent: apparent, uv: 8))
+        }
         let advice = ClothingAdvisor.advise(ctxSnapshot(hot), from: ctxDate(21, 6), to: ctxDate(21, 22), calendar: ctxCalendar)
         #expect(advice.items == ["luftige Kleidung", "Wasser mitnehmen", "Sonnenschutz"])
         #expect(advice.sentence == "Zieh heute luftige Kleidung an. Hoher UV-Index: an Sonnenschutz denken. Wasser mitnehmen.")
 
-        let spread = (6...22).map { ctxHour($0, temp: 12, apparent: 6 + Double($0 - 6), rain: 35, wind: 40) }
+        var spread: [WeatherHour] = []
+        for h in 6...22 {
+            let apparent: Double = 6 + Double(h - 6)
+            spread.append(ctxHour(h, temp: 12, apparent: apparent, rain: 35, wind: 40))
+        }
         let layered = ClothingAdvisor.advise(ctxSnapshot(spread), from: ctxDate(21, 6), to: ctxDate(21, 22), calendar: ctxCalendar)
         #expect(layered.items.contains("warme Jacke"))
         #expect(layered.items.contains("Schirm zur Sicherheit"))
@@ -186,7 +201,12 @@ struct CompanionClothingTests {
     }
 
     @Test func pressureDropAndOtherBodyNotes() {
-        let falling = (6...22).map { ctxHour($0, temp: 4 + Double($0 - 6) * 0.5, pressure: 1_015 - Double($0 - 6) * 0.5) }
+        var falling: [WeatherHour] = []
+        for h in 6...22 {
+            let temp: Double = 4 + Double(h - 6) * 0.5
+            let pressure: Double = 1_015 - Double(h - 6) * 0.5
+            falling.append(ctxHour(h, temp: temp, pressure: pressure))
+        }
         let finding = ResearchFinding(cause: "weather_pressure", effect: "night_resting_hr", lagDays: 0, correlation: 0.4,
                                       sampleDays: 30, adjustedP: 0.05, sentence: "Eigener Befund zum Luftdruck.", label: .c)
         let report = BodyWeather.report(ctxSnapshot(falling, aqi: 65, pollen: ["Birke": 80, "Gräser": 10]),

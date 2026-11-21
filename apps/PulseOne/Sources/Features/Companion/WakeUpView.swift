@@ -102,7 +102,7 @@ struct WakeUpView: View {
             WakeBriefingHeader(briefing: briefing, speaker: speaker)
             ForEach(Array(briefing.sections.prefix(revealed))) { section in
                 Card { BriefingSectionRow(section: section) }
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? AnyTransition.opacity : AnyTransition.move(edge: .bottom).combined(with: .opacity))
             }
             if revealed >= briefing.sections.count {
                 QuickActionChecklist(actions: briefing.actions, done: $done)
@@ -216,7 +216,8 @@ struct SunriseBackground: View {
             startPoint: CGPoint(x: size.width / 2, y: 0), endPoint: CGPoint(x: size.width / 2, y: size.height)))
 
         let radius = max(size.width, 1) * 0.28
-        let center = CGPoint(x: size.width / 2, y: size.height * (1.08 - 0.22 * progress))
+        let lift = CGFloat(1.08 - 0.22 * progress)
+        let center = CGPoint(x: size.width / 2, y: size.height * lift)
         let glowRadius = radius * 2.6
         let glowRect = CGRect(x: center.x - glowRadius, y: center.y - glowRadius, width: glowRadius * 2, height: glowRadius * 2)
         canvas.fill(Path(ellipseIn: glowRect), with: .radialGradient(

@@ -37,21 +37,30 @@ enum CompanionTestData {
                 let shape = ((t - 3.5) / 3.5) * ((t - 3.5) / 3.5)
                 let jitter = 1.2 * sin(Double(step) * 1.7 + Double(offset))
                 let wakeRise = t >= 6.6 ? 6.0 : 0.0
-                add(.heartRate, (nightBase + 7.0 * shape + jitter + wakeRise).rounded(), at: hour(t))
+                let bpm: Double = nightBase + 7.0 * shape + jitter + wakeRise
+                add(.heartRate, bpm.rounded(), at: hour(t))
             }
             // A few day values.
-            for (h, bpm) in [(9.0, 68.0), (12.0, 74.0), (15.0, 77.0 + 3 * wave), (19.0, 70.0)] {
+            let afternoon: Double = 77 + 3 * wave
+            let dayValues: [(Double, Double)] = [(9, 68), (12, 74), (15, afternoon), (19, 70)]
+            for (h, bpm) in dayValues {
                 add(.heartRate, bpm, at: hour(h))
             }
-            add(.ringHRV, (ordinary ? 46.0 : 45.0 + 6.0 * cos(Double(offset) * 0.5)).rounded(), at: hour(3))
-            add(.oxygenSaturation, offset % 4 == 0 ? 96 : 97, at: hour(3.5))
+            let hrvWave: Double = 6 * cos(Double(offset) * 0.5)
+            let hrv: Double = ordinary ? 46 : 45 + hrvWave
+            add(.ringHRV, hrv.rounded(), at: hour(3))
+            let spo2: Double = offset % 4 == 0 ? 96 : 97
+            add(.oxygenSaturation, spo2, at: hour(3.5))
 
-            let sleepHours = ordinary ? 7.2 : 7.1 + 0.5 * sin(Double(offset) * 0.7)
+            let sleepWave: Double = 0.5 * sin(Double(offset) * 0.7)
+            let sleepHours: Double = ordinary ? 7.2 : 7.1 + sleepWave
             let sleepStart = hour(-0.85 + Double(offset % 3) / 6.0)
             add(.sleepDuration, sleepHours * 3600, at: sleepStart, duration: sleepHours * 3600)
 
-            for (h, steps) in [(7.5, 600.0), (10.0, 1300.0), (12.5, 1500.0), (15.0, 1100.0 + 400 * wave),
-                               (17.5, 1700.0), (20.0, 900.0)] {
+            let afternoonSteps: Double = 1100 + 400 * wave
+            let stepBlocks: [(Double, Double)] = [(7.5, 600), (10, 1300), (12.5, 1500), (15, afternoonSteps),
+                                                  (17.5, 1700), (20, 900)]
+            for (h, steps) in stepBlocks {
                 add(.steps, steps, at: hour(h), duration: 3000)
             }
         }
@@ -76,7 +85,8 @@ enum CompanionTestData {
         var hours: [WeatherHour] = []
         for h in 0..<36 {
             let hourOfDay = Double(h % 24)
-            let daylight = max(0, sin((hourOfDay - 7) / 12 * Double.pi))
+            let angle: Double = (hourOfDay - 7) / 12 * Double.pi
+            let daylight: Double = max(0, sin(angle))
             let temperature = 4 + 8 * daylight
             let rain: Double = (15...18).contains(h) ? 60 : 10
             hours.append(WeatherHour(time: midnight.addingTimeInterval(Double(h) * 3600),

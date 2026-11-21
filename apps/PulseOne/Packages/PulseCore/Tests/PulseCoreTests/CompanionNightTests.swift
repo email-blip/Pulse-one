@@ -34,7 +34,8 @@ private func night(_ dayOffset: Int, resting: Double, hrv: Double? = nil, hrvKin
                    sleepHours: Double? = nil, spo2: Double? = nil, skinDeviation: Double? = nil) -> [HealthSample] {
     var result: [HealthSample] = []
     for minute in stride(from: 0, through: 480, by: 10) {
-        result.append(sample(.heartRate, minute < 60 ? resting + 20 : resting, at(dayOffset - 1, 22, minute)))
+        let value: Double = minute < 60 ? resting + 20 : resting
+        result.append(sample(.heartRate, value, at(dayOffset - 1, 22, minute)))
     }
     if let hrv {
         result.append(sample(hrvKind, hrv, at(dayOffset, 3), source: hrvKind == .ringHRV ? .colmiRing : .appleHealth))
@@ -50,9 +51,15 @@ private func night(_ dayOffset: Int, resting: Double, hrv: Double? = nil, hrvKin
 /// Nights `first…28` before today: resting 50…56, ring HRV 40…52, sleep 7.0…8.2 h (each value 4× over 28 nights).
 /// Band over all 28: resting 51–55, HRV 42–50, sleep 7.2–8.0 h.
 private func history(from first: Int = 1, through last: Int = 28) -> [HealthSample] {
-    (first...last).flatMap { back in
-        night(-back, resting: 50 + Double(back % 7), hrv: 40 + Double(back % 7) * 2, sleepHours: 7 + Double(back % 7) * 0.2)
+    var result: [HealthSample] = []
+    for back in first...last {
+        let step = Double(back % 7)
+        let resting: Double = 50 + step
+        let hrv: Double = 40 + step * 2
+        let sleep: Double = 7 + step * 0.2
+        result += night(-back, resting: resting, hrv: hrv, sleepHours: sleep)
     }
+    return result
 }
 
 private func input(_ samples: [HealthSample], now: Date = at(0, 7, 30), birthYear: Int? = nil, confirmedWake: Date? = nil,
@@ -293,7 +300,8 @@ struct CompanionForecastTests {
         // Steps on the day before night k: 4000 + 1000 × (k mod 7), so resting rises 1 bpm per 1000 steps.
         var samples = history()
         for back in 1...28 {
-            samples.append(sample(.steps, 4_000 + 1_000 * Double(back % 7), at(-back - 1, 12)))
+            let daySteps: Double = 4_000 + 1_000 * Double(back % 7)
+            samples.append(sample(.steps, daySteps, at(-back - 1, 12)))
         }
         samples.append(sample(.steps, 12_000, at(-1, 12)))
         let forecast = try #require(MorningForecaster.forecast(for: today, input: input(samples, now: at(-1, 21))))
