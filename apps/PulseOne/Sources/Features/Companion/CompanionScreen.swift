@@ -11,6 +11,7 @@ struct CompanionScreen: View {
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
     @Environment(RingStore.self) private var ring
+    @Environment(CompanionStore.self) private var sharedStore
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
     @State private var store: CompanionStore?
@@ -82,7 +83,7 @@ struct CompanionScreen: View {
 
     private func prepare() async {
         guard store == nil else { return }
-        store = CompanionStore(context: modelContext)
+        store = sharedStore
         activation = ActivationStore(context: modelContext)
         let options = LaunchOptions.current
         // Test view of the wake-up flow: open it directly, like the alarm button would.
