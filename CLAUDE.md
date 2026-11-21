@@ -11,7 +11,7 @@ Zuerst lesen: `docs/pulse-one-coordination/` (MASTER-DIRECTIVE, STATUS, OUTBOX-C
 - Neustart 2026-11-20: eigenständige native App. Die Expo-App MyBody (Repo MyBotty) bleibt unverändert und wird hier nicht verwendet. Nur Wissen übernehmen, Code neu in Swift.
 
 ## Nicht verhandelbar
-- **Kein Mac.** Build, Tests, Simulator, Screenshots nur über GitHub Actions `macos-26` (`.github/workflows/ios-ci.yml`). Jeder Lauf ≈ 20 Gratis-Minuten: Änderungen bündeln, sparsam pushen.
+- **Kein Mac.** Build, Tests, Simulator, Screenshots nur über GitHub Actions `macos-26` (`.github/workflows/ios-ci.yml`). Ein Lauf = 5 parallele Mac-Jobs, ≈ 15–20 Min. Wartezeit (Gratis-Limit: 5 Mac-Jobs gleichzeitig): Änderungen bündeln, sparsam pushen.
 - Ohne ausdrückliche Freigabe von Johannes im Thread: keine kostenpflichtigen Dienste, keine App-Store-Veröffentlichung, keine Weitergabe echter Gesundheitsdaten an externe Dienste.
 - Gesundheitsdaten bleiben auf dem Gerät (an Claude nur nach sichtbarer Vorschau). Kein zugelassenes Medizinprodukt, aber seit 2026-11-21 (Entscheidung Johannes) darf die Claude-Analyse ärztlich deuten: mögliche Diagnosen mit Wahrscheinlichkeit, Abklärung, Training, Reha, Behandlung, ohne Floskeln (`SafetyMode.clinical`). Pflicht bleiben: klare Dringlichkeit bei Warnzeichen (S5/S6), Unsicherheit als Wahrscheinlichkeit, verordnete Medikamente nie eigenmächtig umstellen lassen.
 - **Keine simulierten Werte als Ringmessung.** Testszenarien nur mit `-uiTesting YES` und sichtbarem Banner „Testansicht“.
