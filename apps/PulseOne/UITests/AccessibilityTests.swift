@@ -53,8 +53,12 @@ final class AccessibilityTests: XCTestCase {
                 return true
             }
             // Text the audit finds only in the pixels (no element) is the content seen through the bar glass.
-            // Same for contrast findings without an element (PR #32: nutrition, a frame of 0×0 that cannot be located).
-            if issue.auditType == .elementDetection || issue.auditType == .contrast, element == nil, !barFrames.isEmpty {
+            if issue.auditType == .elementDetection, element == nil, !barFrames.isEmpty {
+                return true
+            }
+            // Only on the nutrition screen: a contrast finding without element (frame 0×0) seen once on a slow
+            // runner (PR #32). Scoped to this screen so element-less findings elsewhere still fail.
+            if scenario == "nutrition", issue.auditType == .contrast, element == nil, !barFrames.isEmpty {
                 return true
             }
             // Known false positive: the audit reports one-line captions as clipped although they wrap
