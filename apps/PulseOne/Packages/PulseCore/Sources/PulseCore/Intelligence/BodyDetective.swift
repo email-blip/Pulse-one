@@ -60,7 +60,8 @@ public struct DetectiveCase: Sendable, Equatable {
 /// Body detective with analogue days (method from weather forecasting): all local, no Claude needed.
 /// Claude only adds the hypothesis board on request.
 public struct BodyDetective: Sendable {
-    public static let featureKinds: [SampleKind] = [.restingHeartRate, .heartRateVariability, .sleepDuration, .steps]
+    /// Ring HRV is a separate feature next to SDNN; the ring's stress score is never one (vendor value).
+    public static let featureKinds: [SampleKind] = [.restingHeartRate, .heartRateVariability, .ringHRV, .sleepDuration, .steps]
     public let calendar: Calendar
     public let policy: SourcePolicy
 

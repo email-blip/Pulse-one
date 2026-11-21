@@ -93,7 +93,7 @@ public enum ExperimentAdmissibility: Equatable, Sendable {
 
 public enum ExperimentLab {
     /// Measurable targets for everyday experiments.
-    public static let targetKinds: [SampleKind] = [.sleepDuration, .restingHeartRate, .heartRateVariability, .steps, .heartRate]
+    public static let targetKinds: [SampleKind] = [.sleepDuration, .restingHeartRate, .heartRateVariability, .ringHRV, .steps, .heartRate]
 
     static let forbidden = SafetyRules.medicationTerms + ["medikation", "tabletten", "dosis", "hormon", "cbd", "kreatin",
                                                            "protein-pulver", "proteinpulver", "eisentablette", "zink", "omega-3"]
