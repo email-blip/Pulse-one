@@ -21,6 +21,9 @@ struct SetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.xl) {
                     if LaunchOptions.current.usesTestScenario { TestBanner() }
+                    // Opaque card behind all text: the audit measured text directly on the page gradient
+                    // as low contrast (CI runs 36 and 44), cards pass on every other screen.
+                    Card {
                     HStack {
                         Text("Schritt \(step + 1) von \(Self.stepCount + 1)")
                             .font(Typography.caption)
@@ -36,6 +39,7 @@ struct SetupView: View {
                         }
                     }
                     content
+                    }
                 }
                 .padding(Spacing.l)
             }
