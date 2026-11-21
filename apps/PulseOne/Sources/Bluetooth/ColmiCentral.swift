@@ -33,6 +33,8 @@ final class ColmiCentral: NSObject {
     private var bigDataWrite: CBCharacteristic?
     private var bigDataNotify: CBCharacteristic?
     private var historySync: RingHistorySync?
+    /// Set when a history fetch was skipped because a live measurement was running (nil = none pending).
+    private var deferredHistoryForce: Bool?
     private var syncStepTimer: Task<Void, Never>?
     private var postReadyTask: Task<Void, Never>?
     private var writeQueue: Task<Void, Never>?
@@ -270,8 +272,21 @@ final class ColmiCentral: NSObject {
         publishMeasurement()
     }
 
+    /// Every path that ends a measurement passes here, so a history fetch skipped during it resumes.
     private func sendStopIfNeeded() {
         if measurementMode.sendsStop { write(ColmiProtocol.realTimeStop(.heartRate)) }
+        resumeDeferredHistory()
+    }
+
+    private func resumeDeferredHistory() {
+        guard let force = deferredHistoryForce else { return }
+        Task { [weak self] in
+            // Give the ring a moment to acknowledge the stop before the history requests start.
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.deferredHistoryForce != nil, !self.measurement.phase.isActive else { return }
+            self.trace(.event, "Verlauf nach der Messung abrufen")
+            self.syncHistory(force: force)
+        }
     }
 
     private func publishMeasurement() {
@@ -307,8 +322,10 @@ final class ColmiCentral: NSObject {
         guard force || syncSchedule.isDue(lastSync: last, now: .now) else { return }
         guard !measurement.phase.isActive else {
             trace(.event, "Verlauf später abrufen: Messung läuft")
+            deferredHistoryForce = force || (deferredHistoryForce ?? false)
             return
         }
+        deferredHistoryForce = nil
         let calendar = Calendar.current
         let days = syncSchedule.days(lastSync: last, now: .now, calendar: calendar)
         let mapper = RingHistoryMapper(deviceID: store.snapshot.deviceIdentifier ?? "", calendar: calendar, today: .now)
