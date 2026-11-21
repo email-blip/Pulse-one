@@ -29,6 +29,14 @@ final class ColmiCentral: NSObject {
     private var measurement = LiveMeasurement()
     private var measurementMode: ColmiProtocol.HeartRateStartMode = .realTime
     private var scanTimeout: Task<Void, Never>?
+    /// Second service (SpO₂, sleep history); optional, older firmware may lack it.
+    private var bigDataWrite: CBCharacteristic?
+    private var bigDataNotify: CBCharacteristic?
+    private var historySync: RingHistorySync?
+    private var syncStepTimer: Task<Void, Never>?
+    private var postReadyTask: Task<Void, Never>?
+    private var writeQueue: Task<Void, Never>?
+    private let syncSchedule = RingSyncSchedule()
 
     private enum PendingAction { case scan, reconnect(UUID) }
 
@@ -43,6 +51,12 @@ final class ColmiCentral: NSObject {
     private static let readableDeviceInfo: Set<CBUUID> = Set(["2A24", "2A26", "2A27", "2A28", "2A29"].map { CBUUID(string: $0) })
     /// Standard services the diagnosis does not subscribe to.
     private static let standardServices: Set<CBUUID> = Set(["1800", "1801", "180A"].map { CBUUID(string: $0) })
+    private static let bigDataService = CBUUID(string: ColmiHistory.bigDataService)
+    private static let bigDataWriteID = CBUUID(string: ColmiHistory.bigDataWrite)
+    private static let bigDataNotifyID = CBUUID(string: ColmiHistory.bigDataNotify)
+    static let lastSyncKey = "ring.lastHistorySync"
+    /// Seconds without an answer before a history step counts as unanswered.
+    private static let stepTimeout: Duration = .seconds(8)
 
     init(store: RingStore) {
         self.store = store
@@ -272,6 +286,138 @@ final class ColmiCentral: NSObject {
         write(ColmiProtocol.batteryRequest())
     }
 
+    // MARK: Automatic measurements and history
+
+    /// Sends the measuring profile (only features the ring may support), then reads the settings back.
+    func applyProfile(_ profile: RingMeasurementProfile) {
+        guard handshake.isReady, let store else { return }
+        let features = store.snapshot.features
+        var packets = profile.packets(for: features)
+        for feature in [RingFeature.heartRate, .hrv, .stress, .spo2] where features.mayUse(feature) {
+            if let read = ColmiProtocol.preferenceRead(feature) { packets.append(read) }
+        }
+        trace(.event, "Messprofil „\(profile.title)“ an den Ring senden")
+        writeSpaced(packets)
+    }
+
+    /// Fetches the stored history. `force` ignores the schedule (button "Verlauf jetzt abrufen").
+    func syncHistory(force: Bool) {
+        guard handshake.isReady, historySync == nil, let store else { return }
+        let last = UserDefaults.standard.object(forKey: Self.lastSyncKey) as? Date
+        guard force || syncSchedule.isDue(lastSync: last, now: .now) else { return }
+        guard !measurement.phase.isActive else {
+            trace(.event, "Verlauf später abrufen: Messung läuft")
+            return
+        }
+        let calendar = Calendar.current
+        let days = syncSchedule.days(lastSync: last, now: .now, calendar: calendar)
+        let mapper = RingHistoryMapper(deviceID: store.snapshot.deviceIdentifier ?? "", calendar: calendar, today: .now)
+        var sync = RingHistorySync(days: days, support: store.snapshot.features,
+                                   hasBigDataChannel: bigDataWrite != nil && bigDataNotify != nil, mapper: mapper)
+        trace(.event, "Verlauf abrufen: \(days) Tage")
+        let first = sync.start()
+        historySync = sync
+        continueSync(first)
+    }
+
+    func findRing() {
+        trace(.event, "Ring finden: Ring soll blinken")
+        write(ColmiProtocol.findRingRequest())
+    }
+
+    func powerOff() {
+        trace(.event, "Ring ausschalten")
+        write(ColmiProtocol.powerOffRequest())
+    }
+
+    /// Called when the app comes to the foreground: fetch if due, or reconnect the known ring first.
+    func syncIfDue() {
+        if handshake.isReady {
+            syncHistory(force: false)
+        } else if CBManager.authorization == .allowedAlways, rememberedIdentifier != nil,
+                  store?.snapshot.connection.isConnected == false {
+            let last = UserDefaults.standard.object(forKey: Self.lastSyncKey) as? Date
+            if syncSchedule.isDue(lastSync: last, now: .now) { reconnectRemembered() }
+        }
+    }
+
+    private func feedHistory(_ step: (inout RingHistorySync) -> RingHistorySync.Request?) {
+        guard var sync = historySync else { return }
+        let next = step(&sync)
+        historySync = sync
+        continueSync(next)
+    }
+
+    private func continueSync(_ next: RingHistorySync.Request?) {
+        guard let sync = historySync else { return }
+        guard let next else {
+            if sync.isFinished { finishSync(interrupted: false) }
+            return
+        }
+        syncStepTimer?.cancel()
+        update { $0.historySync = .running(step: next.step.title, remaining: sync.remaining + 1) }
+        switch next.channel {
+        case .uart:
+            write(next.packet)
+        case .bigData:
+            writeBigData(next.packet)
+        }
+        syncStepTimer = Task { [weak self] in
+            try? await Task.sleep(for: Self.stepTimeout)
+            guard !Task.isCancelled, let self else { return }
+            self.trace(.event, "Keine vollständige Antwort: \(next.step.title)")
+            self.feedHistory { $0.timeout() }
+        }
+    }
+
+    private func finishSync(interrupted: Bool) {
+        syncStepTimer?.cancel()
+        guard let sync = historySync else { return }
+        historySync = nil
+        let now = Date.now
+        if !sync.observations.isEmpty, let id = store?.snapshot.deviceIdentifier {
+            store?.recordHistory(sync.observations, deviceIdentifier: id)
+        }
+        if !interrupted {
+            UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
+            store?.noteHistorySynced(at: now)
+        }
+        let summary = sync.report.summary
+        trace(.event, (interrupted ? "Verlauf unterbrochen: " : "Verlauf fertig: ") + summary)
+        update {
+            for feature in RingFeature.allCases {
+                switch sync.support.state(of: feature) {
+                case .answered?: $0.features.markAnswered(feature)
+                case .unsupported?: $0.features.markSilent(feature)
+                default: break
+                }
+            }
+            $0.historySync = interrupted ? .interrupted(summary: summary, at: now) : .finished(summary: summary, at: now)
+        }
+    }
+
+    private func writeBigData(_ packet: [UInt8]) {
+        guard let peripheral, let characteristic = bigDataWrite else {
+            trace(.event, "Zweiter Kanal fehlt: \(ColmiProtocol.hex(packet))")
+            return
+        }
+        let type: CBCharacteristicWriteType = characteristic.properties.contains(.writeWithoutResponse) ? .withoutResponse : .withResponse
+        trace(.sent, channel: characteristic.uuid.uuidString, ColmiProtocol.hex(packet))
+        peripheral.writeValue(Data(packet), for: characteristic, type: type)
+    }
+
+    /// Several settings one after another with a short gap, so the ring is not flooded.
+    private func writeSpaced(_ packets: [[UInt8]]) {
+        writeQueue?.cancel()
+        writeQueue = Task { [weak self] in
+            for packet in packets {
+                guard !Task.isCancelled, let self else { return }
+                self.write(packet)
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
+    }
+
     // MARK: Helpers
 
     private func makeManager() {
@@ -363,9 +509,21 @@ final class ColmiCentral: NSObject {
                 sendStopIfNeeded()
             }
             publishMeasurement()
-        case .setTimeAck, .realTimeStopAck, .packetSize:
+        case .setTimeAck, .realTimeStopAck, .packetSize, .settingWriteAck:
             break
-        case .heartRateLog, .unknown:
+        case .setting(let report):
+            update {
+                $0.ringSettings[report.feature] = report
+                $0.features.markAnswered(report.feature)
+            }
+        case .history:
+            if historySync == nil {
+                update { $0.logUnknown(ColmiProtocol.hex(packet)) }
+            } else {
+                let response = ColmiProtocol.decode(packet)
+                feedHistory { $0.handle(response) }
+            }
+        case .unknown:
             update { $0.logUnknown(ColmiProtocol.hex(packet)) }
         }
     }
@@ -460,7 +618,11 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
             $0.deviceIdentifier = peripheral.identifier.uuidString
             $0.model = ColmiModel.detect(advertisedName: name)
             $0.capabilities = CapabilityTracker()
+            $0.features = RingFeatureSupport(model: ColmiModel.detect(advertisedName: name))
+            $0.ringSettings = [:]
         }
+        bigDataWrite = nil
+        bigDataNotify = nil
         remember(peripheral)
         trace(.event, "Verbunden mit \(BLETrace.redactedName(name)); suche alle Dienste")
         // All services, so the diagnosis shows everything the ring offers.
@@ -498,6 +660,11 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
         guard wasLinked || userRequestedDisconnect else { return }
         writeCharacteristic = nil
         notifyCharacteristic = nil
+        bigDataWrite = nil
+        bigDataNotify = nil
+        postReadyTask?.cancel()
+        writeQueue?.cancel()
+        if historySync != nil { finishSync(interrupted: true) }
         measurementTicker?.cancel()
         measurement.handle(.disconnected(.now))
         publishMeasurement()
@@ -540,6 +707,12 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
                 writeCharacteristic = characteristic
             case Self.uartNotify where service.uuid == Self.uart && handshake.acceptsCharacteristics:
                 notifyCharacteristic = characteristic
+            case Self.bigDataWriteID where service.uuid == Self.bigDataService:
+                bigDataWrite = characteristic
+            case Self.bigDataNotifyID where service.uuid == Self.bigDataService:
+                // Gadgetbridge reads SpO₂ and sleep history here (CMD_BIG_DATA_V2).
+                bigDataNotify = characteristic
+                peripheral.setNotifyValue(true, for: characteristic)
             default:
                 if service.uuid == Self.deviceInfo {
                     if Self.readableDeviceInfo.contains(characteristic.uuid) { peripheral.readValue(for: characteristic) }
@@ -578,6 +751,16 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
         update { $0.connection = .ready }
         if let packet = try? ColmiProtocol.setTimeRequest(.now) { write(packet) }
         refreshBattery()
+        // Then the measuring profile and the stored history, with pauses so answers do not overlap.
+        postReadyTask?.cancel()
+        postReadyTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self, let store = self.store else { return }
+            self.applyProfile(store.measurementProfile)
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self.syncHistory(force: true)
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
@@ -597,5 +780,6 @@ extension ColmiCentral: @preconcurrency CBPeripheralDelegate {
         trace(.received, channel: channel, ColmiProtocol.hex(bytes))
         // Ring answers count only on this link's own notify characteristic object, once ready.
         if isExpected(characteristic, notifyCharacteristic), handshake.isReady { handle(bytes) }
+        if isExpected(characteristic, bigDataNotify), handshake.isReady { feedHistory { $0.handleBigData(bytes) } }
     }
 }

@@ -171,7 +171,10 @@ struct DeviceRegistryTests {
         let r03 = AdapterCatalog.colmiR03
         #expect(r03.status(of: .heartRate) == .implementedUntested)
         #expect(r03.status(of: .skinTemperature) == .unsupported)
-        #expect(r03.deliverableKinds == [.heartRate, .deviceBattery])
+        // History (steps, SpO₂, ring HRV, stress, sleep) is implemented after Gadgetbridge, not yet confirmed.
+        #expect(r03.deliverableKinds == [.heartRate, .ringHRV, .ringStress, .oxygenSaturation, .steps, .distance,
+                                         .sleepDuration, .deviceBattery])
+        #expect(r03.status(of: .heartRateVariability) == .unsupported)   // ring HRV is its own kind
         // Nothing is confirmed before a real-hardware test.
         for adapter in AdapterCatalog.all {
             #expect(!adapter.kinds.values.contains(.confirmed), "\(adapter.id)")

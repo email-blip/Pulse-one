@@ -21,7 +21,8 @@ Spalte „heute“: ob `SampleKind` den Typ schon kennt. „HK“: HealthKit-Typ
 |---|---|---|---|---|---|---|---|
 | Herzfrequenz | `heart_rate` | ja | bpm | Punkt | heartRate | live 0x69/1 (unbelegt), Verlauf 0x15 | 1 |
 | Ruhepuls | `resting_heart_rate` | ja | bpm | abgeleitet | restingHeartRate | – (selbst berechnet, Release 2) | 1 |
-| HRV (SDNN) | `hrv_sdnn` | ja | ms | Punkt | heartRateVariabilitySDNN | Verlauf 0x39 (Methode unklar) | 1 |
+| HRV (SDNN) | `hrv_sdnn` | ja | ms | Punkt | heartRateVariabilitySDNN | – (Ring-HRV getrennt, siehe nächste Zeile) | 1 |
+| HRV (Ring) | `hrv_ring` | ja (Welle 1) | ms | Punkt | – | Verlauf 0x39, Methode unklar, nie mit SDNN gemischt | 1 |
 | HRV (RMSSD) | **neu** `hrv_rmssd` | nein | ms | Punkt | – | aus RR (Typ 0x05) | 2 |
 | SpO₂ | `spo2` | ja | % | Punkt | oxygenSaturation | live 0x69/3, Verlauf Big Data 0x2A | 1/2 |
 | Atemfrequenz | **neu** `respiratory_rate` | nein | /min | Punkt | respiratoryRate | – | 1 |
@@ -37,7 +38,7 @@ Spalte „heute“: ob `SampleKind` den Typ schon kennt. „HK“: HealthKit-Typ
 | Gewicht | **neu** `body_mass` | nein | kg | Punkt | bodyMass | – | 1 |
 | Größe | **neu** `height` | nein | m | Punkt | height | – | 1 |
 | Körperfett | **neu** `body_fat` | nein | % | Punkt | bodyFatPercentage | – | 2 |
-| Stress (Ring) | **neu** `stress_index_ring` | nein | Index 0–100 | Herstellerwert, 30 min | – | 0x37 | speichern; nur als Tagesmuster zeigen, markiert „Herstellerwert“, keine Einzelbewertung (Johannes 2026-11-21) |
+| Stress (Ring) | `stress_index_ring` | ja (Welle 1) | Index 0–100 | Herstellerwert, 30 min | – | 0x37 | speichern; nur als Tagesmuster zeigen, markiert „Herstellerwert“, keine Einzelbewertung (Johannes 2026-11-21) |
 | Geräteakku | `device_battery` | ja | % | Punkt | – | 0x03, 0x73 0C | 1 |
 
 Neue Arten erweitern `SampleKind` und `SampleUnit`. Neue `rawValue`s sind stabil, weil sie in SwiftData gespeichert werden.

@@ -10,13 +10,15 @@ public enum AdapterCatalog {
         kinds: [
             .heartRate: .implementedUntested,
             .deviceBattery: .implementedUntested,
-            .steps: .protocolUnknown,
-            .oxygenSaturation: .protocolUnknown,
-            .heartRateVariability: .protocolUnknown,
-            .sleepDuration: .protocolUnknown,
+            .steps: .implementedUntested,
+            .distance: .implementedUntested,
+            .oxygenSaturation: .implementedUntested,
+            .ringHRV: .implementedUntested,
+            .ringStress: .implementedUntested,
+            .sleepDuration: .implementedUntested,
             .skinTemperature: .unsupported
         ],
-        supportsHistory: .planned, supportsLive: .implementedUntested, reconnects: true,
+        supportsHistory: .implementedUntested, supportsLive: .implementedUntested, reconnects: true,
         firmwareNote: "Firmware wird gelesen; getestete Versionen in TestedFirmware.",
         knownLimitations: ["Nur eine Verbindung gleichzeitig: QRing-App schließen.", "Ringspeicher etwa 7 Tage."]
     )
@@ -31,7 +33,8 @@ public enum AdapterCatalog {
             .deviceBattery: .protocolUnknown,
             .steps: .protocolUnknown,
             .oxygenSaturation: .protocolUnknown,
-            .heartRateVariability: .protocolUnknown,
+            .ringHRV: .protocolUnknown,
+            .ringStress: .protocolUnknown,
             .sleepDuration: .protocolUnknown,
             .skinTemperature: .protocolUnknown,
             .skinTemperatureDeviation: .protocolUnknown,

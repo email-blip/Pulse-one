@@ -45,6 +45,12 @@ final class AccessibilityTests: XCTestCase {
                barFrames.contains(where: { $0.intersects(frame) }) {
                 return true
             }
+            // Toolbar buttons in the navigation bar are drawn by the system at its fixed bar size and get the
+            // Large Content Viewer instead of scaling (run on PR #26). Content buttons still must scale.
+            if issue.auditType == .dynamicType, element?.elementType == .button, let frame = element?.frame,
+               app.navigationBars.allElementsBoundByIndex.contains(where: { $0.exists && $0.frame.intersects(frame) }) {
+                return true
+            }
             // Text the audit finds only in the pixels (no element) is the content seen through the bar glass.
             if issue.auditType == .elementDetection, element == nil, !barFrames.isEmpty {
                 return true
