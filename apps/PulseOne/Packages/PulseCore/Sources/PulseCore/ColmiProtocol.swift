@@ -105,7 +105,39 @@ public enum ColmiProtocol {
         (try? makePacket(.realTimeStart, payload: [type.rawValue, actionStart])) ?? []
     }
 
-    /// Keeps a running real-time measurement alive (interval to be verified on the R03).
+    /// Single heart-rate measurement as Gadgetbridge sends it (`ColmiR0xDeviceSupport.onHeartRateTest`):
+    /// command 0x69 with payload [0x01] only, no action byte, no continue and no stop.
+    public static func manualHeartRateStart() -> [UInt8] {
+        (try? makePacket(.realTimeStart, payload: [RealTimeType.heartRate.rawValue])) ?? []
+    }
+
+    /// How a heart-rate measurement is started. Both variants are taken byte for byte from a
+    /// reference implementation; which one the R03 needs is checked on the real ring.
+    public enum HeartRateStartMode: String, Sendable, CaseIterable {
+        /// colmi_r02_client `real_time.py`: start 69 01 01, stop 6A 01 00 00.
+        case realTime
+        /// Gadgetbridge `onHeartRateTest`: 69 01, nothing else.
+        case manual
+
+        public var startPacket: [UInt8] {
+            switch self {
+            case .realTime: ColmiProtocol.realTimeStart(.heartRate)
+            case .manual: ColmiProtocol.manualHeartRateStart()
+            }
+        }
+
+        /// Only colmi_r02_client sends a stop command after the measurement.
+        public var sendsStop: Bool { self == .realTime }
+
+        public var traceLabel: String {
+            switch self {
+            case .realTime: "Variante A, Echtzeit 69 01 01"
+            case .manual: "Variante B, Einzelmessung 69 01"
+            }
+        }
+    }
+
+    /// Defined in colmi_r02_client but sent by neither reference client; kept for tests only.
     public static func realTimeContinue(_ type: RealTimeType) -> [UInt8] {
         (try? makePacket(.realTimeStart, payload: [type.rawValue, actionContinue])) ?? []
     }

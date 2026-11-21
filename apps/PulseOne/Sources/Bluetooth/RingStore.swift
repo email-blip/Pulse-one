@@ -66,7 +66,7 @@ final class RingStore {
         central?.connectKnown(id)
     }
     func disconnect() { central?.disconnect() }
-    func startHeartRate() { central?.startHeartRate() }
+    func startHeartRate(mode: ColmiProtocol.HeartRateStartMode = .realTime) { central?.startHeartRate(mode: mode) }
     func stopHeartRate() { central?.stopHeartRate() }
     func refreshBattery() { central?.refreshBattery() }
 

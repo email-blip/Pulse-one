@@ -6,7 +6,9 @@ public enum MeasurementFailure: Equatable, Sendable {
     case noResponse
     /// The ring answered, but only with "no value yet" (0) until the time limit.
     case noValidValue
-    /// The ring reported an error code in its answer.
+    /// The ring reported error code 1: worn incorrectly (meaning from Gadgetbridge `liveHeartRate`).
+    case wornIncorrectly
+    /// The ring reported another error code in its answer.
     case ringError(code: Int)
 
     public var message: String {
@@ -15,6 +17,8 @@ public enum MeasurementFailure: Equatable, Sendable {
             "Der Ring hat auf den Messbefehl nicht geantwortet."
         case .noValidValue:
             "Der Ring hat geantwortet, aber keinen gültigen Puls geliefert. Ring enger anlegen, Hand ruhig halten und erneut messen."
+        case .wornIncorrectly:
+            "Der Ring meldet, dass er nicht richtig sitzt. Ring enger anlegen, Sensor zur Handinnenseite drehen und erneut messen."
         case .ringError(let code):
             "Der Ring meldet einen Messfehler (Code \(code)). Ring enger anlegen und erneut messen."
         }
@@ -60,8 +64,8 @@ public enum MeasurementPhase: Equatable, Sendable {
         switch self {
         case .idle: "Tippe auf „Puls jetzt messen“."
         case .requested: "Befehl gesendet. Warte auf die Antwort des Rings …"
-        case .running: "Der Ring misst. Der Sensor sucht noch deinen Puls. Hand ruhig halten."
-        case .receiving: "Der Ring liefert Werte. Die Messung endet nach einer Minute von selbst."
+        case .running: "Der Ring misst. Das kann bis zu einer Minute dauern. Hand ruhig halten."
+        case .receiving: "Der Ring liefert Werte. Die Messung endet von selbst, wenn keine neuen Werte mehr kommen."
         case .finished: "Letzter gültiger Wert vom Ring."
         case .failed(let failure, _): failure.message
         case .connectionLost: "Die Bluetooth-Verbindung ist während der Messung abgebrochen."
@@ -96,15 +100,26 @@ public struct LiveMeasurement: Equatable, Sendable {
     public let valueTimeout: TimeInterval
     /// Total length of a measurement, to protect the ring battery.
     public let maxDuration: TimeInterval
+    /// Seconds without a new valid value after which a measurement with a value ends.
+    public let quietAfterValue: TimeInterval
 
     public private(set) var phase: MeasurementPhase = .idle
     private var startedAt: Date?
 
-    public init(responseTimeout: TimeInterval = 10, valueTimeout: TimeInterval = 30, maxDuration: TimeInterval = 60) {
+    /// The R03 (firmware RY03_3.00.21) answered the start only with "no value yet" and then stayed
+    /// silent, so the wait for a value is long: colmi_r02_client waits up to 20 × 2 s of silence,
+    /// Gadgetbridge has no limit at all.
+    public init(responseTimeout: TimeInterval = 10, valueTimeout: TimeInterval = 60,
+                maxDuration: TimeInterval = 90, quietAfterValue: TimeInterval = 8) {
         self.responseTimeout = responseTimeout
         self.valueTimeout = valueTimeout
         self.maxDuration = maxDuration
+        self.quietAfterValue = quietAfterValue
     }
+
+    /// Ring error codes as Gadgetbridge `liveHeartRate` reads them: 1 = worn incorrectly,
+    /// 2 = temporary error (Gadgetbridge only logs it and keeps listening).
+    public static let temporaryErrorCode = 2
 
     /// Plausible human heart rate; anything outside is not shown as a measurement.
     public static let plausibleRange = 25...230
@@ -125,15 +140,18 @@ public struct LiveMeasurement: Equatable, Sendable {
         case (.ringValue(let value, let now), .receiving(_, _, let since)):
             if Self.plausibleRange.contains(value) { phase = .receiving(value: value, at: now, since: since) }
 
+        case (.ringError(let code, _), _) where phase.isActive && code == Self.temporaryErrorCode:
+            break
         case (.ringError(let code, let now), _) where phase.isActive:
-            phase = .failed(.ringError(code: code), at: now)
+            phase = .failed(code == 1 ? .wornIncorrectly : .ringError(code: code), at: now)
 
         case (.tick(let now), .requested(let at)):
             if now.timeIntervalSince(at) >= responseTimeout { phase = .failed(.noResponse, at: now) }
         case (.tick(let now), .running(let since)):
             if now.timeIntervalSince(since) >= valueTimeout { phase = .failed(.noValidValue, at: now) }
         case (.tick(let now), .receiving(let value, let at, _)):
-            if let startedAt, now.timeIntervalSince(startedAt) >= maxDuration { phase = .finished(value: value, at: at) }
+            let tooLong = startedAt.map { now.timeIntervalSince($0) >= maxDuration } ?? false
+            if tooLong || now.timeIntervalSince(at) >= quietAfterValue { phase = .finished(value: value, at: at) }
 
         case (.stop, .receiving(let value, let at, _)):
             phase = .finished(value: value, at: at)

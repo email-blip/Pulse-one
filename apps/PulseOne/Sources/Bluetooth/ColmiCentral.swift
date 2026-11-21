@@ -27,6 +27,7 @@ final class ColmiCentral: NSObject {
     private var reconnectTask: Task<Void, Never>?
     private var measurementTicker: Task<Void, Never>?
     private var measurement = LiveMeasurement()
+    private var measurementMode: ColmiProtocol.HeartRateStartMode = .realTime
     private var scanTimeout: Task<Void, Never>?
 
     private enum PendingAction { case scan, reconnect(UUID) }
@@ -38,8 +39,6 @@ final class ColmiCentral: NSObject {
     private static let uartNotify = CBUUID(string: ColmiProtocol.uartNotify)
     private static let deviceInfo = CBUUID(string: ColmiProtocol.deviceInfoService)
     private static let firmwareRevision = CBUUID(string: ColmiProtocol.firmwareRevision)
-    /// Interval of the "continue" command while a live measurement runs (from colmi_r02_client; unverified on the R03).
-    private static let continueInterval: TimeInterval = 20
     /// Device information the diagnosis may read. Serial number (2A25) and system ID (2A23) are left out on purpose.
     private static let readableDeviceInfo: Set<CBUUID> = Set(["2A24", "2A26", "2A27", "2A28", "2A29"].map { CBUUID(string: $0) })
     /// Standard services the diagnosis does not subscribe to.
@@ -216,20 +215,21 @@ final class ColmiCentral: NSObject {
 
     /// Sends the start command. The screen shows "Messung angefordert" until the ring answers;
     /// "läuft" and values come only from the ring's own answers (`handle`).
-    func startHeartRate() {
+    func startHeartRate(mode: ColmiProtocol.HeartRateStartMode = .realTime) {
         guard store?.snapshot.connection == .ready, handshake.isReady, writeCharacteristic != nil,
               !measurement.phase.isActive else {
             trace(.event, "Messung nicht gestartet: Ring nicht bereit")
             return
         }
         measurement.handle(.start(.now))
-        trace(.event, "Messung gestartet (Echtzeit Puls)")
-        write(ColmiProtocol.realTimeStart(.heartRate))
+        measurementMode = mode
+        trace(.event, "Messung gestartet (\(mode.traceLabel))")
+        write(mode.startPacket)
         update { $0.lastError = nil }
         publishMeasurement()
         measurementTicker?.cancel()
+        // No continue command: neither reference client sends one while waiting (see colmi-protokoll.md).
         measurementTicker = Task { [weak self] in
-            var lastContinue = Date.now
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled, let self else { return }
@@ -237,13 +237,9 @@ final class ColmiCentral: NSObject {
                 self.measurement.handle(.tick(now))
                 guard self.measurement.phase.isActive else {
                     self.trace(.event, "Messung beendet: \(self.measurement.phase.title)")
-                    self.write(ColmiProtocol.realTimeStop(.heartRate))
+                    self.sendStopIfNeeded()
                     self.publishMeasurement()
                     return
-                }
-                if now.timeIntervalSince(lastContinue) >= Self.continueInterval {
-                    lastContinue = now
-                    self.write(ColmiProtocol.realTimeContinue(.heartRate))
                 }
                 self.publishMeasurement()
             }
@@ -256,8 +252,12 @@ final class ColmiCentral: NSObject {
         guard measurement.phase.isActive else { return }
         measurement.handle(.stop(.now))
         trace(.event, "Messung vom Nutzer beendet")
-        write(ColmiProtocol.realTimeStop(.heartRate))
+        sendStopIfNeeded()
         publishMeasurement()
+    }
+
+    private func sendStopIfNeeded() {
+        if measurementMode.sendsStop { write(ColmiProtocol.realTimeStop(.heartRate)) }
     }
 
     private func publishMeasurement() {
@@ -355,8 +355,13 @@ final class ColmiCentral: NSObject {
             store.record(reading)
         case .realTime(.error(_, let code)):
             measurement.handle(.ringError(code: code, .now))
-            measurementTicker?.cancel()
-            write(ColmiProtocol.realTimeStop(.heartRate))
+            if measurement.phase.isActive {
+                trace(.event, "Ring meldet vorübergehenden Fehler (Code \(code)), Messung läuft weiter")
+            } else {
+                measurementTicker?.cancel()
+                trace(.event, "Messung beendet: \(measurement.phase.title)")
+                sendStopIfNeeded()
+            }
             publishMeasurement()
         case .setTimeAck:
             break

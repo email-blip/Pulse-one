@@ -10,3 +10,23 @@ Quelle: [tahnok/colmi_r02_client](https://github.com/tahnok/colmi_r02_client) (M
 - Code: `apps/PulseOne/Packages/PulseCore/Sources/PulseCore/ColmiProtocol.swift`.
 
 Modelle (laut Community, unbestätigt): R02, R03, R05 (+Temp), R06, R09 (+Temp), R10, R12. R11 nicht einplanen. Klone mit gleichem Namen und anderer Hardware existieren.
+
+## R03-Realtest 2026-11-21 (Build 1.0.1 (7), Firmware RY03_3.00.21_241028, Hardware RY03_V3.0)
+
+Diagnosedatei von Johannes, iOS 26.6.1. Gegenprobe mit der QRing-App direkt danach: Puls 81 bpm, SpO₂ 97 %, HRV 34 ms gemessen. Ring und Sensor funktionieren also.
+
+| Zeit | Richtung | Bytes | Bedeutung (Quelle) |
+|---|---|---|---|
+| 1,26 s | RX | `03 64 …` | Akku 100 % (tahnok) |
+| 1,28 s | RX | `2f f4 …` | `CMD_PACKET_SIZE`, 244 Byte (Gadgetbridge, nur geloggt) |
+| 11,13 s | TX | `69 01 01 …` | Start Echtzeit-Puls (tahnok) |
+| 11,18 s | RX | `69 01 00 00 …` | Fehler 0, Wert 0 = „noch kein Wert“ |
+| 27,30 s | RX | `73 0c 63 …` | Benachrichtigung Akku 99 %, lädt nicht (Gadgetbridge `NOTIFICATION_BATTERY_LEVEL`) |
+| 31,62 s | TX | `69 01 03 …` | „Fortsetzen“ (in tahnok definiert, aber vom tahnok-Client nie gesendet) |
+| 41,89 s | – | – | PULSE ONE gibt nach 30 s ohne Wert auf |
+
+Danach kam vom Ring kein einziger Pulswert. Abgleich mit den Referenzen:
+- **tahnok `client.py`**: sendet nur Start, wartet bis 20 × 2 s Stille, verwirft Nullwerte, sendet am Ende Stopp. Kein „Fortsetzen“.
+- **Gadgetbridge `onHeartRateTest`**: sendet nur `69 01` (ohne Aktionsbyte), kein Fortsetzen, kein Stopp, kein Zeitlimit. `liveHeartRate`: Byte 2 = Fehler (1 = falsch getragen, 2 = vorübergehend, nur loggen), Byte 3 = Wert, 0 wird ignoriert.
+
+Änderung (Build 8): kein „Fortsetzen“ mehr, Wartezeit 60 s statt 30 s, Fehlercodes 1/2 wie Gadgetbridge, zweite Startvariante B (`69 01`) als eigener Knopf. Welche Variante der R03 braucht, zeigt erst der nächste Realtest. Firmware RY03_3.00.21_241028 ist **noch nicht** als getestet eingetragen.

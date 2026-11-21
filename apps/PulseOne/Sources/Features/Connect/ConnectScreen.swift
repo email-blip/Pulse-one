@@ -123,6 +123,12 @@ struct ConnectScreen: View {
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("measure")
+                // Second start variant from Gadgetbridge, until the R03 test shows which one it needs.
+                Button("Puls messen – Variante B", systemImage: "heart") {
+                    ring.startHeartRate(mode: .manual)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("measureVariantB")
                 Button("Trennen", systemImage: "xmark.circle") { ring.disconnect() }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("disconnect")
