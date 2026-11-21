@@ -29,6 +29,9 @@ struct CompanionTodayCard: View {
             }
         }
         .task { await prepare() }
+        .onReceive(NotificationCenter.default.publisher(for: PendingWake.markedNotification)) { _ in
+            checkPendingWake()
+        }
         .onChange(of: scenePhase) { _, phase in
             // Alarm button while TODAY is already open: the app only returns to the foreground.
             if phase == .active { checkPendingWake() }

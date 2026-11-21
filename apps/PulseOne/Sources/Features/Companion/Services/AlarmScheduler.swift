@@ -115,6 +115,17 @@ enum PendingWake {
         return date
     }
 
+    /// Posted after `markFromNotificationTap()` so a visible TODAY card opens the wake-up flow right away.
+    static let markedNotification = Notification.Name("companion.pendingWakeMarked")
+
+    /// Hook for the app's notification delegate: call on the main actor when the person taps a notification
+    /// whose identifier starts with `AlarmScheduler.notificationPrefix` (fallback alarm below iOS 26).
+    @MainActor
+    static func markFromNotificationTap() {
+        markNow()
+        NotificationCenter.default.post(name: markedNotification, object: nil)
+    }
+
     /// Returns the stored moment (if younger than `maxAge`) and removes it.
     static func consume(maxAge: TimeInterval = 7200, now: Date = Date()) -> Date? {
         let date = peek(maxAge: maxAge, now: now)
