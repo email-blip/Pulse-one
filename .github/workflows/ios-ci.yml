@@ -1,7 +1,13 @@
 name: iOS CI
 
-# Builds, tests and captures simulator screenshots on a GitHub-hosted Mac.
+# Builds, tests and captures simulator screenshots on GitHub-hosted Macs.
 # Screenshots are pushed to branch ci-screenshots/<branch> so cloud Claude sessions can review them with git.
+#
+# Speed (DECISIONS.md 2026-11-21): one long job (~55 min) became parallel shards that each build for
+# themselves (~2 min) and run one part of the suite on their own simulator, so a run takes about as long
+# as its slowest shard (~15-20 min). Nothing is skipped: every push still runs every test, every
+# accessibility audit and the full screenshot matrix on all three devices.
+# Free plan: at most 5 macOS jobs run at once per account, so a run uses exactly 5 macOS shards.
 
 on:
   push:
@@ -19,7 +25,7 @@ concurrency:
   cancel-in-progress: true   # saves macOS minutes
 
 permissions:
-  contents: write            # push to ci-screenshots/* only
+  contents: read
 
 env:
   APP: ${{ inputs.app || 'PulseOne' }}
@@ -27,9 +33,55 @@ env:
   XCODEGEN_VERSION: "2.48.0" # pinned
 
 jobs:
-  build-test-screenshots:
+  # Cheap Linux job first: a failing guard stops the run before any macOS minute is spent.
+  guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Schema guard (SwiftData changes must stay lightweight)
+        run: python3 scripts/schema-guard.py --app "$APP"
+
+      - name: Term guard (one word for the personal band in all texts)
+        run: python3 scripts/term-guard.py --app "$APP"
+
+  test:
+    name: test (${{ matrix.shard }})
+    needs: guards
     runs-on: macos-26
-    timeout-minutes: 75   # 45 was hit on main (run 44906664459) once all modules were in
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false   # one red shard must not cancel the others' results and screenshots
+      matrix:
+        include:
+          # Core package tests (Swift Testing), integration tests and all functional UI tests.
+          - shard: logic-and-ui
+            device: main
+            packages: true
+            tests: >-
+              -only-testing:PulseOneIntegrationTests -only-testing:PulseOneUITests
+              -skip-testing:PulseOneUITests/ScreenshotTests -skip-testing:PulseOneUITests/AccessibilityTests
+          # Apple's accessibility audit on every screen (contrast, hit regions, Dynamic Type, labels).
+          # The audits inside ActivationTests/CompanionTests run in logic-and-ui.
+          - shard: accessibility
+            device: main
+            tests: -only-testing:PulseOneUITests/AccessibilityTests
+          # Screenshot matrix per device. The main device must succeed; small/large stay non-blocking as before.
+          - shard: screenshots-main
+            device: main
+            screenshots: true
+            tests: -only-testing:PulseOneUITests/ScreenshotTests
+          - shard: screenshots-small
+            device: small
+            screenshots: true
+            allow_failure: true
+            tests: -only-testing:PulseOneUITests/ScreenshotTests
+          - shard: screenshots-large
+            device: large
+            screenshots: true
+            allow_failure: true
+            tests: -only-testing:PulseOneUITests/ScreenshotTests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -42,74 +94,93 @@ jobs:
           fi
           xcodebuild -version; swift --version
 
+      - name: Pick and boot simulator
+        id: sims
+        run: |
+          scripts/pick-simulators.sh >> "$GITHUB_OUTPUT"
+          id=$(grep "^${{ matrix.device }}=" "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          name=$(grep "^${{ matrix.device }}_name=" "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          echo "id=$id" >> "$GITHUB_OUTPUT"; echo "name=$name" >> "$GITHUB_OUTPUT"
+          # Boot while the app compiles; xcodebuild would otherwise boot it before the first test.
+          xcrun simctl boot "$id" || true
+
       - name: Install XcodeGen ${{ env.XCODEGEN_VERSION }}
         run: |
           curl -fsSL -o /tmp/xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
           unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
           echo "/tmp/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
 
-      - name: Schema guard (SwiftData changes must stay lightweight)
-        run: python3 scripts/schema-guard.py --app "$APP"
-
-      - name: Term guard (one word for the personal band in all texts)
-        run: python3 scripts/term-guard.py --app "$APP"
-
       - name: Core package tests (Swift Testing)
+        if: matrix.packages
         run: |
           for pkg in apps/$APP/Packages/*/; do swift test --package-path "$pkg"; done
 
       - name: Generate project
         run: xcodegen generate --spec "apps/$APP/project.yml"
 
-      - name: Pick simulators
-        id: sims
-        run: scripts/pick-simulators.sh >> "$GITHUB_OUTPUT"
-
       - name: Build for testing
         id: build
         run: |
           set -o pipefail; mkdir -p build
           xcodebuild build-for-testing -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
-            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.main }}" \
+            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.id }}" \
             -derivedDataPath build/dd SWIFT_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee build/build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "TEST BUILD SUCCEEDED\|BUILD SUCCEEDED" build/build.log
 
-      - name: All tests on main device
+      - name: Run tests
         run: |
+          xcrun simctl bootstatus "${{ steps.sims.outputs.id }}" -b || true
           xcodebuild test-without-building -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
-            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.main }}" \
-            -derivedDataPath build/dd -resultBundlePath "build/main.xcresult"
-
-      - name: Screenshots on small and large device
-        if: always() && steps.build.outcome == 'success'
-        run: |
-          for which in small large; do
-            id=$([ $which = small ] && echo "${{ steps.sims.outputs.small }}" || echo "${{ steps.sims.outputs.large }}")
-            xcodebuild test-without-building -project "apps/$APP/$APP.xcodeproj" -scheme "$APP" \
-              -destination "platform=iOS Simulator,id=$id" -derivedDataPath build/dd \
-              -only-testing:"${APP}UITests/ScreenshotTests" -resultBundlePath "build/$which.xcresult" || true
-          done
+            -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.id }}" \
+            -derivedDataPath build/dd -resultBundlePath "build/${{ matrix.shard }}.xcresult" \
+            ${{ matrix.tests }} || { [ "${{ matrix.allow_failure }}" = "true" ] && echo "::warning::${{ matrix.shard }} failed (non-blocking)"; }
 
       - name: Export screenshots
-        if: always()
-        run: |
-          scripts/export-screenshots.sh build/main.xcresult  "shots/${{ steps.sims.outputs.main_name }}"
-          scripts/export-screenshots.sh build/small.xcresult "shots/${{ steps.sims.outputs.small_name }}"
-          scripts/export-screenshots.sh build/large.xcresult "shots/${{ steps.sims.outputs.large_name }}"
+        if: always() && matrix.screenshots
+        run: scripts/export-screenshots.sh "build/${{ matrix.shard }}.xcresult" "shots/${{ steps.sims.outputs.name }}"
 
-      - name: Push screenshots to ci-screenshots branch
-        if: always() && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: scripts/push-screenshots.sh shots "ci-screenshots/${GITHUB_REF_NAME}"
+      - name: Upload screenshots for the publish job
+        if: always() && matrix.screenshots
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shots-${{ github.run_number }}-${{ matrix.shard }}
+          path: shots
+          retention-days: 1
+          if-no-files-found: ignore
 
       - name: Upload results (7 days)
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: results-${{ github.run_number }}
+          name: results-${{ github.run_number }}-${{ matrix.shard }}
           path: |
             build/*.xcresult
             build/build.log
-            shots
           retention-days: 7
+          if-no-files-found: ignore
+
+  # Collects the three devices' screenshots into one commit on ci-screenshots/<branch> (Linux, no macOS minutes).
+  publish-screenshots:
+    needs: test
+    if: always() && needs.test.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write          # push to ci-screenshots/* only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+
+      - name: Download screenshots
+        continue-on-error: true   # no screenshots (e.g. build failed) -> push step says "nothing to push"
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: shots-${{ github.run_number }}-*
+          path: shots
+          merge-multiple: true
+
+      - name: Push screenshots to ci-screenshots branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/push-screenshots.sh shots "ci-screenshots/${GITHUB_REF_NAME}"
