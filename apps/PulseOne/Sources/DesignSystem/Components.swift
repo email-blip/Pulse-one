@@ -17,8 +17,8 @@ struct SectionHeader: View {
     var body: some View {
         Text(title.uppercased())
             .font(Typography.motto)
-            .tracking(1.5)
-            .foregroundStyle(Palette.inkMuted)
+            .tracking(1)
+            .foregroundStyle(Palette.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .wraps()
             .accessibilityAddTraits(.isHeader)
@@ -146,12 +146,18 @@ enum StatementKind: CaseIterable {
 struct StatementBadge: View {
     let kind: StatementKind
     var body: some View {
-        Label(kind.title, systemImage: kind.systemImage)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(kind.tint)
-            .padding(.horizontal, Spacing.s)
-            .padding(.vertical, Spacing.xs)
-            .background(Capsule().fill(Palette.surfaceButton))
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: kind.systemImage)
+                .accessibilityHidden(true)
+            Text(kind.title)
+                .wraps()
+        }
+        .font(Typography.caption.weight(.semibold))
+        .foregroundStyle(kind.tint)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, Spacing.xs)
+        .background(Capsule().fill(Palette.surfaceButton))
+        .accessibilityElement(children: .combine)
     }
 }
 
