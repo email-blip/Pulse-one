@@ -37,6 +37,17 @@ Beide Startvarianten liefern echte Werte: A (`69 01 01`) 61–63 bpm, B (`69 01`
 
 Einschränkung: Zwischen Realtest 1 und 2 wurde die Firmware über die QRing-App aktualisiert (3.00.21 → 3.00.28). Ob die Ablaufänderung oder die Firmware den Ausschlag gab, ist nicht trennbar. Getestet ist deshalb nur `RY03_3.00.28_250401` (`TestedFirmware.versions`). Variante A bleibt Standard, B bleibt als Rückfall.
 
+## R03-Realtest 3 (2026-11-21 23:14Z, Build 1.0.1 (10), Firmware RY03_3.00.28_250401)
+
+Diagnosedatei Johannes, 64 Einträge, nichts verworfen.
+
+- Dienste: `6E40FFF0` (Befehle), `DE5BF728` (großer Datenkanal), `180A` (Geräteinfo), `FEE7` (nur mitlesen). Hardware `RY03_V3.0`.
+- Uhrzeit `01` und Akku `03` beantwortet: Akku `03 46 00` = 70 %, lädt nicht. Antwort auf Uhrzeit `01 00 00 00 02 00 00 00 00 01 00 20 00 00 30`. Die Bytes nach `01` deutet Gadgetbridge als Fähigkeitenliste; wir werten sie nicht aus, sie werden nur protokolliert.
+- `2F F4` kommt wie in Realtest 2 ungefragt nach dem Verbinden.
+- **Messprofil „Standard“ am Ring bestätigt** (erstmals am R03): Schreiben `16 02 01 05`, `38 02 01`, `36 02 01`, `2C 02 01` wird quittiert. Gegenlesen: `16 01 01 05 05` (an, 5 min; Byte 4 = `05`, Bedeutung offen, wird ignoriert), `38 01 01`, `36 01 01`, `2C 01 01` (jeweils an). Die Tabelle unten gilt damit für das Schreiben und Lesen der Einstellungen als **iPhone**.
+- Live-Puls Variante A erneut erfolgreich: Quittung sofort, erste Werte nach 25,5 s, 69–71 bpm, Stopp `6A 01` quittiert.
+- **Verlauf nicht abgerufen**: Die App hat den Abruf zurückgestellt, weil gleichzeitig die Live-Messung lief („Verlauf später abrufen: Messung läuft“). Schritte-, Puls-, Stress-, HRV-, SpO₂- und Schlafverlauf bleiben am R03 unbestätigt. Nächster Realtest: mit Build 11 verbinden, **ohne** Messung zu starten, und die Diagnose nach dem Abgleich senden.
+
 ## Selbstständige Messungen und Verlauf (Welle 1, 2026-11-21, noch nicht am Ring getestet)
 
 Quelle: Gadgetbridge `ColmiR0xConstants`, `ColmiR0xDeviceSupport`, `ColmiR0xPacketHandler` (Stand master, 2026-11-21); Schritte zusätzlich tahnok `steps.py`. Übernommen ist nur das Byte-Format, der Code ist eigen. Status: **Implementiert**, nicht am R03/R09 bestätigt.
