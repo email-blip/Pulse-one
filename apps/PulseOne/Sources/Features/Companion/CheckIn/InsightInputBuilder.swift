@@ -67,9 +67,11 @@ enum InsightDemo {
         func calm(from start: Int) -> [NightPoint] {
             let offsets = (start...(start + 27)).filter { $0 != 9 && $0 != 16 }
             return offsets.map { (offset: Int) -> NightPoint in
-                let rhr: Double = 55 + Double(offset % 4)
-                let hrv: Double = 40 + Double(offset % 7)
-                let sleep: Double = 6.8 + Double(offset % 5) * 0.2
+                // Gentle, irregular variation instead of a sawtooth, so the chart reads like real nights.
+                let wiggle: [Double] = [0, 1, 0, -1, 0, 1, 1, 0, -1, 0, 1]
+                let rhr: Double = 56 + wiggle[offset % wiggle.count]
+                let hrv: Double = 43 - 2 * wiggle[(offset + 3) % wiggle.count]
+                let sleep: Double = 7.2 + 0.3 * wiggle[(offset + 5) % wiggle.count]
                 return night(offset, rhr, hrv, sleep)
             }
         }

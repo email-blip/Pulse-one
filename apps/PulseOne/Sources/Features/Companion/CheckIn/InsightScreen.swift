@@ -261,7 +261,8 @@ private struct NightAxis: View {
             chart(title: "Ruhepuls (bpm)", points: points(\.restingHeartRate), band: evidence.first { $0.title == "Ruhepuls" }?.baseline,
                   color: Palette.pulseCoral)
             chart(title: "HRV (ms)", points: points(\.hrv), band: evidence.first { $0.title == "HRV" }?.baseline, color: Palette.bioCyan)
-            Text("Lücken sind Nächte ohne Messung. Das Band ist dein üblicher Bereich.")
+            Text(evidence.contains { $0.baseline != nil } ? "Lücken sind Nächte ohne Messung. Das Band ist dein üblicher Bereich."
+                 : "Lücken sind Nächte ohne Messung.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
         }
     }
@@ -278,7 +279,7 @@ private struct NightAxis: View {
                 ForEach(points) { point in
                     LineMark(x: .value("Nacht", point.date), y: .value(title, point.value), series: .value("Abschnitt", point.segment))
                         .foregroundStyle(color)
-                        .interpolationMethod(.monotone)
+                        .interpolationMethod(.linear)
                     PointMark(x: .value("Nacht", point.date), y: .value(title, point.value))
                         .foregroundStyle(color)
                         .symbolSize(point.id == points.last?.id ? 80 : 20)
