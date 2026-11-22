@@ -35,6 +35,14 @@ struct CustomFoodView: View {
                 }
             }
             Section {
+                // Header and footer as plain rows: as section header/footer the system draws them with its own
+                // vibrancy, and the audit then fails contrast and Dynamic Type whatever colour we set (run 135).
+                Text("Nährwerte je 100 \(unit.rawValue)")
+                    .font(Typography.label)
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+                    .accessibilityAddTraits(.isHeader)
+                    .listRowBackground(Color.clear)
                 ForEach(Nutrient.allCases, id: \.self) { n in
                     HStack {
                         Text(n.label)
@@ -46,16 +54,11 @@ struct CustomFoodView: View {
                         Text(n.unitSymbol).foregroundStyle(Palette.inkMuted)
                     }
                 }
-            } header: {
-                // Own colours: the system's grey header and footer fail the contrast audit on the dark background.
-                Text("Nährwerte je 100 \(unit.rawValue)")
-                    .font(Typography.label)
-                    .foregroundStyle(Palette.ink)
-                    .textCase(nil)
-            } footer: {
                 Text("Leer lassen, was nicht auf der Packung steht. Unmögliche Werte (z. B. über 900 kcal je 100 g) werden nicht übernommen.")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+                    .listRowBackground(Color.clear)
             }
             Section {
                 Button("Weiter zur Menge") { created = makeFood() }
