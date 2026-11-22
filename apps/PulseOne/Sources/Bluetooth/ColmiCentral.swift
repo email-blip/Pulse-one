@@ -61,6 +61,8 @@ final class ColmiCentral: NSObject {
     private static let bigDataWriteID = CBUUID(string: ColmiHistory.bigDataWrite)
     private static let bigDataNotifyID = CBUUID(string: ColmiHistory.bigDataNotify)
     static let lastSyncKey = "ring.lastHistorySync"
+    /// Rings whose advertisement was written to the trace in this scan session.
+    private var advertisementTraced: Set<UUID> = []
     /// Seconds without an answer before a history step counts as unanswered.
     private static let stepTimeout: Duration = .seconds(8)
 
@@ -621,6 +623,12 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
         let advertised = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         guard let name = advertised ?? peripheral.name, !name.isEmpty else { return }
         peripherals[peripheral.identifier] = peripheral
+        if ColmiModel.detect(advertisedName: name) != nil, advertisementTraced.insert(peripheral.identifier).inserted {
+            // Needed once from a real scan: AccessorySetupKit discovers only by advertised service or company ID.
+            let services = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []).map(\.uuidString)
+            let manufacturer = (advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data).map { [UInt8]($0) }
+            trace(.event, AdvertisementSummary.describe(name: name, serviceUUIDs: services, manufacturerData: manufacturer))
+        }
         let ring = DiscoveredRing(id: peripheral.identifier, name: name, rssi: RSSI.intValue,
                                   model: ColmiModel.detect(advertisedName: name))
         update { $0.upsert(ring) }

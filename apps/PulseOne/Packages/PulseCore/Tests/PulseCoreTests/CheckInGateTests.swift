@@ -123,3 +123,18 @@ struct TrainingReviewTests {
         #expect(TrainingReviewer.review(facts(.core, rates: [], sessions: 7)).effectText.contains("über die Wochen"))
     }
 }
+
+@Suite("Advertisement summary")
+struct AdvertisementSummaryTests {
+    @Test func companyIdentifierIsLittleEndian() {
+        #expect(AdvertisementSummary.companyIdentifier([0x4C, 0x00, 0x01]) == "004C")
+        #expect(AdvertisementSummary.companyIdentifier([0x01]) == nil)
+        #expect(AdvertisementSummary.companyIdentifier(nil) == nil)
+    }
+
+    @Test func summaryNamesServicesAndManufacturer() {
+        let text = AdvertisementSummary.describe(name: "R03_1A2B", serviceUUIDs: ["FEE7", "180D"], manufacturerData: [0x34, 0x12, 0xAA])
+        #expect(text == "Werbung R03_1A2B · Dienste: 180D, FEE7 · Hersteller-ID: 1234 · Herstellerdaten: 34 12 AA")
+        #expect(AdvertisementSummary.describe(name: "R03", serviceUUIDs: [], manufacturerData: nil).contains("Dienste: keine"))
+    }
+}
