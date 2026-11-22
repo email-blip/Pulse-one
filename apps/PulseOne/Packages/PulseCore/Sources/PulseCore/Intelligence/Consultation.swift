@@ -176,7 +176,6 @@ public struct ValidatedConsultation: Sendable, Equatable {
 
 extension AnalysisSchema {
     public static var consultationV1: JSONValue {
-        let integer: JSONValue = .object(["type": .string("integer")])
         let differential: [String: JSONValue] = [
             "name": string(),
             "fit": enumeration(["strong", "partial", "weak"]),
