@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: export-screenshots.sh <result.xcresult> <out-dir>
-# Extracts PNG attachments (XCTAttachment name = file name) from an xcresult bundle.
+# Extracts PNG attachments and the walkthrough report (.md) (XCTAttachment name = file name) from an xcresult bundle.
 set -euo pipefail
 res="$1"; out="$2"
 [ -d "$res" ] || { echo "no result bundle $res – skipping"; exit 0; }
@@ -15,8 +15,11 @@ if os.path.exists(manifest):
     for test in json.load(open(manifest)):
         for a in test.get("attachments", []):
             src = os.path.join(tmp, a["exportedFileName"])
-            if not src.lower().endswith(".png"): continue
             name = a.get("suggestedHumanReadableName") or a["exportedFileName"]
+            if src.lower().endswith(".md") or ".md" in name:   # walkthrough report (ExplorerTests)
+                shutil.copy(src, os.path.join(out, re.sub(r"_\d+_[0-9A-F-]{36}", "", name).split(".md")[0] + ".md"))
+                continue
+            if not src.lower().endswith(".png"): continue
             name = re.sub(r"_\d+_[0-9A-F-]{36}", "", name)   # strip index/UUID suffix if present
             name = re.sub(r"[^A-Za-z0-9_.-]", "-", name)
             if not name.endswith(".png"): name += ".png"

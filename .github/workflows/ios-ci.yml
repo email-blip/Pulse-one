@@ -62,11 +62,16 @@ jobs:
             tests: >-
               -only-testing:PulseOneIntegrationTests -only-testing:PulseOneUITests
               -skip-testing:PulseOneUITests/ScreenshotTests -skip-testing:PulseOneUITests/AccessibilityTests
+              -skip-testing:PulseOneUITests/ExplorerTests
           # Apple's accessibility audit on every screen (contrast, hit regions, Dynamic Type, labels).
           # The audits inside ActivationTests/CompanionTests run in logic-and-ui.
+          # Plus the automatic walkthrough (ExplorerTests, DECISIONS.md 2026-11-22): taps every reachable button,
+          # fails on crashes, broken texts and audit findings on the screens it opens, writes explore-report.md.
+          # It shares this shard because the audits finish ~10 min before the screenshot shards (5-Mac limit).
           - shard: accessibility
             device: main
-            tests: -only-testing:PulseOneUITests/AccessibilityTests
+            screenshots: true
+            tests: -only-testing:PulseOneUITests/AccessibilityTests -only-testing:PulseOneUITests/ExplorerTests
           # Screenshot matrix per device. The main device must succeed; small/large stay non-blocking as before.
           - shard: screenshots-main
             device: main
@@ -150,6 +155,12 @@ jobs:
       - name: Export screenshots
         if: always() && matrix.screenshots
         run: scripts/export-screenshots.sh "build/${{ matrix.shard }}.xcresult" "shots/${{ steps.sims.outputs.name }}"
+
+      - name: Walkthrough report in the run summary
+        if: always() && matrix.shard == 'accessibility'
+        run: |
+          report=$(find shots -name explore-report.md | head -1)
+          if [ -n "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; else echo "Kein Rundgang-Bericht (Test nicht gelaufen)." >> "$GITHUB_STEP_SUMMARY"; fi
 
       - name: Upload screenshots for the publish job
         if: always() && matrix.screenshots
