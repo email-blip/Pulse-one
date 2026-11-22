@@ -36,3 +36,16 @@ Status R03-Puls: **Gebaut**, nicht iPhone. Kein echter Messwert in PULSE ONE.
 | Pulsmessung Variante A | erfolgreich, 61–63 bpm, erste Werte nach 25,6 s (Diagnosedatei Johannes 06:01Z) |
 | Pulsmessung Variante B | erfolgreich, 63–64 bpm |
 | Status R03-Puls | **iPhone** (echter Wert in PULSE ONE); „Abgenommen“ entscheidet Codex |
+
+## R03-Realtest 3 (2026-11-21 23:14Z, Build 1.0.1 (10))
+
+| Nachweis | Ergebnis |
+|---|---|
+| Firmware | RY03_3.00.28_250401, Hardware RY03_V3.0 |
+| Akku | 70 % (`03 46`) |
+| Messprofil „Standard“ (`16`/`38`/`36`/`2C` schreiben + lesen) | vom Ring quittiert und gegengelesen: Puls alle 5 min an, HRV, Stress, SpO₂ an |
+| Live-Puls Variante A | erfolgreich, 69–71 bpm, erste Werte nach 25,5 s |
+| Verlauf | nicht abgerufen (Messung lief), weiter unbestätigt |
+| Status Ring-Einstellungen | **iPhone**; Verlauf bleibt **Gebaut** |
+
+Quelle: Diagnosedatei Johannes im Projekt-Chat, Details `docs/colmi-protokoll.md` (Realtest 3).

@@ -53,10 +53,56 @@ struct CompanionConferenceTests {
         "Das Risiko für Bluthochdruck ist erhöht.",
         "Eine Therapie wäre sinnvoll."
     ])
-    func forbiddenRepliesAreWithheld(_ reply: String) {
-        let screened = CompanionConference.screen(reply)
+    func forbiddenRepliesAreWithheldInDescriptiveMode(_ reply: String) {
+        let screened = CompanionConference.screen(reply, mode: .descriptive)
         #expect(screened.withheld)
         #expect(screened.text == CompanionConference.withheldNotice)
+    }
+
+    @Test func clinicalModeKeepsDiagnosesAndProbabilities() {
+        let reply = "Dein Ruhepuls deutet mit etwa 60 % Wahrscheinlichkeit auf einen beginnenden Infekt hin. Ein Blutbild wäre sinnvoll."
+        let screened = CompanionConference.screen(reply, mode: .clinical)
+        #expect(!screened.withheld)
+        #expect(screened.text == reply)
+    }
+
+    @Test func clinicalModeDropsDisclaimers() {
+        let screened = CompanionConference.screen("Ich bin kein Arzt. Dein Nachtruhepuls lag bei 55.", mode: .clinical)
+        #expect(!screened.withheld)
+        #expect(!screened.text.lowercased().contains("kein arzt"))
+        #expect(screened.text.contains("Nachtruhepuls lag bei 55"))
+        let onlyDisclaimer = CompanionConference.screen("Ich bin kein Arzt.", mode: .clinical)
+        #expect(onlyDisclaimer.text == CompanionConference.emptyNotice)
+    }
+
+    @Test func clinicalModeNotesPrescribedMedicationChanges() {
+        let screened = CompanionConference.screen("Du könntest den Betablocker reduzieren.", mode: .clinical)
+        #expect(!screened.withheld)
+        #expect(screened.text.hasSuffix(CompanionConference.medicationNote))
+    }
+
+    @Test func clinicalPromptsAskForProbabilitiesAndWorkup() throws {
+        let heart = try #require(CompanionPrompts.conferenceRoles.first)
+        let round = CompanionPrompts.conferenceRound(role: heart, facts: "Nachtruhepuls: 58", mode: .clinical)
+        #expect(round.system.contains("Kardiologie"))
+        #expect(round.system.contains("Wahrscheinlichkeit in Prozent"))
+        #expect(round.system.contains("112"))
+        #expect(!round.system.contains("Keine Diagnosen"))
+        let synthesis = CompanionPrompts.conferenceSynthesis(facts: "x", statements: [], mode: .clinical)
+        for title in CompanionConference.clinicalSectionTitles {
+            #expect(synthesis.system.contains("„\(title)“"))
+        }
+        #expect(CompanionPrompts.conferenceIntro(.clinical) == CompanionPrompts.clinicalConferenceIntro)
+        #expect(!CompanionPrompts.clinicalConferenceIntro.lowercased().contains("keine"))
+        let descriptive = CompanionPrompts.conferenceRound(role: heart, facts: "x", mode: .descriptive)
+        #expect(descriptive.system.contains("Keine Diagnosen"))
+    }
+
+    @Test func clinicalSynthesisHeadingsAreRecognised() {
+        let text = "Einschätzung\nRuhig.\nMögliche Ursachen\n- Infekt 40 %\nHier sind wir uns nicht einig\nKeine Uneinigkeit.\nAbklärung\nBlutbild beim Hausarzt.\nVorschläge\n- Ruhetag\nOffene Frage\nHast du Halsschmerzen?"
+        let sections = CompanionConference.sections(of: text)
+        #expect(sections.map(\.title) == CompanionConference.clinicalSectionTitles)
+        #expect(sections.filter(\.isDisagreement).count == 1)
     }
 
     @Test func allowedReplyIsTrimmedAndKept() {
@@ -66,7 +112,7 @@ struct CompanionConferenceTests {
     }
 
     @Test func causalWordingIsOnlyAFlagAndStays() {
-        #expect(CompanionConference.isAllowed("Der Puls war höher, weil du spät trainiert hast."))
+        #expect(CompanionConference.isAllowed("Der Puls war höher, weil du spät trainiert hast.", mode: .descriptive))
     }
 
     @Test func emptyReplyIsNotWithheld() {
@@ -79,9 +125,9 @@ struct CompanionConferenceTests {
         for role in CompanionPrompts.conferenceRoles {
             let statement = CompanionConference.sampleStatements[role.id] ?? ""
             #expect(!statement.isEmpty)
-            #expect(CompanionConference.isAllowed(statement))
+            #expect(CompanionConference.isAllowed(statement, mode: .descriptive))
         }
-        #expect(CompanionConference.isAllowed(CompanionConference.sampleSynthesis))
+        #expect(CompanionConference.isAllowed(CompanionConference.sampleSynthesis, mode: .descriptive))
     }
 
     @Test func synthesisSplitsIntoFourSectionsWithDisagreement() {

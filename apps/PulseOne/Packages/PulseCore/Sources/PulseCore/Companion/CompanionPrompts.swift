@@ -24,6 +24,20 @@ public enum CompanionPrompts {
     /// UI name of the conference (not "Ärzte-Konferenz": it must not suggest medical advice).
     public static let conferenceTitle = "Expertenrunde"
     public static let conferenceDisclaimer = "Vier KI-Rollen, keine echten Ärztinnen oder Ärzte. Keine Diagnose, keine Therapie."
+    /// Owner decision 2026-11-21 (clinical mode): the roles interpret like specialists, without disclaimers.
+    public static let clinicalConferenceIntro = "Vier Fachrollen von Claude werten deine Werte aus: Kardiologie, Schlafmedizin, Sportmedizin und Ernährungsmedizin, mit Wahrscheinlichkeiten und Abklärungsvorschlägen."
+
+    public static func conferenceIntro(_ mode: SafetyMode) -> String {
+        mode == .clinical ? clinicalConferenceIntro : conferenceDisclaimer
+    }
+
+    /// Specialist view per role id in clinical mode.
+    static let clinicalSpecialty: [String: String] = [
+        "heart": "Fachärztin oder Facharzt für Kardiologie und Innere Medizin",
+        "sleep": "Fachärztin oder Facharzt für Schlafmedizin und Pneumologie",
+        "sport": "Fachärztin oder Facharzt für Sportmedizin und Rehabilitation",
+        "nutrition": "Fachärztin oder Facharzt für Ernährungsmedizin mit Blick auf Stoffwechsel"
+    ]
     /// Heading the synthesis must contain, shown as its own block in the UI.
     public static let disagreementHeading = "Hier sind wir uns nicht einig"
     public static let maxRewriteWords = 110
@@ -144,7 +158,9 @@ public enum CompanionPrompts {
 
     // MARK: - Expertenrunde
 
-    public static func conferenceRound(role: ConferenceRole, facts: String) -> (system: String, user: String) {
+    public static func conferenceRound(role: ConferenceRole, facts: String,
+                                       mode: SafetyMode = .clinical) -> (system: String, user: String) {
+        if mode == .clinical { return clinicalRound(role: role, facts: facts) }
         let system = """
         Du bist die KI-Rolle „\(role.title)“ in der \(conferenceTitle) einer privaten Gesundheits-App. \
         Du bist keine Ärztin und kein Arzt und sprichst nur aus deinem Blickwinkel. \
@@ -157,18 +173,55 @@ public enum CompanionPrompts {
         return (system: system, user: "Fakten:\n\(facts)")
     }
 
-    public static func conferenceSynthesis(facts: String, statements: [(ConferenceRole, String)]) -> (system: String, user: String) {
+    /// Clinical round: the role interprets like a specialist (owner decision 2026-11-21). Kept: warning signs
+    /// first with urgency, uncertainty as a percentage, prescribed medication never changed on its own.
+    static func clinicalRound(role: ConferenceRole, facts: String) -> (system: String, user: String) {
+        let specialty = clinicalSpecialty[role.id] ?? "Fachärztin oder Facharzt"
         let system = """
-        Du moderierst die \(conferenceTitle) einer privaten Gesundheits-App: vier KI-Rollen, keine Ärztinnen oder Ärzte. \
-        Führe die Beiträge auf Deutsch knapp zusammen. Erfinde keine neuen Fakten. \
-        Keine Diagnosen, keine Therapie- oder Medikamentenempfehlungen, keine Ursachenbehauptungen, keine Versprechen. \
-        Antworte genau in diesen Abschnitten mit diesen Überschriften: \
-        „Beobachtungen“ (3 Punkte, jeweils mit der Zahl als Beleg), \
-        „\(disagreementHeading)“ (benenne Widersprüche zwischen den Rollen offen; wenn es keine gibt, schreibe „Keine Uneinigkeit.“), \
-        „Vorschläge“ (2 bis 3 alltagsnahe Vorschläge), \
-        „Offene Frage“ (1 Frage an die Person). \
-        Wenn eine Rolle eine ärztliche Abklärung nennt, übernimm den Hinweis neutral.
+        Du bist die Rolle „\(role.title)“ in der \(conferenceTitle) einer privaten Gesundheits-App: \
+        \(specialty). Die Person nutzt ihre eigene App mit ihren eigenen Daten und weiß, dass du kein behandelnder \
+        Arzt bist; sie will eine ehrliche, fachlich fundierte Einschätzung ohne Einschränkungen. \
+        Blickwinkel: \(role.focus) \
+        Schreibe auf Deutsch 3 bis 6 Sätze, höchstens 130 Wörter, mit „du“: deine Einschätzung, mögliche Ursachen \
+        oder Diagnosen jeweils mit Wahrscheinlichkeit in Prozent, was du zur Abklärung untersuchen würdest und eine \
+        konkrete Empfehlung. Nenne die Zahlen, auf die du dich stützt, und bedenke die Messgenauigkeit von Ring und Uhr. \
+        Warnzeichen zuerst: Bei möglicherweise gefährlichen Werten sag am Anfang klar, wie dringend (Notruf 112, heute \
+        ärztlich, in den nächsten Tagen). Verordnete Medikamente nie eigenmächtig absetzen oder umdosieren lassen. \
+        Keine Floskeln wie „ich bin kein Arzt“. Wenn die Daten nicht reichen, sag, was fehlt, und interpretiere trotzdem.
         """
+        return (system: system, user: "Fakten:\n\(facts)")
+    }
+
+    public static func conferenceSynthesis(facts: String, statements: [(ConferenceRole, String)],
+                                           mode: SafetyMode = .clinical) -> (system: String, user: String) {
+        let system: String
+        if mode == .clinical {
+            system = """
+            Du leitest die \(conferenceTitle) einer privaten Gesundheits-App, ein Team aus Kardiologie, Schlafmedizin, \
+            Sportmedizin und Ernährungsmedizin. Führe die Beiträge auf Deutsch zu einer gemeinsamen ärztlichen \
+            Einschätzung zusammen. Erfinde keine neuen Messwerte. Keine Floskeln wie „ich bin kein Arzt“. \
+            Antworte genau in diesen Abschnitten mit diesen Überschriften: \
+            „Einschätzung“ (2 bis 3 Sätze, Warnzeichen und Dringlichkeit zuerst), \
+            „Mögliche Ursachen“ (2 bis 4 Punkte, jeweils mit Wahrscheinlichkeit in Prozent und den Zahlen als Beleg), \
+            „\(disagreementHeading)“ (benenne Widersprüche zwischen den Rollen offen; wenn es keine gibt, schreibe „Keine Uneinigkeit.“), \
+            „Abklärung“ (welche Untersuchungen bei welcher Fachrichtung, wie dringend; wenn keine nötig, sag das), \
+            „Vorschläge“ (2 bis 4 konkrete Schritte für Training, Erholung, Schlaf, Ernährung oder Behandlung), \
+            „Offene Frage“ (1 Anamnese-Frage an die Person). \
+            Verordnete Medikamente nie eigenmächtig absetzen oder umdosieren lassen.
+            """
+        } else {
+            system = """
+            Du moderierst die \(conferenceTitle) einer privaten Gesundheits-App: vier KI-Rollen, keine Ärztinnen oder Ärzte. \
+            Führe die Beiträge auf Deutsch knapp zusammen. Erfinde keine neuen Fakten. \
+            Keine Diagnosen, keine Therapie- oder Medikamentenempfehlungen, keine Ursachenbehauptungen, keine Versprechen. \
+            Antworte genau in diesen Abschnitten mit diesen Überschriften: \
+            „Beobachtungen“ (3 Punkte, jeweils mit der Zahl als Beleg), \
+            „\(disagreementHeading)“ (benenne Widersprüche zwischen den Rollen offen; wenn es keine gibt, schreibe „Keine Uneinigkeit.“), \
+            „Vorschläge“ (2 bis 3 alltagsnahe Vorschläge), \
+            „Offene Frage“ (1 Frage an die Person). \
+            Wenn eine Rolle eine ärztliche Abklärung nennt, übernimm den Hinweis neutral.
+            """
+        }
         var user = "Fakten:\n\(facts)\n\nBeiträge:"
         for (role, statement) in statements {
             user += "\n\(role.title): \(statement)"
