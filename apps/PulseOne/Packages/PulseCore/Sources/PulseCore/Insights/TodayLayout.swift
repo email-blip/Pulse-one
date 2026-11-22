@@ -35,7 +35,7 @@ public enum TodayTile: Hashable, Codable, Sendable, Identifiable {
         case .companion: "Begleiter"
         case .metric(let kind): kind.title
         case .nutrition: "Ernährung"
-        case .eveningNote: "Abendnotiz"
+        case .eveningNote: "Tagesabschluss"
         }
     }
 }

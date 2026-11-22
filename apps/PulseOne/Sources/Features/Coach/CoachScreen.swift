@@ -61,10 +61,7 @@ struct CoachScreen: View {
                 .preferredColorScheme(.dark)
             }
             .sheet(isPresented: $showReview) {
-                EveningReviewSheet(day: now, existing: snapshot?.todayReview, planned: snapshot?.plan.suggested) { review in
-                    repository.save(review: review)
-                    refresh += 1
-                }
+                DayCloseoutSheet(day: now, profileID: sources.ownerProfileID) { refresh += 1 }
                 .preferredColorScheme(.dark)
             }
             .sheet(item: $proposal) { proposal in
@@ -183,34 +180,25 @@ struct CoachScreen: View {
 
     private func reviewCard(_ s: CoachSnapshot) -> some View {
         Card {
-            Label("Abendrückblick", systemImage: DayBlockKind.eveningReview.symbol)
+            Label("Tagesabschluss", systemImage: DayBlockKind.eveningReview.symbol)
                 .font(Typography.label)
                 .foregroundStyle(Palette.neuralViolet)
                 .wraps()
             if let review = s.todayReview {
-                Text(reviewSummary(review))
+                Text(DayCloseout.movementText(review))
                     .font(Typography.caption)
                     .foregroundStyle(Palette.ink)
                     .wraps()
             } else {
-                Text("Noch kein Rückblick für heute. Zwei Minuten am Abend reichen; daraus plant der Coach morgen.")
+                Text("Noch kein Tagesabschluss für heute. Zwei Minuten am Abend reichen; daraus plant der Coach morgen. Du findest ihn auch auf „Heute“.")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .wraps()
             }
-            Button(s.todayReview == nil ? "Rückblick eintragen" : "Rückblick ändern") { showReview = true }
+            Button(s.todayReview == nil ? "Tag abschließen" : "Tagesabschluss ändern") { showReview = true }
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("coach.review")
         }
-    }
-
-    private func reviewSummary(_ r: EveningReview) -> String {
-        guard r.completed else { return "Heute ausgelassen." }
-        var parts = ["Erledigt"]
-        if let minutes = r.minutes { parts.append("\(minutes) min") }
-        if let rpe = r.rpe { parts.append("Anstrengung \(rpe)/10") }
-        if let load = r.load { parts.append("Belastung \(Int(load))") }
-        return parts.joined(separator: " · ")
     }
 
     private func signalsCard(_ signals: [RecoverySignal]) -> some View {
