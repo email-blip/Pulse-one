@@ -304,7 +304,7 @@ struct CoachBlockCard: View {
                 NavigationLink {
                     ExerciseListView(title: block.title, exercises: block.exercises)
                 } label: {
-                    Label("\(block.exercises.count) Übungen ansehen", systemImage: "list.bullet")
+                    Label(block.exercises.count == 1 ? "1 Übung ansehen" : "\(block.exercises.count) Übungen ansehen", systemImage: "list.bullet")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle())
