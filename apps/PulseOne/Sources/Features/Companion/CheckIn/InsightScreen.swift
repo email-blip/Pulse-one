@@ -115,8 +115,9 @@ struct InsightScreen: View {
                 .wraps()
                 .accessibilityAddTraits(.isHeader)
             Text(insight.dataThrough.map { "Datenstand: \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Noch keine Daten")
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
+                // Data freshness is key information, so full ink (inkMuted measured too low on run 134).
+                .font(Typography.caption.weight(.semibold))
+                .foregroundStyle(Palette.ink)
         }
         .accessibilityIdentifier("insight.header")
     }
