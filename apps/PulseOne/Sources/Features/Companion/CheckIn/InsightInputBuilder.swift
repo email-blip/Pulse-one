@@ -65,8 +65,12 @@ enum InsightDemo {
         }
         // 28 calm nights; two nights (offsets 9 and 16) are missing on purpose, so the axis shows real gaps.
         func calm(from start: Int) -> [NightPoint] {
-            (start...(start + 27)).filter { $0 != 9 && $0 != 16 }.map { offset in
-                night(offset, 55 + Double(offset % 4), 40 + Double(offset % 7), 6.8 + Double(offset % 5) * 0.2)
+            let offsets = (start...(start + 27)).filter { $0 != 9 && $0 != 16 }
+            return offsets.map { (offset: Int) -> NightPoint in
+                let rhr: Double = 55 + Double(offset % 4)
+                let hrv: Double = 40 + Double(offset % 7)
+                let sleep: Double = 6.8 + Double(offset % 5) * 0.2
+                return night(offset, rhr, hrv, sleep)
             }
         }
         let nights: [NightPoint]

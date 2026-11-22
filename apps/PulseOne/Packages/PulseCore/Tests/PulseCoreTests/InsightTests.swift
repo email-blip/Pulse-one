@@ -22,8 +22,11 @@ private func night(_ offset: Int, rhr: Double?, hrv: Double?, sleep: Double?) ->
 
 /// 28 calm nights (resting pulse 55–58, HRV 40–46, sleep 6.8–7.6 h), the newest `start` days before today.
 private func calmHistory(from start: Int = 1) -> [NightPoint] {
-    (start...(start + 27)).map { offset in
-        night(-offset, rhr: 55 + Double(offset % 4), hrv: 40 + Double(offset % 7), sleep: 6.8 + Double(offset % 5) * 0.2)
+    (start...(start + 27)).map { (offset: Int) -> NightPoint in
+        let rhr: Double = 55 + Double(offset % 4)
+        let hrv: Double = 40 + Double(offset % 7)
+        let sleep: Double = 6.8 + Double(offset % 5) * 0.2
+        return night(-offset, rhr: rhr, hrv: hrv, sleep: sleep)
     }
 }
 
