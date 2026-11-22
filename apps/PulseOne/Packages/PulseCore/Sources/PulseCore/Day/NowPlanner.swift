@@ -9,7 +9,7 @@ public enum NowTarget: String, Equatable, Sendable {
     case companion
     /// Informational: the step lives in the Coach tab.
     case coach
-    /// Informational: the evening note further down on TODAY.
+    /// The Tagesabschluss sheet (Coach review and evening note in one step).
     case eveningNote
     /// Nothing to open.
     case none
@@ -47,7 +47,7 @@ public struct NowInput: Sendable {
     public var snackHint: String?
     /// Today's main session from the Coach (nil on rest days or without a coach).
     public var coachSession: PlannedSession?
-    /// The Coach evening review for today exists.
+    /// Today's Tagesabschluss exists (Coach review or evening note).
     public var eveningReviewDone: Bool
     /// The shared day guard: no strength on sick or alarm days.
     public var dayGuard: DayGuard
@@ -115,8 +115,8 @@ public enum NowPlanner {
         }
         if hour >= eveningStartsHour, !input.eveningReviewDone {
             return NowItem(id: "closeout", title: "Tagesabschluss",
-                           detail: "Wie war dein Tag? Der Abendrückblick im Tab „Coach“ plant damit morgen.",
-                           symbol: "moon.stars", target: .coach)
+                           detail: "Wie war dein Tag? Zwei Minuten für Bewegung, Stimmung und Stichworte; der Coach plant damit morgen.",
+                           symbol: "moon.stars", target: .eveningNote)
         }
         if minute >= windDownMinute {
             return NowItem(id: "windDown", title: "Zeit zum Runterfahren",

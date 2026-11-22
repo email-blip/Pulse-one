@@ -63,6 +63,7 @@ struct NowPlannerTests {
         var evening = input(19)
         evening.hasMorningReport = true
         #expect(NowPlanner.pick(evening).id == "closeout")
+        #expect(NowPlanner.pick(evening).target == .eveningNote)
         evening.eveningReviewDone = true
         #expect(NowPlanner.pick(evening).id == "clear")
         evening.now = at(22)

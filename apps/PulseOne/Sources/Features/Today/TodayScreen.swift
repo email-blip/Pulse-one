@@ -89,7 +89,7 @@ struct TodayScreen: View {
         case .nutrition:
             NutritionTodayCard()
         case .eveningNote:
-            EveningNoteCard()
+            DayCloseoutCard()
         }
     }
 

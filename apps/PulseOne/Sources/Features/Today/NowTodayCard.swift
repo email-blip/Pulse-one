@@ -3,7 +3,8 @@ import SwiftData
 import SwiftUI
 
 /// TODAY's "Jetzt dran" tile: the one next step of the day from Begleiter, activation and Coach, chosen by
-/// `NowPlanner`. Steps of the Begleiter open its screen; Coach steps name the tab (informational).
+/// `NowPlanner`. Steps of the Begleiter open its screen, the closeout opens the Tagesabschluss sheet; Coach steps
+/// name the tab (informational).
 struct NowTodayCard: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
@@ -11,6 +12,8 @@ struct NowTodayCard: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var item: NowItem?
     @State private var activation: ActivationStore?
+    @State private var closing = false
+    @State private var closeoutSaves = 0
 
     var body: some View {
         // A stack, not a Group: it exists before the first item, so its task runs.
@@ -19,13 +22,20 @@ struct NowTodayCard: View {
                 if item.target == .companion {
                     NavigationLink { CompanionScreen() } label: { NowCardContent(item: item, opens: true) }
                         .buttonStyle(.plain)
+                } else if item.target == .eveningNote {
+                    Button { closing = true } label: { NowCardContent(item: item, opens: true) }
+                        .buttonStyle(.plain)
                 } else {
                     NowCardContent(item: item, opens: false)
                 }
             }
         }
         // Re-evaluated whenever TODAY appears, the app returns, or the companion finishes a refresh.
-        .task(id: "\(scenePhase == .active)|\(companion.lastRefreshAt?.timeIntervalSince1970 ?? 0)") { reload() }
+        .task(id: "\(scenePhase == .active)|\(companion.lastRefreshAt?.timeIntervalSince1970 ?? 0)|\(closeoutSaves)") { reload() }
+        .sheet(isPresented: $closing) {
+            DayCloseoutSheet(day: CompanionUI.now, profileID: sources.ownerProfileID) { closeoutSaves += 1 }
+                .preferredColorScheme(.dark)
+        }
     }
 
     private func reload() {
@@ -58,6 +68,8 @@ struct NowTodayCard: View {
                 break
             }
         }
+        // Closeout done: today's Coach review or evening note exists (works without a set-up coach too).
+        let closeout = DayCloseoutRecords.isDone(context: modelContext, day: now, calendar: calendar)
         let reportToday = companion.latestBriefing.map { calendar.isDate($0.createdAt, inSameDayAs: now) } ?? false
 
         item = NowPlanner.pick(NowInput(
@@ -68,7 +80,7 @@ struct NowTodayCard: View {
             nextActivation: next,
             snackHint: store.snackHint(now: now),
             coachSession: coach?.plan.suggested,
-            eveningReviewDone: coach?.todayReview != nil,
+            eveningReviewDone: closeout,
             dayGuard: dayGuard))
     }
 }
@@ -103,6 +115,6 @@ private struct NowCardContent: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("today.now")
-        .accessibilityHint(opens ? "Öffnet den Begleiter." : "")
+        .accessibilityHint(opens ? (item.target == .eveningNote ? "Öffnet den Tagesabschluss." : "Öffnet den Begleiter.") : "")
     }
 }
