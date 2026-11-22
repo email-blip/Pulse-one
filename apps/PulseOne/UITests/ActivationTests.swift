@@ -68,21 +68,6 @@ final class ActivationTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["activation.overview"].waitForExistence(timeout: 10))
         // Let the full-screen presentation finish (see AccessibilityTests).
         Thread.sleep(forTimeInterval: 3)
-        let name = scenario
-        let barFrames = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex)
-            .filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -32) }
-        try app.performAccessibilityAudit { issue in
-            let element = issue.element
-            print("AUDIT[\(name)] \(issue.auditType.rawValue) | \(issue.compactDescription) | id=\(element?.identifier ?? "-") label=\(element?.label ?? "-") frame=\(element?.frame ?? .zero)")
-            // Same documented exclusions as AccessibilityTests (DECISIONS.md).
-            if issue.auditType == .contrast, let frame = element?.frame,
-               barFrames.contains(where: { $0.intersects(frame) }) {
-                return true
-            }
-            if issue.auditType == .elementDetection, element == nil, !barFrames.isEmpty {
-                return true
-            }
-            return issue.auditType == .textClipped
-        }
+        try AuditPolicy.run(app, name: scenario)
     }
 }
