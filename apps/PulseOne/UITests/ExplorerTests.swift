@@ -14,7 +14,9 @@ import XCTest
 @MainActor
 final class ExplorerTests: XCTestCase {
     /// Start points: each area opens on its own tab with its test data.
-    static let starts = ["today", "health", "intelligence", "coach", "nutrition", "companion", "profile", "devices"]
+    // Nutrition is left out: the owner dropped that area (2026-11-22) and its forms give changing audit results
+    // from run to run (header, footer, then the number fields). Its fixed screens stay in AccessibilityTests.
+    static let starts = ["today", "health", "intelligence", "coach", "companion", "profile", "devices"]
     /// Total wall-clock budget. The accessibility shard has about this much room next to the slowest shard.
     static let budget: TimeInterval = 11 * 60
     /// Root screen = depth 0. Screens at maxDepth are checked and photographed, their buttons are not tapped.
