@@ -304,7 +304,7 @@ struct CoachBlockCard: View {
                 NavigationLink {
                     ExerciseListView(title: block.title, exercises: block.exercises)
                 } label: {
-                    Label("\(block.exercises.count) Übungen ansehen", systemImage: "list.bullet")
+                    Label(block.exercises.count == 1 ? "1 Übung ansehen" : "\(block.exercises.count) Übungen ansehen", systemImage: "list.bullet")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -381,7 +381,7 @@ struct ExerciseListView: View {
                                 Text("Schwerer: \(harder)").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                             }
                             Label(e.safety, systemImage: "hand.raised").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-                            Text("Quelle: \(e.origin)").font(.caption2).foregroundStyle(Palette.inkMuted).wraps()
+                            Text("Quelle: \(e.origin)").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                         }
                     }
                 }
