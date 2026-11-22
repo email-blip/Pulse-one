@@ -589,9 +589,9 @@ struct ConsultationTests {
         """
         {"reply":"\(reply)","assessment":[{"text":"Dein Ruhepuls lag bei 58 bpm.","type":"measured","evidence":["F1"]},\
         {"text":"Dein Ruhepuls lag bei 64 bpm.","type":"measured","evidence":["F1"]}],\
-        "differentials":[{"name":"Beginnender Infekt","likelihoodPercent":35,"reasoning":"Ruhepuls über dem Band.",\
+        "differentials":[{"name":"Beginnender Infekt","fit":"partial","reasoning":"Ruhepuls über dem Band.",\
         "supporting":["Ruhepuls erhöht"],"against":["kein Fieber berichtet"],"workup":["Temperatur messen"],"evidence":["F1","F9"]},\
-        {"name":"Übertraining","likelihoodPercent":140,"reasoning":"","supporting":[],"against":[],"workup":[],"evidence":[]}],\
+        {"name":"Übertraining","fit":"strong","reasoning":"","supporting":[],"against":[],"workup":[],"evidence":[]}],\
         "recommendations":[{"area":"training","priority":"high","text":"Zwei Tage nur locker trainieren.","evidence":["F1"]},\
         {"area":"treatment","priority":"low","text":"Den Betablocker solltest du reduzieren.","evidence":[]}],\
         "anamnesisQuestions":["Hast du Fieber?","Ich bin kein Arzt."],"urgency":"\(urgency)","urgencyReason":"","memory":"Ruhepuls erhöht."}
@@ -604,7 +604,7 @@ struct ConsultationTests {
         #expect(reply.reply == "Dein Ruhepuls ist leicht erhöht.")
         #expect(reply.assessment.map(\.text) == ["Dein Ruhepuls lag bei 58 bpm."])
         #expect(reply.differentials.map(\.name) == ["Übertraining", "Beginnender Infekt"])
-        #expect(reply.differentials.first?.likelihoodPercent == 100)
+        #expect(reply.differentials.first?.fit == .strong)
         #expect(reply.differentials.last?.evidence == ["F1"])
         #expect(reply.recommendations.count == 2)
         #expect(result.flagged["Den Betablocker solltest du reduzieren."] != nil)

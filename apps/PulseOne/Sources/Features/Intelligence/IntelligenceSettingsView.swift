@@ -57,7 +57,7 @@ struct IntelligenceSettingsView: View {
                         .tint(Palette.bioCyan)
                         .accessibilityIdentifier("intelligence.clinicalMode")
                         Text(settings.clinicalMode
-                             ? "Mögliche Diagnosen mit Wahrscheinlichkeit, Abklärung, Training, Reha und Behandlung, ohne Floskeln. Bei Warnzeichen rät die App deutlich zur Abklärung."
+                             ? "Mögliche Diagnosen mit Einordnung statt Prozenten, Abklärung, Training, Reha und Behandlung, ohne Floskeln. Bei Warnzeichen rät die App deutlich zur Abklärung."
                              : "Aus: Claude beschreibt nur Verläufe, ohne Diagnosen und ohne Aussagen zu Behandlung.")
                             .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                         Button("Gedächtnis der Sprechstunde löschen", role: .destructive) { forgetConsultations() }

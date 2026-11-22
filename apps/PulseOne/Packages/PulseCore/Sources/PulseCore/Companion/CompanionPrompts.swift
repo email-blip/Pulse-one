@@ -25,7 +25,7 @@ public enum CompanionPrompts {
     public static let conferenceTitle = "Expertenrunde"
     public static let conferenceDisclaimer = "Vier KI-Rollen, keine echten Ärztinnen oder Ärzte. Keine Diagnose, keine Therapie."
     /// Owner decision 2026-11-21 (clinical mode): the roles interpret like specialists, without disclaimers.
-    public static let clinicalConferenceIntro = "Vier Fachrollen von Claude werten deine Werte aus: Kardiologie, Schlafmedizin, Sportmedizin und Ernährungsmedizin, mit Wahrscheinlichkeiten und Abklärungsvorschlägen."
+    public static let clinicalConferenceIntro = "Vier Fachrollen von Claude werten deine Werte aus: Kardiologie, Schlafmedizin, Sportmedizin und Ernährungsmedizin, mit Einordnung der möglichen Ursachen und Abklärungsvorschlägen."
 
     public static func conferenceIntro(_ mode: SafetyMode) -> String {
         mode == .clinical ? clinicalConferenceIntro : conferenceDisclaimer
@@ -174,7 +174,7 @@ public enum CompanionPrompts {
     }
 
     /// Clinical round: the role interprets like a specialist (owner decision 2026-11-21). Kept: warning signs
-    /// first with urgency, uncertainty as a percentage, prescribed medication never changed on its own.
+    /// first with urgency, uncertainty as fit (no percentages since 2026-11-22), prescribed medication never changed on its own.
     static func clinicalRound(role: ConferenceRole, facts: String) -> (system: String, user: String) {
         let specialty = clinicalSpecialty[role.id] ?? "Fachärztin oder Facharzt"
         let system = """
@@ -183,7 +183,7 @@ public enum CompanionPrompts {
         Arzt bist; sie will eine ehrliche, fachlich fundierte Einschätzung ohne Einschränkungen. \
         Blickwinkel: \(role.focus) \
         Schreibe auf Deutsch 3 bis 6 Sätze, höchstens 130 Wörter, mit „du“: deine Einschätzung, mögliche Ursachen \
-        oder Diagnosen jeweils mit Wahrscheinlichkeit in Prozent, was du zur Abklärung untersuchen würdest und eine \
+        oder Diagnosen jeweils eingeordnet als „passt gut“, „passt teilweise“ oder „passt kaum“ (keine Prozentangaben), was du zur Abklärung untersuchen würdest und eine \
         konkrete Empfehlung. Nenne die Zahlen, auf die du dich stützt, und bedenke die Messgenauigkeit von Ring und Uhr. \
         Warnzeichen zuerst: Bei möglicherweise gefährlichen Werten sag am Anfang klar, wie dringend (Notruf 112, heute \
         ärztlich, in den nächsten Tagen). Verordnete Medikamente nie eigenmächtig absetzen oder umdosieren lassen. \
@@ -202,7 +202,7 @@ public enum CompanionPrompts {
             Einschätzung zusammen. Erfinde keine neuen Messwerte. Keine Floskeln wie „ich bin kein Arzt“. \
             Antworte genau in diesen Abschnitten mit diesen Überschriften: \
             „Einschätzung“ (2 bis 3 Sätze, Warnzeichen und Dringlichkeit zuerst), \
-            „Mögliche Ursachen“ (2 bis 4 Punkte, jeweils mit Wahrscheinlichkeit in Prozent und den Zahlen als Beleg), \
+            „Mögliche Ursachen“ (2 bis 4 Punkte, jeweils mit „passt gut“, „passt teilweise“ oder „passt kaum“, nie in Prozent, und den Zahlen als Beleg), \
             „\(disagreementHeading)“ (benenne Widersprüche zwischen den Rollen offen; wenn es keine gibt, schreibe „Keine Uneinigkeit.“), \
             „Abklärung“ (welche Untersuchungen bei welcher Fachrichtung, wie dringend; wenn keine nötig, sag das), \
             „Vorschläge“ (2 bis 4 konkrete Schritte für Training, Erholung, Schlaf, Ernährung oder Behandlung), \

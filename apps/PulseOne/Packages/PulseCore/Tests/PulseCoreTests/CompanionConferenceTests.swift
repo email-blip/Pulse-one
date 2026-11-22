@@ -81,11 +81,13 @@ struct CompanionConferenceTests {
         #expect(screened.text.hasSuffix(CompanionConference.medicationNote))
     }
 
-    @Test func clinicalPromptsAskForProbabilitiesAndWorkup() throws {
+    @Test func clinicalPromptsAskForFitWithoutPercentagesAndWorkup() throws {
         let heart = try #require(CompanionPrompts.conferenceRoles.first)
         let round = CompanionPrompts.conferenceRound(role: heart, facts: "Nachtruhepuls: 58", mode: .clinical)
         #expect(round.system.contains("Kardiologie"))
-        #expect(round.system.contains("Wahrscheinlichkeit in Prozent"))
+        #expect(round.system.contains("passt teilweise"))
+        #expect(round.system.contains("keine Prozentangaben"))
+        #expect(!round.system.contains("Wahrscheinlichkeit in Prozent"))
         #expect(round.system.contains("112"))
         #expect(!round.system.contains("Keine Diagnosen"))
         let synthesis = CompanionPrompts.conferenceSynthesis(facts: "x", statements: [], mode: .clinical)

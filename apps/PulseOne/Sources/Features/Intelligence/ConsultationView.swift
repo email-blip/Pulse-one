@@ -59,7 +59,7 @@ struct ConsultationView: View {
     private var introCard: some View {
         Card {
             SectionHeader(title: "Sprechstunde mit Claude")
-            Text("Claude schaut sich deine Werte der letzten vier Wochen an wie ein Team aus Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen mit Wahrscheinlichkeit, was man abklären sollte, und was du tun kannst.")
+            Text("Claude schaut sich deine Werte der letzten vier Wochen an wie ein Team aus Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen und wie gut sie passen, was man abklären sollte, und was du tun kannst.")
                 .font(Typography.body).foregroundStyle(Palette.ink).wraps()
             Text("Erzähl gern, wie du dich fühlst und was dich beschäftigt. Claude stellt Rückfragen wie in einer Anamnese. Das Gespräch bleibt auf deinem iPhone; eine Zusammenfassung fließt ins nächste Gespräch ein.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
@@ -255,7 +255,7 @@ struct ConsultationTurnView: View {
     }
 }
 
-/// A possible diagnosis: name, probability bar, what speaks for and against, and how to clarify it.
+/// A possible diagnosis: name, how well it fits (three steps, no percentages), what speaks for and against, and how to clarify it.
 struct DifferentialRow: View {
     let diagnosis: DifferentialDiagnosis
     let context: HealthAnalysisContext?
@@ -265,16 +265,13 @@ struct DifferentialRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(diagnosis.name).font(Typography.label).foregroundStyle(Palette.ink).wraps()
                 Spacer(minLength: Spacing.s)
-                Text("\(diagnosis.likelihoodPercent) %").font(Typography.label).foregroundStyle(Palette.bioCyan)
+                Text(diagnosis.fit.title).font(Typography.label).foregroundStyle(Palette.bioCyan)
             }
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.surfaceButton)
-                    Capsule().fill(Palette.bioCyan)
-                        .frame(width: geometry.size.width * CGFloat(diagnosis.likelihoodPercent) / 100)
+            HStack(spacing: Spacing.xs) {
+                ForEach(0..<3, id: \.self) { step in
+                    Capsule().fill(step < filledSteps ? Palette.bioCyan : Palette.surfaceButton).frame(height: 6)
                 }
             }
-            .frame(height: 6)
             .accessibilityHidden(true)
             if !diagnosis.reasoning.isEmpty {
                 Text(diagnosis.reasoning).font(Typography.body).foregroundStyle(Palette.ink).wraps()
@@ -289,7 +286,16 @@ struct DifferentialRow: View {
         }
         .padding(.vertical, Spacing.s)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(diagnosis.name), Wahrscheinlichkeit etwa \(diagnosis.likelihoodPercent) Prozent")
+        .accessibilityLabel("\(diagnosis.name), \(diagnosis.fit.title)")
+    }
+
+    private var filledSteps: Int {
+        switch diagnosis.fit {
+        case .strong: 3
+        case .partial: 2
+        case .weak: 1
+        case .open: 0
+        }
     }
 
     @ViewBuilder

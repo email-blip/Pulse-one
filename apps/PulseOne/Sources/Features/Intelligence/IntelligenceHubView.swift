@@ -132,7 +132,7 @@ struct IntelligenceHubView: View {
         Card {
             SectionHeader(title: "Sprechstunde")
             Text(engine.settings.clinicalMode
-                 ? "Claude deutet deine Werte wie Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen mit Wahrscheinlichkeit, Abklärung und Plan. Mit Rückfragen zu deinem Befinden."
+                 ? "Claude deutet deine Werte wie Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen mit Einordnung (passt gut, teilweise oder kaum), Abklärung und Plan. Mit Rückfragen zu deinem Befinden."
                  : "Ein Gespräch mit Claude über deine Werte. Ärztliche Einschätzungen sind unter KI-Anbieter ausgeschaltet.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
             Button("Neue Sprechstunde") { path.append(.consultation(nil)) }
