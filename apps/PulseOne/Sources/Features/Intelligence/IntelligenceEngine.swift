@@ -63,7 +63,10 @@ final class IntelligenceEngine {
         let descriptor = FetchDescriptor<StoredAnalysis>(predicate: #Predicate { $0.createdAt >= start && $0.modelID != local })
         let runs = (try? modelContext.fetch(descriptor)) ?? []
         let spent = runs.reduce(0) { $0 + $1.costUSD }
-        return MonthUsage(spentUSD: spent, sends: runs.count)
+        // Automatic check-ins count against the money budget, but not against the number of manual sends
+        // (about 90 a month would otherwise use up the default 30 before the first report).
+        let manual = runs.filter { $0.kindRaw != Self.checkInKind }.count
+        return MonthUsage(spentUSD: spent, sends: manual)
     }
 
     func sendBudget(in modelContext: ModelContext) -> SendBudget {
@@ -480,7 +483,6 @@ final class IntelligenceEngine {
     /// Reason an automatic check-in may not go to Claude, or nil. Same limits as every other send.
     func checkInBlocker(modelContext: ModelContext) -> String? {
         if !services.hasKey { return "kein Claude-Schlüssel" }
-        if !sendBudget(in: modelContext).allowsSend { return "Monatskontingent aufgebraucht" }
         let estimate = CostEstimator.estimate(inputCharacters: 18_000, expectedOutputTokens: CheckInPrompts.expectedOutputTokens, model: .sonnet)
         if !spendingBudget(in: modelContext).allows(estimate) { return "Monatsbudget aufgebraucht" }
         return nil

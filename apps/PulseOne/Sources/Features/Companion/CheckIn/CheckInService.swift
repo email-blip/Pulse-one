@@ -23,6 +23,12 @@ final class StoredCheckIn {
     var costUSD: Double = 0
     /// How it started: "foreground", "background", "manual".
     var trigger: String = ""
+    /// `CheckInPolicy.fingerprint` of the facts it was based on; equal next time = nothing new.
+    var fingerprint: String = ""
+    /// A notification was sent for it.
+    var notified: Bool = false
+    /// Newest measurement it was based on.
+    var dataThrough: Date?
 
     init(date: Date, slot: CheckInSlot, message: CheckInMessage, source: String, costUSD: Double, trigger: String) {
         id = UUID()
@@ -46,8 +52,41 @@ final class StoredCheckIn {
     }
 }
 
+/// Record of the standing permission (P1-005): what goes where, how often, within which budget, under which
+/// prompt version. A new row whenever any of it changes, including switching it off.
+@Model
+final class StoredConsentLog {
+    var date: Date = Date.distantPast
+    var enabled: Bool = false
+    var recipient: String = ""
+    /// Consented categories (raw values), sorted.
+    var categories: [String] = []
+    var cadence: String = ""
+    var modelID: String = ""
+    var monthlyBudgetUSD: Double = 0
+    var maxSendsPerMonth: Int = 0
+    var promptVersion: Int = 0
+
+    init(date: Date, enabled: Bool, recipient: String, categories: [String], cadence: String, modelID: String,
+         monthlyBudgetUSD: Double, maxSendsPerMonth: Int, promptVersion: Int) {
+        self.date = date
+        self.enabled = enabled
+        self.recipient = recipient
+        self.categories = categories
+        self.cadence = cadence
+        self.modelID = modelID
+        self.monthlyBudgetUSD = monthlyBudgetUSD
+        self.maxSendsPerMonth = maxSendsPerMonth
+        self.promptVersion = promptVersion
+    }
+
+    var signature: String {
+        "\(enabled)|\(recipient)|\(categories.joined(separator: ","))|\(cadence)|\(modelID)|\(monthlyBudgetUSD)|\(maxSendsPerMonth)|\(promptVersion)"
+    }
+}
+
 enum CheckInPersistence {
-    static let models: [any PersistentModel.Type] = [StoredCheckIn.self]
+    static let models: [any PersistentModel.Type] = [StoredCheckIn.self, StoredConsentLog.self]
 }
 
 /// Settings of the active companion (concept §10, owner's answers of 2026-11-22).
@@ -80,10 +119,9 @@ struct CheckInSettings {
 }
 
 /// The active companion: looks at the values in the morning, at midday and in the evening without being
-/// asked, writes the result as a check-in, tells the person by notification when the app is not open,
-/// and keeps the ring history fresh in the background. iOS decides when background time is granted, so
-/// three paths lead here: the app coming to the foreground, a background refresh, and a fallback
-/// notification at each slot that opens the app.
+/// asked and keeps the ring history fresh in the background. Checks run silently; a notification only
+/// follows something new that matters (`CheckInPolicy`). iOS decides when background time is granted, so
+/// two paths lead here: the app coming to the foreground and a background refresh.
 @MainActor
 @Observable
 final class CheckInService {
@@ -91,6 +129,8 @@ final class CheckInService {
     nonisolated static let notificationPrefix = "checkin."
     /// Background refreshes are asked for at least this often so the ring history stays current.
     static let refreshInterval: TimeInterval = 30 * 60
+    /// Hard daily cap of automatic Claude calls, also for "Jetzt prüfen" (keeps the cost bounded).
+    static let maxClaudeCallsPerDay = 4
 
     /// The live instance for the background task handler (set once at launch).
     static weak var current: CheckInService?
@@ -134,34 +174,89 @@ final class CheckInService {
         await run(slot: slot, trigger: trigger)
     }
 
-    /// Runs a check-in for `slot` now ("Jetzt prüfen" or a due slot).
+    /// Runs a check-in for `slot` now ("Jetzt prüfen" or a due slot). P1-005: nothing new → no Claude call and
+    /// no notification; stale data are said to be stale and never shown as the current night.
     func run(slot: CheckInSlot, trigger: String) async {
         guard !isRunning else { return }
         isRunning = true
         defer { isRunning = false }
+        let now = Date()
         let name = settings.name
-        let analysisContext = engine.reportContext(.daily, modelContext: context, owner: sources.ownerProfileID,
-                                                   profile: profile.profile)
-        var message = LocalCheckIn.compose(slot: slot, context: analysisContext, name: name)
+        let owner = sources.ownerProfileID
+        let analysisContext = engine.reportContext(.daily, modelContext: context, owner: owner, profile: profile.profile)
+        let newest = engine.samples(in: context, owner: owner, days: 3).map(\.end).max()
+        let stale = CheckInPolicy.isStale(newestSample: newest, now: now)
+        let fingerprint = CheckInPolicy.fingerprint(analysisContext)
+        let previous = fetchLatest()
+        if trigger != "manual", let previous, previous.fingerprint == fingerprint, calendar.isDate(previous.date, inSameDayAs: now) {
+            log.info("Check-in \(slot.rawValue, privacy: .public) skipped: nothing new")
+            return
+        }
+        let local = stale ? CheckInPolicy.staleMessage(newestSample: newest, now: now)
+            : LocalCheckIn.compose(slot: slot, context: analysisContext, name: name)
+        var message = local
         var source = "local"
         var cost = 0.0
-        if settings.useClaude, !options.isUITesting, !analysisContext.facts.isEmpty,
-           engine.checkInBlocker(modelContext: context) == nil,
-           let answer = await engine.runCheckIn(slot: slot, context: analysisContext, name: name, modelContext: context) {
-            // Local warning signs always win over a calmer answer.
-            let urgency = max(answer.message.urgency, message.urgency)
-            message = answer.message
-            message.urgency = urgency
-            source = "claude"
-            cost = answer.record.costUSD
+        let consented = recordConsent(now: now)
+        let route = CheckInGate.route(.init(
+            sendingEnabled: consented, consentedCategories: engine.settings.consent.count, testMode: options.isUITesting,
+            claudeCallsToday: checkIns(on: now).filter { $0.source == "claude" }.count,
+            maxClaudeCallsPerDay: Self.maxClaudeCallsPerDay, budgetBlocker: engine.checkInBlocker(modelContext: context),
+            fingerprint: fingerprint, lastFingerprint: previous?.fingerprint, stale: stale,
+            hasFacts: !analysisContext.facts.isEmpty))
+        if route == .claude {
+            // A provider error returns nil and keeps the local message.
+            let answer = await engine.runCheckIn(slot: slot, context: analysisContext, name: name, modelContext: context)
+            let merged = CheckInGate.merge(local: local, claude: answer?.message)
+            message = merged.message
+            if merged.fromClaude {
+                source = "claude"
+                cost = answer?.record.costUSD ?? 0
+            }
+        } else if case .local(let reason) = route {
+            log.info("Check-in stays local: \(reason.rawValue, privacy: .public)")
         }
-        let record = StoredCheckIn(date: Date(), slot: slot, message: message, source: source, costUSD: cost, trigger: trigger)
+        let record = StoredCheckIn(date: now, slot: slot, message: message, source: source, costUSD: cost, trigger: trigger)
+        record.fingerprint = fingerprint
+        record.dataThrough = newest
+        let freshNight = slot == .morning && !stale && !checkIns(on: now).contains { $0.slot == .morning && $0.dataThrough != nil }
+        if UIApplication.shared.applicationState != .active,
+           CheckInPolicy.shouldNotify(message, previous: previous.map(Self.message(of:)), freshNight: freshNight,
+                                      pushesToday: checkIns(on: now).filter(\.notified).map(\.date), now: now, calendar: calendar) {
+            record.notified = true
+            await notify(record, name: name)
+        }
         context.insert(record)
         try? context.save()
         latest = record
         log.info("Check-in \(slot.rawValue, privacy: .public) from \(source, privacy: .public) (\(trigger, privacy: .public))")
-        if UIApplication.shared.applicationState != .active { await notify(record, name: name) }
-        await scheduleFallbacks()
+    }
+
+    static func message(of record: StoredCheckIn) -> CheckInMessage {
+        CheckInMessage(headline: record.headline, text: record.text, suggestion: record.suggestion, urgency: record.urgency,
+                       markers: record.markers)
+    }
+
+    /// Writes a consent row when the standing permission or its terms changed. Returns whether sending is allowed.
+    @discardableResult
+    func recordConsent(now: Date) -> Bool {
+        let intelligence = engine.settings
+        let enabled = settings.enabled && settings.useClaude
+        let entry = StoredConsentLog(
+            date: now, enabled: enabled, recipient: "Anthropic Claude API (eigener Schlüssel)",
+            categories: intelligence.consent.map(\.rawValue).sorted(),
+            cadence: "bis zu 3 Prüfungen am Tag, nur bei neuen Werten",
+            modelID: intelligence.model == .haiku ? ClaudeModel.haiku.id : ClaudeModel.sonnet.id,
+            monthlyBudgetUSD: intelligence.monthlyBudgetUSD, maxSendsPerMonth: intelligence.maxSendsPerMonth,
+            promptVersion: CheckInPrompts.version)
+        var descriptor = FetchDescriptor<StoredConsentLog>(sortBy: [SortDescriptor(\.date, order: .reverse)])
+        descriptor.fetchLimit = 1
+        let last = (try? context.fetch(descriptor))?.first
+        if last?.signature != entry.signature {
+            context.insert(entry)
+            try? context.save()
+        }
+        return enabled
     }
 
     // MARK: Background
@@ -211,28 +306,6 @@ final class CheckInService {
         let soon = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: Date().addingTimeInterval(2))
         try? await CompanionNotifications.add(id: Self.notificationPrefix + "message." + record.id.uuidString,
                                               title: "\(name): \(record.headline)", body: body, components: soon)
-    }
-
-    /// One reminder per open slot today (and tomorrow), 30 minutes after the slot starts. A check-in that
-    /// ran removes its reminder. When iOS did not wake the app in time, the reminder brings the person in.
-    func scheduleFallbacks() async {
-        guard settings.enabled, !options.isUITesting else { return }
-        await CompanionNotifications.removePending(ids: [], prefix: Self.notificationPrefix + "fallback.")
-        let now = Date()
-        let ran = lastRuns(on: now)
-        let name = settings.name
-        for offset in 0...1 {
-            guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { continue }
-            for slot in CheckInSlot.allCases {
-                if offset == 0, ran[slot] != nil { continue }
-                let begin = schedule.start(of: slot, on: day, wake: nil, calendar: calendar).addingTimeInterval(30 * 60)
-                guard begin > now else { continue }
-                let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: begin)
-                try? await CompanionNotifications.add(id: Self.notificationPrefix + "fallback.\(slot.rawValue).\(offset)",
-                                                      title: "\(name): \(slot.title)",
-                                                      body: "Tipp kurz drauf, dann schaue ich in deine Werte.", components: parts)
-            }
-        }
     }
 
     /// Asks for notification permission once the companion is active (no-op when already decided).

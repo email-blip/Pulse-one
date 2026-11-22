@@ -109,7 +109,7 @@ struct MetricCard: View {
 
 /// Visible statement types (DESIGN-SYSTEM-5.0 §6): measured, computed, observed, Claude's reading, suggestion, see a doctor.
 enum StatementKind: CaseIterable {
-    case measured, computed, observed, interpretation, suggestion, medicalCheck
+    case measured, computed, observed, interpretation, hypothesis, suggestion, medicalCheck
 
     var title: String {
         switch self {
@@ -117,6 +117,7 @@ enum StatementKind: CaseIterable {
         case .computed: "berechnet"
         case .observed: "beobachtet"
         case .interpretation: "Deutung von Claude"
+        case .hypothesis: "Hypothese"
         case .suggestion: "Vorschlag"
         case .medicalCheck: "ärztlich abklären"
         }
@@ -128,6 +129,7 @@ enum StatementKind: CaseIterable {
         case .computed: "function"
         case .observed: "eye"
         case .interpretation: "sparkles"
+        case .hypothesis: "questionmark.circle"
         case .suggestion: "arrow.forward.circle"
         case .medicalCheck: "stethoscope"
         }
@@ -136,7 +138,7 @@ enum StatementKind: CaseIterable {
     var tint: Color {
         switch self {
         case .measured: Palette.bioCyan
-        case .computed, .observed: Palette.inkMuted
+        case .computed, .observed, .hypothesis: Palette.inkMuted
         case .interpretation, .suggestion: Palette.neuralViolet
         case .medicalCheck: Palette.ink
         }

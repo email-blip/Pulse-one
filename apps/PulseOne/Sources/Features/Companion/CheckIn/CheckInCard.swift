@@ -53,6 +53,15 @@ struct CheckInCard: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(service.isRunning)
             }
+            NavigationLink {
+                InsightScreen()
+            } label: {
+                Label("Ganze Einordnung: Belege, Ursachen, Nachprüfung", systemImage: "list.bullet.rectangle")
+                    .font(Typography.label)
+                    .wraps()
+            }
+            .foregroundStyle(Palette.bioCyan)
+            .accessibilityIdentifier("today.insight")
         }
         .accessibilityIdentifier("today.checkin")
     }

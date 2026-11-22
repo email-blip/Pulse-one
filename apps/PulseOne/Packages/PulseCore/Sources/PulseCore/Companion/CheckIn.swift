@@ -244,6 +244,19 @@ public enum CheckInReader {
         (SampleKind.oxygenSaturation.rawValue, .below),
     ]
 
+    /// A single strain signal far from the usual value: resting pulse at least 8 bpm above, or HRV at least
+    /// 30 % below the median.
+    public static func strongSingle(_ deviations: [CheckInDeviation]) -> CheckInDeviation? {
+        deviations.first { deviation in
+            if deviation.kind == SampleKind.restingHeartRate.rawValue { return deviation.value - deviation.median >= 8 }
+            let hrvKinds = [SampleKind.ringHRV.rawValue, SampleKind.heartRateVariability.rawValue]
+            if hrvKinds.contains(deviation.kind), deviation.median > 0 {
+                return (deviation.value - deviation.median) / deviation.median <= -0.3
+            }
+            return false
+        }
+    }
+
     /// Number of strain signals among the deviations.
     public static func strainCount(_ deviations: [CheckInDeviation]) -> Int {
         deviations.filter { deviation in
@@ -259,6 +272,8 @@ public enum LocalCheckIn {
     public static func compose(slot: CheckInSlot, context: HealthAnalysisContext, name: String) -> CheckInMessage {
         let deviations = CheckInReader.deviations(in: context)
         let strain = CheckInReader.strainCount(deviations)
+        // P1-005: one clearly changed value can be enough, two at once are not required for every hint.
+        let strong = CheckInReader.strongSingle(deviations)
         var markers = deviations.prefix(4).map { deviation in
             CheckInMarker(symbol: deviation.direction, metric: deviation.kind,
                           text: "\(deviation.title) \(number(deviation.value)) \(deviation.unit), üblich \(number(deviation.median))")
@@ -269,12 +284,12 @@ public enum LocalCheckIn {
         if context.facts.isEmpty {
             headline = "Noch keine Werte"
             text = "Ich habe für heute noch keine Messwerte. Sobald dein Ring oder Apple Health liefert, schaue ich wieder rein."
-        } else if strain >= 2 {
+        } else if strain >= 2 || strong != nil {
             headline = "Dein Körper arbeitet"
-            text = "\(strain) Werte weichen gleichzeitig ab, das sieht nach Belastung aus, zum Beispiel ein beginnender Infekt, "
-                + "zu wenig Erholung oder Alkohol. Nimm heute Tempo raus."
+            let what = strain >= 2 ? "\(strain) Werte weichen gleichzeitig ab" : "\(strong?.title ?? "Ein Wert") weicht deutlich ab"
+            text = "\(what). Mögliche Gründe: beginnender Infekt, zu wenig Erholung, Alkohol oder Stress. Nimm heute Tempo raus."
             urgency = .watch
-            markers.insert(CheckInMarker(symbol: .warning, metric: "", text: "\(strain) Werte gleichzeitig auffällig"), at: 0)
+            markers.insert(CheckInMarker(symbol: .warning, metric: "", text: what), at: 0)
         } else if let first = deviations.first {
             headline = first.direction == .above ? "\(first.title) erhöht" : "\(first.title) niedrig"
             text = "\(first.title) liegt bei \(number(first.value)) \(first.unit), üblich sind etwa \(number(first.median)). "
@@ -283,12 +298,12 @@ public enum LocalCheckIn {
             headline = slot == .evening ? "Ruhiger Tag" : "Alles im Rahmen"
             text = "Deine Werte liegen in deinem üblichen Bereich."
         }
-        return CheckInMessage(headline: headline, text: text, suggestion: suggestion(for: slot, strain: strain),
+        return CheckInMessage(headline: headline, text: text, suggestion: suggestion(for: slot, strain: urgency == .watch ? 1 : 0),
                               urgency: urgency, markers: markers)
     }
 
     static func suggestion(for slot: CheckInSlot, strain: Int) -> String {
-        if strain >= 2 { return "Heute lieber locker bewegen statt hart trainieren." }
+        if strain >= 1 { return "Heute lieber locker bewegen statt hart trainieren." }
         switch slot {
         case .morning: return "Starte mit deiner Aktivierung."
         case .midday: return "Zehn Minuten draußen gehen tut jetzt gut."
@@ -306,7 +321,7 @@ public enum LocalCheckIn {
 // MARK: - Claude
 
 public enum CheckInPrompts {
-    public static let version = 1
+    public static let version = 2
     /// The short answer keeps the daily cost low (concept §9: about 600 output tokens).
     public static let expectedOutputTokens = 600
 
@@ -332,6 +347,7 @@ public enum CheckInPrompts {
         warning (Warnzeichen), record (Bestwert). metric: der kind-Wert des Fakts oder leer. text: ein kurzer Satz.
         Sprich zwei oder mehr gleichzeitige Abweichungen (z. B. Ruhepuls hoch und HRV niedrig) ausdrücklich an und nenne \
         mögliche Ursachen. Bei dünner Datenlage: sag ehrlich, was fehlt, und bleib kurz.
+        Vorrang vor den folgenden Regeln: Nenne in diesen kurzen Meldungen keine Prozent-Wahrscheinlichkeiten für Diagnosen         (es gibt kein kalibriertes Modell dafür); ordne Möglichkeiten nur als „passt gut“, „passt teilweise“ oder „passt kaum“ ein.         Trenne Messung und Deutung sprachlich („gemessen: …“, „das spricht für …“). Sag nie, die Person sei faul gewesen.
 
         """ + IntelligencePrompts.rules(mode)
     }
@@ -373,5 +389,62 @@ public enum CheckInValidator {
             if case .reject(_, let reason) = SafetyRules.check(line, mode: mode) { throw Failure.unsafe(reason) }
         }
         return message
+    }
+}
+
+// MARK: - When to ask Claude and when to notify (P1-005)
+
+/// Decides whether a check-in needs a new Claude call and whether it is worth a notification.
+/// Nothing new → no call, no push. Stale data are never presented as the current night.
+public enum CheckInPolicy {
+    /// Data older than this do not describe the current day or night.
+    public static let staleAfter: TimeInterval = 18 * 3_600
+    public static let maxPushesPerDay = 2
+    public static let minimumPushGap: TimeInterval = 3 * 3_600
+    /// No notifications from 22:00 to 07:00 unless something needs action now.
+    public static let quietHours: (start: Int, end: Int) = (22, 7)
+
+    /// Stable summary of the facts; equal fingerprints mean nothing new was measured.
+    public static func fingerprint(_ context: HealthAnalysisContext) -> String {
+        context.facts.map { "\($0.kind)|\($0.stat)|\(($0.value * 10).rounded() / 10)|\($0.n)" }.sorted().joined(separator: ";")
+    }
+
+    public static func isStale(newestSample: Date?, now: Date) -> Bool {
+        guard let newestSample else { return true }
+        return now.timeIntervalSince(newestSample) > staleAfter
+    }
+
+    /// The local text when the data are stale: says so and interprets nothing.
+    public static func staleMessage(newestSample: Date?, now: Date) -> CheckInMessage {
+        let hours = newestSample.map { Int(now.timeIntervalSince($0) / 3_600) }
+        let text = hours.map { "Die neuesten Werte sind \($0) Stunden alt. Ich deute sie nicht als aktuellen Stand." }
+            ?? "Es liegen noch keine Werte vor."
+        return CheckInMessage(headline: "Noch nicht abgeglichen", text: text,
+                              suggestion: "Ring verbinden, dann gleiche ich ab.", urgency: .none,
+                              markers: [CheckInMarker(symbol: .note, metric: "", text: "Datenlücke")])
+    }
+
+    public static func shouldCallClaude(fingerprint: String, lastFingerprint: String?, stale: Bool, hasFacts: Bool) -> Bool {
+        hasFacts && !stale && fingerprint != lastFingerprint
+    }
+
+    /// A notification only for something new that matters: a higher urgency than before, a new clearly changed
+    /// value, or the first fresh night of the day. Daily limit, minimum gap and quiet hours apply; an urgent
+    /// or clarify message ignores gap and quiet hours.
+    public static func shouldNotify(_ message: CheckInMessage, previous: CheckInMessage?, freshNight: Bool,
+                                    pushesToday: [Date], now: Date, calendar: Calendar) -> Bool {
+        let important = message.urgency >= .clarify
+        if !important {
+            let hour = calendar.component(.hour, from: now)
+            if hour >= quietHours.start || hour < quietHours.end { return false }
+            if pushesToday.count >= maxPushesPerDay { return false }
+            if let last = pushesToday.max(), now.timeIntervalSince(last) < minimumPushGap { return false }
+        }
+        if message.urgency > (previous?.urgency ?? .none) { return true }
+        let changed: Set<MarkerSymbol> = [.above, .below, .warning]
+        let before = Set((previous?.markers ?? []).filter { changed.contains($0.symbol) }.map { "\($0.symbol.rawValue)|\($0.metric)" })
+        let current = Set(message.markers.filter { changed.contains($0.symbol) }.map { "\($0.symbol.rawValue)|\($0.metric)" })
+        if !current.subtracting(before).isEmpty { return true }
+        return freshNight
     }
 }

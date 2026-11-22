@@ -123,6 +123,9 @@ struct RootView: View {
             } else if options.usesTestScenario, let scenario = options.scenario, TestScenario.ringScenarios.contains(scenario) {
                 // Ring states are captured on the ring screen itself, as before the tab app.
                 ConnectScreen(options: options)
+            } else if options.usesTestScenario, let scenario = options.scenario, InsightDemo.scenarios.contains(scenario) {
+                // The three synthetic insight cases (Codex P1-005), shown on their own with the test banner.
+                NavigationStack { InsightScreen(demo: scenario) }
             } else if !profile.setupCompleted {
                 SetupView()
             } else {
@@ -144,7 +147,6 @@ struct RootView: View {
                         if profile.setupCompleted {
                             await checkIns.requestNotificationPermission()
                             await checkIns.runIfDue(trigger: "foreground")
-                            await checkIns.scheduleFallbacks()
                         }
                     }
                 } else if phase == .background {
