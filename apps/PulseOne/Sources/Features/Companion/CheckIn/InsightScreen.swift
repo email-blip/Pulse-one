@@ -287,6 +287,8 @@ private struct NightAxis: View {
             }
             .chartYScale(domain: .automatic(includesZero: false))
             .frame(height: 120)
+            // One element per chart: the band and points as separate elements are tiny and say nothing alone.
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
             .accessibilityValue(points.last.map { "letzte Nacht \(LocalCheckInFormat.number($0.value))" } ?? "keine Werte")
         }
