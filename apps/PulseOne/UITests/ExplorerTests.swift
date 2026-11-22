@@ -225,8 +225,12 @@ final class ExplorerTests: XCTestCase {
         let query = step.id.isEmpty
             ? app.buttons.matching(NSPredicate(format: "label == %@", step.label))
             : app.buttons.matching(identifier: step.id)
-        let element = query.element(boundBy: step.occurrence)
+        var element = query.element(boundBy: step.occurrence)
         guard element.exists, element.isEnabled else { return false }
+        if !element.isHittable, let visible = query.allElementsBoundByIndex.first(where: \.isHittable) {
+            // The tree can hold a hidden twin (menu item, screen below a sheet): take the one on screen.
+            element = visible
+        }
         // Buttons below the fold: scroll the screen until the button can be hit (at most four screens).
         var swipes = 0
         while !element.isHittable && swipes < 4 {

@@ -381,7 +381,7 @@ struct ExerciseListView: View {
                                 Text("Schwerer: \(harder)").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                             }
                             Label(e.safety, systemImage: "hand.raised").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-                            Text("Quelle: \(e.origin)").font(.caption2).foregroundStyle(Palette.inkMuted).wraps()
+                            Text("Quelle: \(e.origin)").font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                         }
                     }
                 }
