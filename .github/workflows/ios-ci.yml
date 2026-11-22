@@ -203,6 +203,19 @@ jobs:
           path: shots
           merge-multiple: true
 
+      # Claude looks at the walkthrough screenshots (test data only) and lists design and text flaws.
+      # Owner approved ~0.15 $ per run (2026-11-22); runs on main (each merge, i.e. before every TestFlight
+      # build) and on manual runs, not on every branch push. Report only, never fails the run.
+      - name: Claude design review of the walkthrough
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          pip install --quiet anthropic==2.12.0 pillow==13.0.0
+          python3 scripts/design-review.py shots shots/iPhone-17-Pro/design-review.md
+          cat shots/iPhone-17-Pro/design-review.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Push screenshots to ci-screenshots branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
