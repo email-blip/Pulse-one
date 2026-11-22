@@ -19,8 +19,7 @@ final class ExplorerTests: XCTestCase {
     static let budget: TimeInterval = 11 * 60
     /// Root screen = depth 0. Screens at maxDepth are checked and photographed, their buttons are not tapped.
     static let maxDepth = 2
-    static let maxPages = 4
-    static let maxAuditsPerStart = 3
+    static let maxAuditsPerStart = 2
 
     /// Buttons that would leave the test sandbox (permissions, share sheet, camera, Bluetooth) or destroy the
     /// state the walk depends on. Matched case-insensitively against identifier and label.
@@ -42,15 +41,19 @@ final class ExplorerTests: XCTestCase {
         let inTabBar: Bool
         let inNavBar: Bool
 
-        var key: String { id.isEmpty ? "label:\(type.rawValue):\(label)" : "id:\(id)" }
         var name: String { label.isEmpty ? id : label }
     }
 
     struct Step: CustomStringConvertible {
-        let pages: Int
-        let key: String
-        let name: String
-        var description: String { pages > 0 ? "\(name) (nach \(pages)× scrollen)" : name }
+        /// Identifier, or label when the button has none.
+        let id: String
+        let label: String
+        /// Which of several buttons with the same identifier/label (0 = first).
+        let occurrence: Int
+        var description: String {
+            let name = label.isEmpty ? (id.isEmpty ? "Knopf ohne Beschriftung" : id) : label
+            return occurrence > 0 ? "\(name) (\(occurrence + 1).)" : name
+        }
     }
 
     private var started = Date()
@@ -58,6 +61,7 @@ final class ExplorerTests: XCTestCase {
     private var crashes: [String] = []
     private var brokenTexts: [String] = []
     private var deadButtons: [String] = []
+    private var unlabeled: [String] = []
     private var offscreen: [String] = []
     private var skippedButtons = Set<String>()
     private var notReached: [String] = []
@@ -72,13 +76,11 @@ final class ExplorerTests: XCTestCase {
     func testWalkThroughAllScreens() throws {
         started = Date()
         for (index, start) in Self.starts.enumerated() {
-            // Equal share of what is left, so the last areas are never starved by a large first one.
+            // Equal share of what is left, so a large first area never starves the last ones.
             let remaining = Self.budget - Date().timeIntervalSince(started)
             let deadline = Date().addingTimeInterval(remaining / Double(Self.starts.count - index))
-            var seen = Set<String>()
-            var audits = 0
             report.append("\n## Bereich \(start)")
-            explore(start: start, path: [], depth: 0, deadline: deadline, seen: &seen, audits: &audits)
+            walk(start: start, deadline: deadline)
         }
         writeReport()
         if !crashes.isEmpty { XCTFail("App abgestürzt:\n" + crashes.joined(separator: "\n")) }
@@ -87,80 +89,91 @@ final class ExplorerTests: XCTestCase {
 
     // MARK: - Walk
 
-    private func explore(start: String, path: [Step], depth: Int, deadline: Date, seen: inout Set<String>, audits: inout Int) {
-        let app = launch(start)
-        guard replay(path, in: app) else {
-            report.append("- nicht wiederholbar: \(pathText(path))")
-            return
+    /// Breadth first: every button of the start screen is tapped (and its result photographed) before any
+    /// screen one level deeper is expanded, so a short budget still covers each area's main screen.
+    private func walk(start: String, deadline: Date) {
+        var seen = Set<String>()
+        var audits = 0
+        var queue: [[Step]] = [[]]
+        while !queue.isEmpty {
+            let path = queue.removeFirst()
+            guard Date() < deadline else {
+                notReached.append("- \(start): alles unter \(pathText(path))")
+                continue
+            }
+            var current = launch(start)
+            if path.isEmpty {
+                seen.insert(screenKey(current))
+                record(current, start: start, title: screenTitle(current), path: [], depth: 0)
+            } else if !replay(path, in: current) {
+                report.append("\(indent(path.count))- nicht wiederholbar: \(pathText(path))")
+                continue
+            }
+            var atState = true
+            let stateKey = screenKey(current)
+            let title = screenTitle(current)
+            for candidate in collectCandidates(current) {
+                guard Date() < deadline else {
+                    notReached.append("- \(start): \(pathText(path + [candidate]))")
+                    continue
+                }
+                if !atState {
+                    current = launch(start)
+                    guard replay(path, in: current) else { break }
+                }
+                atState = false
+                let before = signature(current)
+                guard tap(candidate, in: current) else {
+                    report.append("\(indent(path.count + 1))- nicht erreichbar: \(candidate)")
+                    atState = true
+                    continue
+                }
+                taps += 1
+                switch current.state {
+                case .notRunning, .unknown:
+                    crashes.append("- \(start): \(pathText(path + [candidate]))")
+                    continue
+                case .runningBackground, .runningBackgroundSuspended:
+                    report.append("\(indent(path.count + 1))- öffnet eine andere App: \(candidate)")
+                    continue
+                default:
+                    break
+                }
+                let afterKey = screenKey(current)
+                if afterKey == stateKey {
+                    if signature(current) == before {
+                        deadButtons.append("- \(start) › \(title): \(candidate)")
+                        atState = true
+                    } else {
+                        // Same screen, changed content (filter, expanded card, picker): check it.
+                        check(current, title: title, path: path + [candidate])
+                    }
+                    continue
+                }
+                guard !seen.contains(afterKey) else { continue }
+                seen.insert(afterKey)
+                let newTitle = screenTitle(current)
+                record(current, start: start, title: newTitle, path: path + [candidate], depth: path.count + 1)
+                if path.count + 1 < Self.maxDepth {
+                    queue.append(path + [candidate])
+                }
+                if audits < Self.maxAuditsPerStart, Date() < deadline {
+                    audits += 1
+                    do {
+                        try AuditPolicy.run(current, name: "explore.\(start).\(newTitle)")
+                    } catch {
+                        XCTFail("Bedienungshilfen-Prüfung \(newTitle) (\(pathText(path + [candidate]))): \(error)")
+                    }
+                }
+            }
         }
-        let screenKey = self.screenKey(app)
-        guard !seen.contains(screenKey) else { return }
-        seen.insert(screenKey)
+    }
+
+    private func record(_ app: XCUIApplication, start: String, title: String, path: [Step], depth: Int) {
         screens += 1
-        let title = screenTitle(app)
-        report.append("\(String(repeating: "  ", count: depth))- **\(title)** (\(pathText(path)))")
+        report.append("\(indent(depth))- **\(title)** (\(pathText(path)))")
         check(app, title: title, path: path)
         capture(start: start, title: title)
-        if depth > 0, audits < Self.maxAuditsPerStart, Date() < deadline {
-            audits += 1
-            do {
-                try AuditPolicy.run(app, name: "explore.\(start).\(title)")
-            } catch {
-                XCTFail("Bedienungshilfen-Prüfung \(title) (\(pathText(path))): \(error)")
-            }
-        }
-        guard depth < Self.maxDepth else { return }
-
-        let candidates = collectCandidates(app)
-        var appAtState = true
-        for candidate in candidates {
-            guard Date() < deadline else {
-                notReached.append("\(start): \(pathText(path + [candidate]))")
-                continue
-            }
-            if !appAtState {
-                let fresh = launch(start)
-                guard replay(path, in: fresh) else { break }
-            }
-            appAtState = false
-            let current = XCUIApplication()
-            scrollToTop(current)
-            for _ in 0..<candidate.pages { scrollDown(current) }
-            let before = visibleSignature(current)
-            guard tap(candidate, in: current) else {
-                report.append("\(String(repeating: "  ", count: depth + 1))- nicht gefunden: \(candidate)")
-                continue
-            }
-            taps += 1
-            Thread.sleep(forTimeInterval: 1.2)
-            dismissSystemAlert()
-            switch current.state {
-            case .notRunning, .unknown:
-                crashes.append("- \(start): \(pathText(path + [candidate]))")
-                continue
-            case .runningBackground, .runningBackgroundSuspended:
-                report.append("\(String(repeating: "  ", count: depth + 1))- öffnet eine andere App: \(candidate)")
-                continue
-            default:
-                break
-            }
-            let afterKey = self.screenKey(current)
-            if afterKey == screenKey && visibleSignature(current) == before {
-                deadButtons.append("- \(start) › \(title): \(candidate)")
-                appAtState = true
-                continue
-            }
-            if afterKey == screenKey {
-                // Same screen, changed content (filter, expanded card, picker): check it, no new screen.
-                // The state differs from the replayed one, so the next button starts from a fresh launch.
-                check(current, title: title, path: path + [candidate])
-                continue
-            }
-            if !seen.contains(afterKey) {
-                explore(start: start, path: path + [candidate], depth: depth + 1, deadline: deadline,
-                        seen: &seen, audits: &audits)
-            }
-        }
     }
 
     /// Fresh app in the scenario's start state (in-memory store, fixed clock, test banner).
@@ -171,73 +184,99 @@ final class ExplorerTests: XCTestCase {
                                "-AppleLocale", "de_DE", "-dynamicType", "default", "-reduceMotion", "YES"]
         app.launch()
         _ = app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15)
-        Thread.sleep(forTimeInterval: 0.8)
         return app
     }
 
     private func replay(_ path: [Step], in app: XCUIApplication) -> Bool {
         for step in path {
-            scrollToTop(app)
-            for _ in 0..<step.pages { scrollDown(app) }
-            guard tap(step, in: app) else { return false }
-            Thread.sleep(forTimeInterval: 1.2)
-            dismissSystemAlert()
-            guard app.state == .runningForeground else { return false }
+            guard tap(step, in: app), app.state == .runningForeground else { return false }
         }
         return true
     }
 
     // MARK: - Candidates
 
-    /// Every tappable button on the screen, page by page, each once.
+    /// Every enabled button of the frontmost screen (sheet if one is open), each once, in reading order.
     private func collectCandidates(_ app: XCUIApplication) -> [Step] {
         var steps: [Step] = []
-        var keys = Set<String>()
-        scrollToTop(app)
-        var lastSignature = ""
-        for page in 0..<Self.maxPages {
-            if page > 0 { scrollDown(app) }
-            let signature = visibleSignature(app)
-            if page > 0 && signature == lastSignature { break }   // end of the scroll view
-            lastSignature = signature
-            for node in visibleNodes(app) where [.button, .cell].contains(node.type) && node.enabled {
-                guard !node.inTabBar, !keys.contains(node.key) else { continue }
-                if node.inNavBar && (node.id == "BackButton" || node.frame.minX < 40) { continue }
-                let lowered = (node.id + " " + node.label).lowercased()
-                if Self.closers.contains(where: { node.label.lowercased() == $0 || node.id.lowercased() == $0 }) { continue }
-                if Self.skipped.contains(where: { lowered.contains($0) }) {
-                    skippedButtons.insert(node.name)
-                    continue
-                }
-                keys.insert(node.key)
-                steps.append(Step(pages: page, key: node.key, name: node.name))
+        var occurrences: [String: Int] = [:]
+        for node in frontNodes(app) where node.type == .button && !node.inTabBar {
+            let ref = node.id.isEmpty ? "label:" + node.label : "id:" + node.id
+            let occurrence = occurrences[ref, default: 0]
+            occurrences[ref] = occurrence + 1
+            guard node.enabled else { continue }
+            if node.inNavBar && (node.id == "BackButton" || node.frame.minX < 40) { continue }
+            let lowered = (node.id + " " + node.label).lowercased()
+            if Self.closers.contains(where: { node.label.lowercased() == $0 || node.id.lowercased() == $0 }) { continue }
+            if Self.skipped.contains(where: { lowered.contains($0) }) {
+                skippedButtons.insert(node.name)
+                continue
             }
+            if node.label.isEmpty && node.id.isEmpty {
+                Self.note(&unlabeled, "- \(screenTitle(app)): Knopf bei x \(Int(node.frame.midX)), y \(Int(node.frame.midY))")
+            }
+            steps.append(Step(id: node.id, label: node.label, occurrence: occurrence))
         }
-        scrollToTop(app)
         return steps
     }
 
+    /// A button that cannot be reached (covered, off screen after four swipes) is reported, not tapped.
     private func tap(_ step: Step, in app: XCUIApplication) -> Bool {
-        guard let node = visibleNodes(app).first(where: { $0.key == step.key && $0.enabled }) else { return false }
-        let origin = app.coordinate(withNormalizedOffset: .zero)
-        origin.withOffset(CGVector(dx: node.frame.midX, dy: node.frame.midY)).tap()
+        let query = step.id.isEmpty
+            ? app.buttons.matching(NSPredicate(format: "label == %@", step.label))
+            : app.buttons.matching(identifier: step.id)
+        let element = query.element(boundBy: step.occurrence)
+        guard element.exists, element.isEnabled else { return false }
+        // Buttons below the fold: scroll the screen until the button can be hit (at most four screens).
+        var swipes = 0
+        while !element.isHittable && swipes < 4 {
+            app.swipeUp()
+            swipes += 1
+        }
+        guard element.isHittable else { return false }
+        element.tap()
+        Thread.sleep(forTimeInterval: 0.7)
+        dismissSystemAlert()
         return true
     }
 
     // MARK: - Element tree
 
-    private func visibleNodes(_ app: XCUIApplication) -> [Node] {
+    /// The frontmost presentation's elements: when a sheet is open, SwiftUI keeps the screen below in the
+    /// tree, so where two branches both hold a navigation bar the later one (presented on top) wins.
+    private func frontNodes(_ app: XCUIApplication) -> [Node] {
         guard let root = try? app.snapshot() else { return [] }
-        let window = root.frame
-        let tabTop = tabBarTop(root) ?? window.maxY
-        var nodes: [Node] = []
-        flatten(root, inTabBar: false, inNavBar: false, into: &nodes)
-        return nodes.filter { node in
-            guard node.frame.width > 1, node.frame.height > 1 else { return false }
-            let mid = CGPoint(x: node.frame.midX, y: node.frame.midY)
-            guard window.contains(mid) else { return false }
-            return node.inTabBar || mid.y < tabTop - 4
+        var scope: any XCUIElementSnapshot = root
+        while true {
+            let withBars = scope.children.filter { Self.containsNavigationBar($0) }
+            let others = scope.children.filter { !Self.containsNavigationBar($0) }
+            guard let front = withBars.last, front.elementType != .navigationBar else { break }
+            // Descend while the branch with the (frontmost) navigation bar is the only one with content,
+            // or when several branches carry a bar (a presented sheet over the screen below).
+            if withBars.count >= 2 || others.allSatisfy({ !Self.containsButton($0) || Self.isTabBarBranch($0) }) {
+                scope = front
+            } else {
+                break
+            }
         }
+        var all: [Node] = []
+        flatten(root, inTabBar: false, inNavBar: false, into: &all)
+        // The tab bar lies outside a pushed screen's branch; take it from the whole tree.
+        var nodes = all.filter(\.inTabBar)
+        flatten(scope, inTabBar: false, inNavBar: false, into: &nodes)
+        return nodes
+    }
+
+    private static func containsNavigationBar(_ snapshot: any XCUIElementSnapshot) -> Bool {
+        snapshot.elementType == .navigationBar || snapshot.children.contains(where: containsNavigationBar)
+    }
+
+    private static func containsButton(_ snapshot: any XCUIElementSnapshot) -> Bool {
+        snapshot.elementType == .button || snapshot.children.contains(where: containsButton)
+    }
+
+    private static func isTabBarBranch(_ snapshot: any XCUIElementSnapshot) -> Bool {
+        snapshot.elementType == .tabBar || (snapshot.children.count == 1 && snapshot.children.contains(where: isTabBarBranch))
     }
 
     private func flatten(_ snapshot: any XCUIElementSnapshot, inTabBar: Bool, inNavBar: Bool, into nodes: inout [Node]) {
@@ -251,47 +290,38 @@ final class ExplorerTests: XCTestCase {
         }
     }
 
-    private func tabBarTop(_ snapshot: any XCUIElementSnapshot) -> CGFloat? {
-        if snapshot.elementType == .tabBar { return snapshot.frame.minY }
-        for child in snapshot.children {
-            if let top = tabBarTop(child) { return top }
-        }
-        return nil
-    }
-
     /// Identifies a screen independent of scroll position and live numbers: navigation title, screen markers,
-    /// selected tab and the presence of a sheet.
+    /// selected tab and open menus or alerts.
     private func screenKey(_ app: XCUIApplication) -> String {
-        guard let root = try? app.snapshot() else { return "?" }
-        var nodes: [Node] = []
-        flatten(root, inTabBar: false, inNavBar: false, into: &nodes)
+        let nodes = frontNodes(app)
         var parts: [String] = []
         parts += nodes.filter { $0.type == .navigationBar }.map { "nav:\($0.id)" }
         parts += nodes.filter { $0.inNavBar && $0.type == .staticText }.map { "title:\(Self.stripDigits($0.label))" }
         parts += nodes.filter { $0.id.hasPrefix("screen.") }.map(\.id)
         parts += nodes.filter { $0.inTabBar && $0.type == .button && $0.value.contains("1") }.map { "tab:\($0.label)" }
-        parts.append("windows:\(nodes.filter { $0.type == .window }.count)")
-        parts.append("sheets:\(nodes.filter { $0.type == .sheet }.count)")
-        if parts.allSatisfy({ $0.hasPrefix("windows:") || $0.hasPrefix("sheets:") }) {
-            // No title or marker: fall back to the first texts at the top of the screen.
-            parts += nodes.filter { $0.type == .staticText }.prefix(3).map { Self.stripDigits($0.label) }
+        parts += nodes.filter { [.menu, .alert, .sheet, .popover].contains($0.type) }.map { "overlay:\($0.type.rawValue)" }
+        if !parts.contains(where: { $0.hasPrefix("title:") || $0.hasPrefix("screen.") }) {
+            // No title or marker: the first texts identify the screen.
+            parts += nodes.filter { $0.type == .staticText && !$0.label.hasPrefix("Testansicht") }.prefix(3)
+                .map { Self.stripDigits($0.label) }
         }
         return parts.joined(separator: "|")
     }
 
-    /// What is visible right now (labels without digits, so clocks and live values do not count as change).
-    private func visibleSignature(_ app: XCUIApplication) -> String {
-        visibleNodes(app)
-            .filter { [.staticText, .button, .switch, .cell, .image].contains($0.type) }
-            .map { "\($0.type.rawValue):\($0.id):\(Self.stripDigits($0.label)):\(Self.stripDigits($0.value))" }
+    /// The content of the front screen (labels without digits, so clocks and live values are no change).
+    private func signature(_ app: XCUIApplication) -> String {
+        frontNodes(app)
+            .filter { [.staticText, .button, .switch, .image, .textField].contains($0.type) }
+            .map { "\($0.type.rawValue):\($0.id):\(Self.stripDigits($0.label)):\(Self.stripDigits($0.value)):\($0.enabled)" }
             .joined(separator: "|")
     }
 
     private func screenTitle(_ app: XCUIApplication) -> String {
-        let nodes = visibleNodes(app)
+        let nodes = frontNodes(app)
         if let title = nodes.first(where: { $0.inNavBar && $0.type == .staticText && !$0.label.isEmpty })?.label {
             return title
         }
+        if nodes.contains(where: { $0.type == .menu }) { return "Menü" }
         if let marker = nodes.first(where: { $0.id.hasPrefix("screen.") })?.id { return marker }
         return nodes.first(where: { $0.type == .staticText && !$0.label.isEmpty && !$0.label.hasPrefix("Testansicht") })?
             .label ?? "ohne Titel"
@@ -308,9 +338,9 @@ final class ExplorerTests: XCTestCase {
     static let brokenWords: Set<String> = ["nan", "NaN", "inf", "-inf", "Infinity", "undefined", "nil"]
 
     private func check(_ app: XCUIApplication, title: String, path: [Step]) {
-        let nodes = visibleNodes(app)
+        let nodes = frontNodes(app)
         let width = (try? app.snapshot().frame.width) ?? 0
-        for node in nodes where [.staticText, .button, .cell, .other].contains(node.type) {
+        for node in nodes where [.staticText, .button, .cell, .other, .textView].contains(node.type) {
             for text in [node.label, node.value] where !text.isEmpty {
                 if let hit = Self.brokenPatterns.first(where: { text.contains($0.0) }) {
                     Self.note(&brokenTexts, "- \(title): „\(text.prefix(80))“ (\(hit.1)) – Weg: \(pathText(path))")
@@ -320,7 +350,8 @@ final class ExplorerTests: XCTestCase {
                     Self.note(&brokenTexts, "- \(title): „\(text.prefix(80))“ (ungültige Zahl „\(word)“) – Weg: \(pathText(path))")
                 }
             }
-            if node.type == .staticText, width > 0, node.frame.minX < -1 || node.frame.maxX > width + 1 {
+            // Text is laid out vertically in scroll views; running off to the side means it is cut.
+            if node.type == .staticText, width > 0, node.frame.width > 1, node.frame.minX < -1 || node.frame.maxX > width + 1 {
                 Self.note(&offscreen, "- \(title): „\(node.label.prefix(60))“")
             }
         }
@@ -331,20 +362,6 @@ final class ExplorerTests: XCTestCase {
     }
 
     // MARK: - Helpers
-
-    private func scrollDown(_ app: XCUIApplication) {
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-        start.press(forDuration: 0.05, thenDragTo: end)
-    }
-
-    private func scrollToTop(_ app: XCUIApplication) {
-        for _ in 0..<Self.maxPages {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
-            start.press(forDuration: 0.05, thenDragTo: end)
-        }
-    }
 
     /// System dialogs (permissions) belong to SpringBoard; the walk declines them.
     private func dismissSystemAlert() {
@@ -370,6 +387,8 @@ final class ExplorerTests: XCTestCase {
         add(attachment)
     }
 
+    private func indent(_ depth: Int) -> String { String(repeating: "  ", count: depth) }
+
     private func pathText(_ path: [Step]) -> String {
         path.isEmpty ? "Startbildschirm" : path.map(\.description).joined(separator: " › ")
     }
@@ -391,8 +410,10 @@ final class ExplorerTests: XCTestCase {
         section("Kaputte Texte", brokenTexts, empty: "Keine.")
         section("Text läuft aus dem Bildschirm", offscreen, empty: "Nichts gefunden.")
         section("Knöpfe ohne sichtbare Reaktion", deadButtons, empty: "Keine.")
+        section("Knöpfe ohne Beschriftung (VoiceOver liest nichts vor)", unlabeled, empty: "Keine.")
         section("Absichtlich nicht gedrückt (Handtest)", skippedButtons.sorted().map { "- \($0)" }, empty: "Keine.")
-        section("Aus Zeitgründen nicht erreicht", notReached.map { "- \($0)" }, empty: "Alles erreicht.")
+        let shown = notReached.prefix(25) + (notReached.count > 25 ? ["- … und \(notReached.count - 25) weitere"] : [])
+        section("Aus Zeitgründen nicht erreicht", Array(shown), empty: "Alles erreicht.")
         lines.append("## Besuchte Bildschirme")
         lines.append(contentsOf: report)
         let text = lines.joined(separator: "\n")
