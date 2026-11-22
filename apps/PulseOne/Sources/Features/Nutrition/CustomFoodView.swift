@@ -47,9 +47,15 @@ struct CustomFoodView: View {
                     }
                 }
             } header: {
+                // Own colours: the system's grey header and footer fail the contrast audit on the dark background.
                 Text("Nährwerte je 100 \(unit.rawValue)")
+                    .font(Typography.label)
+                    .foregroundStyle(Palette.ink)
+                    .textCase(nil)
             } footer: {
                 Text("Leer lassen, was nicht auf der Packung steht. Unmögliche Werte (z. B. über 900 kcal je 100 g) werden nicht übernommen.")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.inkMuted)
             }
             Section {
                 Button("Weiter zur Menge") { created = makeFood() }
