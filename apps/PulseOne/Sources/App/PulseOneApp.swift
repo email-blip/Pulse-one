@@ -14,6 +14,8 @@ struct PulseOneApp: App {
     @State private var profile: ProfileStore
     /// The one companion store: Begleiter screen, TODAY card and Analyse read the same morning report.
     @State private var companion: CompanionStore
+    /// The active companion: automatic check-ins in the morning, at midday and in the evening.
+    @State private var checkIns: CheckInService
 
     init() {
         let options = LaunchOptions.current
@@ -50,12 +52,17 @@ struct PulseOneApp: App {
         }
         // After the test scenario's rows are in, so the store starts from the same data the screens show.
         let companion = CompanionStore(context: container.mainContext)
+        let checkIns = CheckInService(context: container.mainContext, ring: ring, sources: sources, profile: profile,
+                                      companion: companion, options: options)
+        CheckInService.current = checkIns
+        if !options.isUITesting { CheckInService.registerBackgroundTask() }
         self.container = container
         self.storeProblem = storeProblem
         _ring = State(initialValue: ring)
         _sources = State(initialValue: sources)
         _profile = State(initialValue: profile)
         _companion = State(initialValue: companion)
+        _checkIns = State(initialValue: checkIns)
     }
 
     var body: some Scene {
@@ -65,6 +72,7 @@ struct PulseOneApp: App {
                 .environment(sources)
                 .environment(profile)
                 .environment(companion)
+                .environment(checkIns)
                 .modelContainer(container)
                 // Cinematic dark is the PULSE ONE base; "Clinical Light" arrives with the design profiles.
                 .preferredColorScheme(.dark)
@@ -103,6 +111,7 @@ struct RootView: View {
     @Environment(RingStore.self) private var ring
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
+    @Environment(CheckInService.self) private var checkIns
 
     var body: some View {
         Group {
@@ -127,9 +136,19 @@ struct RootView: View {
             // Apple Health is read on launch and on every return to the foreground (throttled in the store).
             .onChange(of: scenePhase, initial: true) { _, phase in
                 if phase == .active {
-                    Task { await sources.syncHealthIfDue() }
-                    // Ring history "daily": on connect, and on return to the app when it is due.
+                    // Ring history: on connect, and on return to the app when it is due.
                     if !options.usesTestScenario { ring.syncIfDue() }
+                    Task {
+                        await sources.syncHealthIfDue()
+                        // The companion looks at the values by itself when a check-in is due.
+                        if profile.setupCompleted {
+                            await checkIns.requestNotificationPermission()
+                            await checkIns.runIfDue(trigger: "foreground")
+                            await checkIns.scheduleFallbacks()
+                        }
+                    }
+                } else if phase == .background {
+                    checkIns.scheduleBackgroundRefresh()
                 }
             }
             .safeAreaInset(edge: .top) {

@@ -32,7 +32,9 @@ struct TodayScreen: View {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
                         header
-                        ForEach(layout.visibleTiles) { tile in tileView(tile) }
+                        CheckInCard()
+                        // Nutrition left the app on 2026-11-22 (owner: "den Bereich brauchen wir nicht").
+                        ForEach(layout.visibleTiles.filter { $0 != .nutrition }) { tile in tileView(tile) }
                         if visibleMetrics.isEmpty, loaded {
                             EmptyState(title: "Noch keine Werte",
                                        message: "Sobald dein Ring misst oder Apple Health Daten liefert, erscheinen sie hier mit Uhrzeit und Quelle.",

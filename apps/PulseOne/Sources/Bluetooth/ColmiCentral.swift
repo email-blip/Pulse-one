@@ -38,7 +38,11 @@ final class ColmiCentral: NSObject {
     private var syncStepTimer: Task<Void, Never>?
     private var postReadyTask: Task<Void, Never>?
     private var writeQueue: Task<Void, Never>?
-    private let syncSchedule = RingSyncSchedule()
+    /// The owner wants the charts always current (2026-11-22): while the ring stays connected in the
+    /// background, the history is fetched every 30 minutes instead of every 6 hours.
+    private let syncSchedule = RingSyncSchedule(minimumGap: 30 * 60)
+    /// Lets iOS relaunch the app in the background for ring events and keep the link (bluetooth-central).
+    static let restoreIdentifier = "de.sommerlabs.pulseone.ring"
 
     private enum PendingAction { case scan, reconnect(UUID) }
 
@@ -439,7 +443,9 @@ final class ColmiCentral: NSObject {
 
     private func makeManager() {
         if manager == nil {
-            manager = CBCentralManager(delegate: self, queue: .main)
+            let options: [String: Any] = LaunchOptions.current.isUITesting
+                ? [:] : [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
+            manager = CBCentralManager(delegate: self, queue: .main, options: options)
         } else if let manager {
             centralManagerDidUpdateState(manager)
         }
@@ -600,6 +606,14 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
         case .reconnect(let id): pendingAction = nil; connect(id)
         case nil: break
         }
+    }
+
+    /// iOS relaunched the app for the ring in the background: keep the restored peripheral known, the
+    /// state update that follows reconnects or reuses it through the remembered ring.
+    func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
+        let restored = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
+        for peripheral in restored { peripherals[peripheral.identifier] = peripheral }
+        trace(.event, "Im Hintergrund wiederhergestellt: \(restored.count) Ring(e)")
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,

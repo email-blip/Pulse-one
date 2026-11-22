@@ -2,17 +2,17 @@ import PulseCore
 import SwiftData
 import SwiftUI
 
-/// The five areas of PULSE ONE (DESIGN-SYSTEM-5.0 §2). Profile, devices and the ring live in the
+/// The four areas of PULSE ONE (DESIGN-SYSTEM-5.0 §2). Profile, devices and the ring live in the
 /// profile sheet that every tab opens from the top right. Module roots: see INTEGRATION.md.
 enum AppTab: Hashable {
-    case today, health, intelligence, coach, nutrition
+    // Nutrition left the tab bar on 2026-11-22 (owner's decision); its code stays for now.
+    case today, health, intelligence, coach
 
     static func forScenario(_ scenario: String?) -> AppTab {
         switch scenario {
         case "health", "healthDetail": .health
         case "intelligence": .intelligence
         case "coach": .coach
-        case "nutrition": .nutrition
         default: .today
         }
     }
@@ -41,7 +41,6 @@ struct MainTabView: View {
             Tab("Gesundheit", systemImage: "heart.text.square", value: AppTab.health) { HealthScreen() }
             Tab("Analyse", systemImage: "sparkles", value: AppTab.intelligence) { IntelligenceHubView() }
             Tab("Coach", systemImage: "figure.run", value: AppTab.coach) { CoachScreen() }
-            Tab("Ernährung", systemImage: "fork.knife", value: AppTab.nutrition) { NutritionScreen() }
         }
         .tint(Palette.bioCyan)
         .environment(\.openProfile) { showProfile = true }

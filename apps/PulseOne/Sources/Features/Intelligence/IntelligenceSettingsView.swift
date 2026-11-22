@@ -13,6 +13,9 @@ struct IntelligenceSettingsView: View {
     @State private var testing = false
     @State private var usage = IntelligenceEngine.MonthUsage(spentUSD: 0, sends: 0)
     @State private var memoryStatus: String?
+    @AppStorage(CheckInSettings.enabledKey) private var checkInsEnabled = true
+    @AppStorage(CheckInSettings.claudeKey) private var checkInsUseClaude = true
+    @AppStorage(CheckInSettings.nameKey) private var companionName = CheckInSettings.defaultName
 
     private var services: IntelligenceServices { engine.services }
 
@@ -24,6 +27,7 @@ struct IntelligenceSettingsView: View {
                 VStack(spacing: Spacing.l) {
                     if LaunchOptions.current.usesTestScenario { TestBanner() }
                     keyCard
+                    checkInCard
                     Card {
                         SectionHeader(title: "Modell")
                         ForEach(ClaudeModel.all) { model in
@@ -106,6 +110,34 @@ struct IntelligenceSettingsView: View {
         .task {
             storedKey = services.secrets.read()
             usage = engine.monthUsage(in: modelContext)
+        }
+    }
+
+    /// The active companion (2026-11-22): automatic check-ins and the standing permission to send them.
+    private var checkInCard: some View {
+        Card {
+            SectionHeader(title: "Begleiter")
+            TextField("Name", text: $companionName)
+                .font(Typography.body)
+                .foregroundStyle(Palette.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .frame(minHeight: 44)
+                .accessibilityLabel("Name des Begleiters")
+            Toggle(isOn: $checkInsEnabled) {
+                Text("Meldet sich morgens, mittags und abends von selbst")
+                    .font(Typography.body).foregroundStyle(Palette.ink).wraps()
+            }
+            .tint(Palette.bioCyan)
+            .accessibilityIdentifier("intelligence.checkIns")
+            Toggle(isOn: $checkInsUseClaude) {
+                Text("Dafür automatisch an Claude senden")
+                    .font(Typography.body).foregroundStyle(Palette.ink).wraps()
+            }
+            .tint(Palette.bioCyan)
+            .disabled(!checkInsEnabled)
+            Text("Gesendet wird eine kurze Zusammenfassung der freigegebenen Bereiche (unten), ohne Vorschau. Jede Sendung steht mit Kosten im Verlauf der Analyse und zählt zu den Monatsgrenzen. Modell: Sonnet, etwa 2 bis 3 $ im Monat. Aus: Der Begleiter formuliert lokal auf dem iPhone.")
+                .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
         }
     }
 

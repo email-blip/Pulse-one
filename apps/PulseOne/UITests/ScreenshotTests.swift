@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class ScreenshotTests: XCTestCase {
     static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices",
-                            "onboarding", "today", "health", "healthDetail", "profile", "intelligence", "coach", "nutrition",
+                            "onboarding", "today", "health", "healthDetail", "profile", "intelligence", "coach",
                             "companion", "companionWake", "companionConference", "companionActivation"]
 
     override func setUp() async throws {

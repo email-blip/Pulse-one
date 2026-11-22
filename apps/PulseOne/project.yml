@@ -39,6 +39,10 @@ targets:
         NSCameraUsageDescription: "PULSE ONE nutzt die Kamera nur, um den Barcode eines Lebensmittels zu lesen. Es werden keine Fotos gespeichert oder gesendet."
         NSAlarmKitUsageDescription: "PULSE ONE weckt dich zur eingestellten Zeit wie ein normaler Wecker, auch im Stumm-Modus."
         NSBluetoothAlwaysUsageDescription: "PULSE ONE verbindet sich per Bluetooth mit deinem Ring, um Puls und Akkustand zu lesen. Die Daten bleiben auf diesem iPhone."
+        # Aktiver Begleiter (2026-11-22): the ring stays connected in the background and the app refreshes
+        # itself for the morning, midday and evening check-ins.
+        UIBackgroundModes: [bluetooth-central, fetch, processing]
+        BGTaskSchedulerPermittedIdentifiers: [de.sommerlabs.pulseone.checkin]
     entitlements:
       path: Sources/PulseOne.entitlements
       properties:
