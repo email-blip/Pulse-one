@@ -76,9 +76,10 @@ public struct ResponseValidator: Sendable {
         var kept: [Hypothesis] = []
         for h in board.circumstances {
             let statement = ReportStatement(text: h.text, type: .observation, evidence: h.evidence)
-            guard !check([statement], at: "Detektiv", log: &log).isEmpty,
-                  allowText(h.counterCheck, at: "Gegenprobe", log: &log) else { continue }
-            kept.append(h)
+            guard let checked = check([statement], at: "Detektiv", log: &log).first else { continue }
+            let counterCheck = Self.removingGuessedPercentages(h.counterCheck)
+            guard allowText(counterCheck, at: "Gegenprobe", log: &log) else { continue }
+            kept.append(Hypothesis(text: checked.text, fit: h.fit, counterCheck: counterCheck, evidence: h.evidence))
         }
         let note = allowText(board.note, at: "Hinweis", log: &log) ? board.note : ""
         // At most three circumstances (creative lab idea 2); the limit cannot be put in the schema.
@@ -149,8 +150,28 @@ public struct ResponseValidator: Sendable {
         }
     }
 
+    /// Guessed probabilities such as "(etwa 75 %)" or "mit rund 10 Prozent". They are not data and the
+    /// owner does not want percentages for causes (2026-11-22); removing the phrase keeps the sentence,
+    /// where rejecting it would throw away the whole statement.
+    static func removingGuessedPercentages(_ text: String) -> String {
+        let number = #"\d+(?:[.,]\d+)?\s*(?:%|Prozent)"#
+        let hedge = #"(?:etwa|ca\.|circa|rund|ungefähr|grob|geschätzt)"#
+        let patterns = [
+            #"\s*\((?:"# + hedge + #"\s*)?"# + number + #"\)"#,
+            #",?\s*(?:mit|zu)\s+"# + hedge + #"\s*"# + number + #"(?:\s+Wahrscheinlichkeit)?"#,
+        ]
+        var result = text
+        for pattern in patterns {
+            result = result.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        result = result.replacingOccurrences(of: #"\s+([.,;:!?])"#, with: "$1", options: .regularExpression)
+        return result.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
     func check(_ statements: [ReportStatement], at location: String, log: inout Log) -> [ReportStatement] {
-        statements.filter { s in
+        statements.map { ReportStatement(text: Self.removingGuessedPercentages($0.text), type: $0.type, evidence: $0.evidence) }
+            .filter { s in
             func reject(_ rule: String, _ reason: String) -> Bool {
                 log.issues.append(ValidationIssue(location: location, text: s.text, rule: rule, reason: reason, severity: .rejected))
                 return false

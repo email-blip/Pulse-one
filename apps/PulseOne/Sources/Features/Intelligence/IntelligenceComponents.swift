@@ -232,23 +232,3 @@ struct FailureCard: View {
         }
     }
 }
-
-/// Check log: what the local validator removed or marked (spec §3 step 5).
-struct CheckLogView: View {
-    let issues: [ValidationIssue]
-
-    var body: some View {
-        if !issues.isEmpty {
-            Card {
-                SectionHeader(title: "Prüfprotokoll")
-                ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Text("\(issue.severity == .rejected ? "Entfernt" : "Markiert") (\(issue.rule)): \(issue.reason)")
-                            .font(Typography.caption).foregroundStyle(Palette.ink).wraps()
-                        Text(issue.text).font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-                    }
-                }
-            }
-        }
-    }
-}

@@ -69,9 +69,14 @@ struct DetectiveView: View {
                         .font(Typography.caption).foregroundStyle(Palette.ink).wraps()
                 }
             }
-            Button("Mögliche Begleitumstände mit Claude") { prepare(detectiveCase) }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(engine.activity != nil)
+            if detectiveCase.hasEnoughForClaude {
+                Button("Mögliche Begleitumstände mit Claude") { prepare(detectiveCase) }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(engine.activity != nil)
+            } else {
+                Text("Für eine Deutung fehlt noch der Vergleich: An diesem Tag gibt es keine weiteren Messwerte wie Ruhepuls, HRV oder Schlaf und noch keine ähnlichen früheren Tage. Trag den Ring auch nachts, dann lohnt sich die Frage an Claude.")
+                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+            }
         }
     }
 
