@@ -249,6 +249,18 @@ struct ResponseValidatorTests {
         #expect(result.issues.map(\.rule) == ["Zahl", "ID", "Beleg"])
     }
 
+    /// Guessed probabilities are cut from the sentence instead of throwing the whole statement away.
+    @Test func guessedPercentagesAreRemovedNotRejected() {
+        let guess = ReportStatement(text: "Am wahrscheinlichsten (etwa 75 %) war es ein bewegter Tag mit 8.432 Schritten.",
+                                    type: .interpretation, evidence: ["F2"])
+        let result = ResponseValidator(context: ctx).validate(report(summary: [guess]))
+        #expect(result.report.summary.map(\.text) == ["Am wahrscheinlichsten war es ein bewegter Tag mit 8.432 Schritten."])
+        #expect(result.rejectedCount == 0)
+        #expect(ResponseValidator.removingGuessedPercentages("Ein Infekt passt zu rund 10 Prozent.") == "Ein Infekt passt.")
+        // A real, cited difference stays and is still checked.
+        #expect(ResponseValidator.removingGuessedPercentages("Die HRV lag 12 % unter dem Median.") == "Die HRV lag 12 % unter dem Median.")
+    }
+
     @Test func safetyRulesApply() {
         let diagnosis = ReportStatement(text: "Das deutet auf eine Infektion hin.", type: .interpretation, evidence: ["F1"])
         let causal = ReportStatement(text: "Der Ruhepuls war höher, weil du wenig geschlafen hast.", type: .interpretation, evidence: ["F1"])
@@ -447,6 +459,19 @@ struct BodyDetectiveTests {
         let ctx = detective.context(for: rhr, events: [cold], consent: ConsentCategory.defaultConsent, now: now)
         #expect(ctx.facts.first?.value == 64)
         #expect(ctx.events.contains { $0.type == "analog_day" })
+        // The other values of that day go along with their own band.
+        #expect(!rhr.dayContext.isEmpty)
+        #expect(!rhr.dayContext.contains { $0.kind == .restingHeartRate })
+        #expect(ctx.facts.count == 1 + rhr.dayContext.count)
+        #expect(ctx.facts.dropFirst().allSatisfy { $0.baseline != nil })
+        #expect(rhr.hasEnoughForClaude)
+    }
+
+    /// One deviating number with nothing to compare: Claude is not offered.
+    @Test func loneValueIsNotEnoughForClaude() {
+        let d = Deviation(kind: .steps, day: now, value: 15_197, median: 6_265, p25: 5_000, p75: 8_337,
+                          direction: .above, consecutiveDays: 2)
+        #expect(!DetectiveCase(deviation: d, analogs: []).hasEnoughForClaude)
     }
 
     /// In the morning today's steps are low only because the day has just begun: no deviation.
@@ -639,7 +664,7 @@ struct ConsultationTests {
         #expect(clinical.contains("Notruf 112"))
         #expect(!IntelligencePrompts.report(.descriptive).contains("Differenzialdiagnosen"))
         #expect(IntelligencePrompts.consultation.contains("anamnesisQuestions"))
-        #expect(IntelligencePrompts.version == 4)
+        #expect(IntelligencePrompts.version == 5)
     }
 }
 

@@ -35,9 +35,26 @@ public struct AnalogMatch: Sendable, Equatable {
     public let followingDays: Int
 }
 
+/// Another measured value on the deviation day with its own personal band, so Claude sees more
+/// than the one deviating number.
+public struct DayContextValue: Sendable, Equatable {
+    public let kind: SampleKind
+    public let value: Double
+    public let median: Double
+    public let p25: Double
+    public let p75: Double
+    public let baselineDays: Int
+}
+
 public struct DetectiveCase: Sendable, Equatable {
     public let deviation: Deviation
     public let analogs: [AnalogMatch]
+    /// Other kinds measured on the deviation day, each with a band from the 28 days before.
+    public var dayContext: [DayContextValue] = []
+
+    /// Claude only gets asked when there is something to compare: another value that day or an
+    /// analogue day. With the deviating number alone, any answer is guesswork.
+    public var hasEnoughForClaude: Bool { !analogs.isEmpty || !dayContext.isEmpty }
 
     /// "2-mal folgte Krankheitsgefühl, 3-mal nichts Besonderes".
     public var followUpSummary: [(tag: ContextTag?, count: Int)] {
@@ -55,7 +72,7 @@ public struct DetectiveCase: Sendable, Equatable {
     }
 
     public static func == (a: DetectiveCase, b: DetectiveCase) -> Bool {
-        a.deviation == b.deviation && a.analogs == b.analogs
+        a.deviation == b.deviation && a.analogs == b.analogs && a.dayContext == b.dayContext
     }
 }
 
@@ -158,11 +175,28 @@ public struct BodyDetective: Sendable {
         return deviations(in: all, now: now).map { deviation in
             let target = all.first { $0.day == deviation.day } ?? DayProfile(day: deviation.day, values: [deviation.kind: deviation.value])
             let history = all.filter { $0.day < deviation.day }
-            return DetectiveCase(deviation: deviation, analogs: analogs(for: target, history: history, events: events))
+            return DetectiveCase(deviation: deviation, analogs: analogs(for: target, history: history, events: events),
+                                 dayContext: dayContext(for: target, excluding: deviation.kind, history: history))
         }
     }
 
-    /// Minimal context for the hypothesis board: deviation, band, analogue days and own tags only.
+    /// The other kinds measured on `target`, each with median and band of the 28 days before.
+    public func dayContext(for target: DayProfile, excluding kind: SampleKind, history: [DayProfile]) -> [DayContextValue] {
+        let windowStart = calendar.date(byAdding: .day, value: -ContextBuilder.baselineWindowDays, to: target.day) ?? target.day
+        let window = history.filter { $0.day >= windowStart && $0.day < target.day }
+        return Self.featureKinds.compactMap { other in
+            guard other != kind, let value = target.values[other] else { return nil }
+            let base = window.compactMap { $0.values[other] }
+            guard base.count >= ContextBuilder.baselineMinimumDays,
+                  let m = IntelligenceStats.median(base),
+                  let lo = IntelligenceStats.quantile(base, 0.25),
+                  let hi = IntelligenceStats.quantile(base, 0.75) else { return nil }
+            return DayContextValue(kind: other, value: value, median: m, p25: lo, p75: hi, baselineDays: base.count)
+        }
+    }
+
+    /// Context for the hypothesis board: deviation and band, the other values of that day with their
+    /// bands, analogue days and own tags.
     public func context(for detectiveCase: DetectiveCase, events: [ContextEvent], consent: Set<ConsentCategory>,
                         now: Date) -> HealthAnalysisContext {
         let d = detectiveCase.deviation
@@ -177,6 +211,18 @@ public struct BodyDetective: Sendable {
                                    p75: FactUnits.display(d.kind, d.p75).value,
                                    windowDays: ContextBuilder.baselineWindowDays, n: d.baselineDays),
             source: "local", quality: "plausible")]
+        for extra in detectiveCase.dayContext {
+            if let category = ConsentCategory.category(for: extra.kind), !consent.contains(category) { continue }
+            let value = FactUnits.display(extra.kind, extra.value)
+            facts.append(AnalysisFact(
+                id: "F\(facts.count + 1)", kind: extra.kind.rawValue, title: extra.kind.title, stat: "day_value",
+                value: value.value, unit: value.unit, period: day, n: 1, coverage: 1,
+                baseline: FactBaseline(median: FactUnits.display(extra.kind, extra.median).value,
+                                       p25: FactUnits.display(extra.kind, extra.p25).value,
+                                       p75: FactUnits.display(extra.kind, extra.p75).value,
+                                       windowDays: ContextBuilder.baselineWindowDays, n: extra.baselineDays),
+                source: "local", quality: "plausible"))
+        }
         var events_: [ContextEventFact] = []
         if consent.contains(.notes) {
             for (index, analog) in detectiveCase.analogs.enumerated() {

@@ -144,7 +144,7 @@ public enum AnthropicError: Error, Equatable, Sendable {
 /// Fixed prompts, versioned like the context (spec §3.1). German, "du". Two modes (see `SafetyMode`):
 /// `clinical` interprets like a physician team (owner decision 2026-11-21), `descriptive` only describes.
 public enum IntelligencePrompts {
-    public static let version = 4
+    public static let version = 5
 
     /// Data rules shared by both modes: numbers, evidence ids, special stats.
     static let dataRules = """
@@ -232,7 +232,11 @@ public enum IntelligencePrompts {
                 + "Notizen und Messwerte."
         return """
         Du hilfst in PULSE ONE beim „Körper-Detektiv“: Ein Wert liegt außerhalb des persönlichen Bandes. Du bekommst \
-        die Abweichung, frühere ähnliche Tage (Analogtage) und was danach in den eigenen Notizen stand. \(scope)
+        die Abweichung, die anderen Messwerte desselben Tages mit ihrem persönlichen Band, frühere ähnliche Tage \
+        (Analogtage) und was danach in den eigenen Notizen stand. \(scope)
+        Schreib kurz und handytauglich: jede Erklärung höchstens zwei Sätze, die Gegenprobe ein Satz, note höchstens \
+        ein Satz. Keine Prozentangaben für Wahrscheinlichkeiten, die Einschätzung steht in fit. Wiederhole keine \
+        Zahlen, die schon in der Abweichung stehen. Was die Daten nicht hergeben, lässt du weg, statt es zu erklären.
 
         """ + rules(mode)
     }

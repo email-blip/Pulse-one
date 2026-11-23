@@ -1,7 +1,8 @@
 import PulseCore
 import SwiftUI
 
-/// A checked report: every sentence with its type, evidence and notes; then the check log and the cost.
+/// A checked report: every sentence with its type, evidence and notes; then the cost. The check log is
+/// stored with the analysis but not shown: internal validator wording is no help to the reader.
 struct ReportView: View {
     let analysis: StoredAnalysis
 
@@ -33,7 +34,6 @@ struct ReportView: View {
                             }
                         }
                     }
-                    CheckLogView(issues: analysis.issues)
                     RunFooter(analysis: analysis)
                 }
                 .padding(Spacing.l)
@@ -136,6 +136,12 @@ struct HypothesisBody: View {
 
     var body: some View {
         VStack(spacing: Spacing.l) {
+            if board.circumstances.isEmpty {
+                Card {
+                    Text("Claude hat dazu nichts gefunden, das sich mit deinen Daten belegen lässt.")
+                        .font(Typography.body).foregroundStyle(Palette.ink).wraps()
+                }
+            }
             ForEach(Array(board.circumstances.enumerated()), id: \.offset) { _, hypothesis in
                 Card {
                     StatementRow(text: hypothesis.text, kind: .interpretation,
