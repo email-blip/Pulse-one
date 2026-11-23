@@ -113,6 +113,7 @@ enum M1 {
 
     /// Runs `body`; a missing screen becomes a skip ("noch nicht integriert") unless strict.
     @MainActor
+    @discardableResult
     static func skipIfMissing<T>(_ body: () throws -> T) throws -> T {
         do {
             return try body()
@@ -132,12 +133,19 @@ enum M1 {
     static func tileOrder(_ app: XCUIApplication) -> [String] {
         let tiles = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", Dashboard.tilePrefix)).allElementsBoundByIndex
-        return tiles
-            .filter { !$0.identifier.hasSuffix(".moveDown") && !$0.identifier.hasSuffix(".moveUp") }
-            .map { ($0.identifier, $0.frame) }
-            .sorted { abs($0.1.minY - $1.1.minY) > 4 ? $0.1.minY < $1.1.minY : $0.1.minX < $1.1.minX }
-            .map(\.0)
-            .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        var placed: [(id: String, frame: CGRect)] = []
+        for tile in tiles {
+            let id = tile.identifier
+            if id.hasSuffix(".moveDown") || id.hasSuffix(".moveUp") { continue }
+            placed.append((id: id, frame: tile.frame))
+        }
+        placed.sort { lhs, rhs in
+            let sameRow = abs(lhs.frame.minY - rhs.frame.minY) <= 4
+            return sameRow ? lhs.frame.minX < rhs.frame.minX : lhs.frame.minY < rhs.frame.minY
+        }
+        var order: [String] = []
+        for entry in placed where !order.contains(entry.id) { order.append(entry.id) }
+        return order
     }
 
     /// M1 screens the screenshot matrix and the audits visit (`M1.open`).
