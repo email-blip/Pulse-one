@@ -108,7 +108,10 @@ struct ScoreDetailScreen: View {
             }
             .chartYScale(domain: 0...100)
             .frame(height: 160)
+            // One summary element instead of 30 thin bar elements (audit: hit area too small).
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(kind.title) der letzten 30 Tage")
+            .accessibilityValue(history.last.map { "zuletzt \($0.value) von 100" } ?? "")
             let mean = history.map(\.value).reduce(0, +) / history.count
             Text("Im Mittel \(mean), an \(history.count) Tagen berechnet.")
                 .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
