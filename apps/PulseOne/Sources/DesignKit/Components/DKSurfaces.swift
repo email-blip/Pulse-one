@@ -46,16 +46,18 @@ struct DKSectionHeader: View {
     var actionTitle: String?
     var actionIdentifier: String?
     var action: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: DKSpace.xs) {
+                titleText
+                actionButton
+            }
+        } else {
             HStack(alignment: .firstTextBaseline) {
                 titleText
                 Spacer(minLength: DKSpace.s)
-                actionButton
-            }
-            VStack(alignment: .leading, spacing: DKSpace.xs) {
-                titleText
                 actionButton
             }
         }

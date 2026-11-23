@@ -12,16 +12,20 @@ struct RookHeader: View {
     var isSpeaking = false
 
     @ScaledMetric(relativeTo: .headline) private var orbSize: CGFloat = 32
+    @Environment(\.dynamicTypeSize) private var typeSize
 
+    // An explicit switch instead of ViewThatFits: the accessibility audit reported text inside ViewThatFits
+    // as "Dynamic Type partially unsupported" (run 166).
     var body: some View {
-        ViewThatFits(in: .horizontal) {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: DKSpace.m) {
+                identity
+                readButton
+            }
+        } else {
             HStack(spacing: DKSpace.m) {
                 identity
                 Spacer(minLength: DKSpace.s)
-                readButton
-            }
-            VStack(alignment: .leading, spacing: DKSpace.m) {
-                identity
                 readButton
             }
         }

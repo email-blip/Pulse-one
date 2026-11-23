@@ -60,15 +60,17 @@ struct DesignKitReferenceScreen: View {
         .screenIdentifier(Self.scenario)
     }
 
+    @ViewBuilder
     private var actions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: DKSpace.m) {
-                startButton.buttonStyle(DKPrimaryButtonStyle())
-                whyButton.buttonStyle(DKSecondaryButtonStyle())
-            }
+        if typeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: DKSpace.m) {
                 startButton.buttonStyle(DKPrimaryButtonStyle(fullWidth: true))
                 whyButton.buttonStyle(DKSecondaryButtonStyle(fullWidth: true))
+            }
+        } else {
+            HStack(spacing: DKSpace.m) {
+                startButton.buttonStyle(DKPrimaryButtonStyle())
+                whyButton.buttonStyle(DKSecondaryButtonStyle())
             }
         }
     }
