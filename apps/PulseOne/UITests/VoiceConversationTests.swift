@@ -17,11 +17,14 @@ final class VoiceConversationTests: XCTestCase {
 
         // The person's words appear live, then ROOK answers.
         XCTAssertTrue(element(containing: "Wie war meine Nacht", in: app).waitForExistence(timeout: 10))
-        XCTAssertTrue(element(containing: "„Wie war meine Nacht“ verstanden", in: app).waitForExistence(timeout: 10))
+        let rookTurns = app.descendants(matching: .any).matching(identifier: "rook.voice.turn.rook")
+        XCTAssertTrue(rookTurns.firstMatch.waitForExistence(timeout: 10))
         // The second utterance cuts into the answer and gets its own answer.
         XCTAssertTrue(element(containing: "Warte mal, wie ist mein Puls gerade", in: app).waitForExistence(timeout: 15))
-        XCTAssertTrue(element(containing: "„Warte mal, wie ist mein Puls gerade“ verstanden", in: app)
-            .waitForExistence(timeout: 15))
+        // ROOK answers the new question too (text depends on ROOK's brain, so only the turn is checked).
+        let second = NSPredicate(format: "count >= 2")
+        expectation(for: second, evaluatedWith: rookTurns)
+        waitForExpectations(timeout: 15)
 
         XCTAssertEqual(app.buttons["rook.voice"].label, "Gespräch beenden")
         app.buttons["rook.voice"].tap()

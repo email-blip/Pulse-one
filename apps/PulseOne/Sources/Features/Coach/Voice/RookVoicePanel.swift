@@ -112,5 +112,6 @@ struct RookVoicePanel: View {
                 .wraps()
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(rook ? "rook.voice.turn.rook" : "rook.voice.turn.person")
     }
 }
