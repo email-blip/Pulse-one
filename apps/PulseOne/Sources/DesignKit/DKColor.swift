@@ -17,19 +17,21 @@ enum DKColor {
     /// Page background.
     static let background   = obsidian
     /// Cards and tiles.
-    static let surface      = Color(hex: 0x0E1829)
+    static let surface      = Color(hex: 0x0F1A2C)
     /// Buttons and controls on a card.
-    static let surfaceRaised = Color(hex: 0x15233A)
+    static let surfaceRaised = Color(hex: 0x16243A)
     /// Pressed or selected controls.
     static let surfaceSelected = Color(hex: 0x1C2E4B)
 
     // MARK: Lines (decoration only; meaning never depends on them)
-    static let hairline     = Color(hex: 0x24365A)
+    static let hairline     = Color(hex: 0x23344F)
     static let lineStrong   = Color(hex: 0x3A5277)
 
     // MARK: Text levels (all ≥ 5:1 on every surface)
+    // Surfaces, hairline, secondary text and mesh keep the exact Build-17 values: the legacy `Palette` maps onto
+    // them, and Apple's pixel-based contrast audit flagged small captions on old screens when they shifted (run 166).
     static let textPrimary   = iceWhite
-    static let textSecondary = Color(hex: 0xAFC3D2)
+    static let textSecondary = Color(hex: 0xBACCDA)
     /// Captions such as "NACHT · 07:00".
     static let textTertiary  = Color(hex: 0x8AA3B8)
     /// Text on a Bio Cyan fill (primary button).
@@ -43,9 +45,9 @@ enum DKColor {
 
     /// Page background with the soft cyan/violet glow behind the coach header (3×3 mesh, row by row).
     static let backgroundMesh: [Color] = [
-        0x070D19, 0x0A1528, 0x070D19,
-        0x0A1A2E, 0x101B3C, 0x0B1426,
-        0x070D19, 0x08101F, 0x070D19
+        0x070D19, 0x0A1426, 0x070D19,
+        0x0B1630, 0x14204A, 0x0E1430,
+        0x070D19, 0x0A1224, 0x070D19
     ].map(Color.init(hex:))
 }
 
