@@ -55,6 +55,33 @@ final class ScreenshotTests: XCTestCase {
         }
     }
 
+    /// Rebuild M1 screens (team 06): every place × default/XXXL, plus Reduce Motion on the moving screens.
+    /// Skips while the dashboard is not integrated; a single missing place is logged (failure when strict).
+    func testCaptureNeubauM1() throws {
+        let probe = M1.launch()
+        try M1.skipIfMissing { try M1.require(probe, M1.Screen.dashboard, step: "Dashboard", timeout: 30) }
+        probe.terminate()
+        var cells: [(M1.Place, String, Bool)] = []
+        for place in M1.Place.allCases {
+            for type in ["default", "xxxl"] { cells.append((place, type, false)) }
+        }
+        for place in [M1.Place.dashboard, .timeline, .workout] { cells.append((place, "default", true)) }
+        for (place, type, reduced) in cells {
+            let app = M1.launch(dynamicType: type, reduceMotion: reduced)
+            do {
+                try M1.open(place, in: app)
+                let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                attachment.name = ["m1-\(place.rawValue)", "dark", type, reduced ? "reduced" : nil]
+                    .compactMap { $0 }.joined(separator: "__")
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            } catch let missing as M1Missing {
+                print("M1 screenshot \(place.rawValue)/\(type): \(missing.message)")
+            }
+            app.terminate()
+        }
+    }
+
     /// `prepare` navigates to a screen below the scenario's start screen, captured as `name`.
     private func capture(scenario: String, dynamicType: String, reduceMotion: Bool, name: String? = nil,
                          expectedScreen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) {

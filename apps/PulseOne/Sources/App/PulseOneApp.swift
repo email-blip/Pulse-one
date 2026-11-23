@@ -139,8 +139,8 @@ struct RootView: View {
             }
         }
             .environment(\.reduceMotionEffective, options.reduceMotion ?? systemReduceMotion)
-            .environment(\.freezeAnimations, options.usesTestScenario)
-            .transaction { if options.usesTestScenario { $0.disablesAnimations = true } }
+            .environment(\.freezeAnimations, options.usesTestScenario && !options.liveMotion)
+            .transaction { if options.usesTestScenario && !options.liveMotion { $0.disablesAnimations = true } }
             .onChange(of: ring.snapshot, initial: true) { _, snapshot in sources.noteRing(snapshot) }
             // Apple Health is read on launch and on every return to the foreground (throttled in the store).
             .onChange(of: scenePhase, initial: true) { _, phase in
@@ -160,14 +160,20 @@ struct RootView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if let storeProblem {
-                    Label(storeProblem, systemImage: "exclamationmark.triangle.fill")
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.obsidian)
-                        .padding(Spacing.m)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Palette.pulseCoral)
-                        .accessibilityIdentifier("storeProblem")
+                VStack(spacing: 0) {
+                    // The rebuild screens get the test banner here once, instead of each screen adding it.
+                    if options.usesTestScenario, let scenario = options.scenario, NeubauScenario.all.contains(scenario) {
+                        TestBanner().padding(.horizontal, Spacing.m)
+                    }
+                    if let storeProblem {
+                        Label(storeProblem, systemImage: "exclamationmark.triangle.fill")
+                            .font(Typography.caption)
+                            .foregroundStyle(Palette.obsidian)
+                            .padding(Spacing.m)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Palette.pulseCoral)
+                            .accessibilityIdentifier("storeProblem")
+                    }
                 }
             }
     }

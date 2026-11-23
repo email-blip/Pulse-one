@@ -136,6 +136,7 @@ enum TestScenario {
         if historyScenarios.contains(name) { insertTabHistory(into: context) }
         // Team 03: dense ring history and sleep phases for the Dashboard and Verlauf test views.
         if TimelineDemo.scenarios.contains(name) { TimelineDemo.insert(name, into: context, now: TimelineClock.now) }
+        if NeubauScenario.all.contains(name) { NeubauScenario.insert(name, into: context) }
         if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         if name == "coach" { CoachScenario.insert(into: context) }
         if name == "nutrition" { NutritionTestData.insert(into: context) }
