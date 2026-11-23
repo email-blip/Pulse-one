@@ -8,8 +8,8 @@ import SwiftData
 ///
 /// Values are deterministic (no random numbers) and anchored to the start of the current day, so the
 /// dashboard shows "today" and "last night" whenever the test runs. Team 01 adds the stored sleep
-/// segments of the night here once its `SleepSegment` model exists (`insertNight`), plus its own
-/// fixtures (gap, unknown phase code, double sync, DST); until then the hypnogram has no data.
+/// segments of the night (22:40–06:55) from `TimelineScenarios.sleepNight`; its edge cases (gap, unknown
+/// phase code, double sync, DST) are covered by `TimelineScenarios` in the PulseCore tests.
 enum NeubauScenario {
     /// One day plus the night before, 5-minute heart rate like the R03 history, one visible gap.
     static let walkthrough = "neubauM1"
@@ -17,7 +17,8 @@ enum NeubauScenario {
     static let year = "neubauM1Year"
     static let all: Set<String> = [walkthrough, year]
 
-    static let ringDevice = "test-ring"
+    /// Same test device as the sleep segments (`TimelineScenarios.deviceID`), so pulse and sleep share one axis.
+    static let ringDevice = TimelineScenarios.deviceID
 
     @MainActor
     static func insert(_ name: String, into context: ModelContext, now: Date = Date()) {
@@ -33,6 +34,10 @@ enum NeubauScenario {
             if offset % 30 == 29 { try? context.save() }
         }
         try? context.save()
+        // Last night's sleep phases through the real BC 27 parser (team 01): 22:40 to 06:55.
+        _ = try? SleepSegmentStore(context: context).ingest(
+            TimelineScenarios.sleepNight(startMinute: 22 * 60 + 40, endMinute: 6 * 60 + 55, now: now, calendar: calendar),
+            now: now)
     }
 
     /// Deterministic pseudo-noise in -1…1 for index `i` (no RNG, so screenshots are stable).
