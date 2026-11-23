@@ -32,6 +32,7 @@ struct RookConversationSection: View {
                         }
                     }
                 }
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("rook.conversation")
             }
             Card {

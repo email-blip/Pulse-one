@@ -105,6 +105,8 @@ struct RookCard: View {
                     .accessibilityIdentifier("correction.\(feedback.rawValue)")
                 }
             }
+            // `.contain` first: an identifier on a plain container would overwrite the buttons' own identifiers.
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("rook.corrections")
         }
     }
