@@ -11,6 +11,7 @@ struct TodayScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var metrics: [TodayMetric] = []
+    @State private var scores: [ScoreEntry] = []
     @State private var loaded = false
     @State private var customizing = false
     /// Companion test scenarios open the Begleiter screen directly (pushed, so it sits in this stack).
@@ -32,6 +33,7 @@ struct TodayScreen: View {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
                         header
+                        if scores.contains(where: { $0.result != .noData }) { ScoreRingsCard(scores: scores) }
                         CheckInCard()
                         // Nutrition left the app on 2026-11-22 (owner: "den Bereich brauchen wir nicht").
                         ForEach(layout.visibleTiles.filter { $0 != .nutrition }) { tile in tileView(tile) }
@@ -103,8 +105,10 @@ struct TodayScreen: View {
     }
 
     private func reload() {
-        metrics = TodayModel.metrics(reader: SampleReader(context: modelContext), profileID: sources.ownerProfileID,
-                                     now: LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : .now)
+        let now = LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : Date.now
+        let reader = SampleReader(context: modelContext)
+        metrics = TodayModel.metrics(reader: reader, profileID: sources.ownerProfileID, now: now)
+        scores = ScoreModel(reader: reader, profileID: sources.ownerProfileID, now: now).today()
         loaded = true
     }
 

@@ -40,8 +40,8 @@ public enum SupportStatus: String, Codable, Sendable {
     public var label: String {
         switch self {
         case .confirmed: "bestätigt"
-        case .implementedUntested: "implementiert, ungetestet"
-        case .protocolUnknown: "Protokoll unbekannt"
+        case .implementedUntested: "noch nicht am Gerät geprüft"
+        case .protocolUnknown: "noch nicht auslesbar"
         case .planned: "geplant"
         case .unsupported: "nicht unterstützt"
         }

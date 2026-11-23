@@ -43,6 +43,34 @@ struct MetricDetailScreen: View {
         .screenIdentifier("healthDetail")
     }
 
+    /// Y range wide enough that normal small swings do not look dramatic (design review: pulse 69–71,
+    /// SpO₂ 96–97 %). Bars start at zero.
+    private var yDomain: ClosedRange<Double> {
+        var values = points.map { kind.displayNumber($0.value) }
+        if showsBand, let band = baseline?.baseline {
+            values += [kind.displayNumber(band.lower), kind.displayNumber(band.upper)]
+        }
+        guard let low = values.min(), let high = values.max() else { return 0...1 }
+        if isBar { return 0...max(high * 1.1, 1) }
+        let minimumSpan: Double = switch kind {
+        case .heartRate: 20
+        case .restingHeartRate, .heartRateVariability, .ringHRV: 12
+        case .oxygenSaturation: 8
+        case .sleepDuration: 3
+        case .skinTemperature, .skinTemperatureDeviation, .bodyTemperature: 1.5
+        default: 0
+        }
+        let span = max(high - low, minimumSpan, 0.001)
+        let middle = (low + high) / 2
+        var lower = min(low, middle - span / 2) - span * 0.1
+        var upper = max(high, middle + span / 2) + span * 0.1
+        if kind == .oxygenSaturation, upper > 100 {
+            lower -= upper - 100
+            upper = 100
+        }
+        return lower...upper
+    }
+
     private var isBar: Bool { kind.aggregation == .cumulative || kind.aggregation == .interval }
     private var showsBand: Bool { range != .day && kind != .ringStress && baseline?.baseline != nil }
 
@@ -70,7 +98,9 @@ struct MetricDetailScreen: View {
             } else {
                 Chart {
                     if showsBand, let band = baseline?.baseline, let first = points.first?.date, let last = points.last?.date {
-                        RectangleMark(xStart: .value("Beginn", first), xEnd: .value("Ende", last),
+                        // Bars stand on whole days: the band covers the last bar too (design review).
+                        let end = isBar ? last.addingTimeInterval(86_400) : last
+                        RectangleMark(xStart: .value("Beginn", first), xEnd: .value("Ende", end),
                                       yStart: .value("unten", kind.displayNumber(band.lower)),
                                       yEnd: .value("oben", kind.displayNumber(band.upper)))
                             .foregroundStyle(Palette.bioCyan.opacity(0.18))
@@ -94,11 +124,13 @@ struct MetricDetailScreen: View {
                         }
                     }
                 }
-                .chartYScale(domain: .automatic(includesZero: isBar))
+                .chartYScale(domain: yDomain)
                 .chartXAxis {
                     AxisMarks { _ in
                         AxisGridLine().foregroundStyle(Palette.hairline)
-                        AxisValueLabel().foregroundStyle(Palette.inkMuted)
+                        // Short dates ("20.11.") so labels are not cut off (design review).
+                        AxisValueLabel(format: range == .day ? .dateTime.hour() : .dateTime.day().month(.defaultDigits))
+                            .foregroundStyle(Palette.inkMuted)
                     }
                 }
                 .chartYAxis {

@@ -20,23 +20,26 @@ struct ProfileSheet: View {
                     Section { TestBanner().listRowBackground(Color.clear) }
                 }
                 Section {
-                    TextField("Name", text: $name)
+                    TextField("Name", text: $name, prompt: Text("Name").foregroundStyle(Palette.inkMuted))
                         .textContentType(.givenName)
                         .accessibilityIdentifier("profile.name")
-                    TextField("Geburtsjahr", text: $birthYear)
+                    TextField("Geburtsjahr", text: $birthYear, prompt: Text("Geburtsjahr").foregroundStyle(Palette.inkMuted))
                         .keyboardType(.numberPad)
                     Picker("Geschlecht", selection: $sex) {
                         ForEach(UserProfile.Sex.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
-                    TextField("Größe in cm", text: $height)
+                    // A pushed list in the app's colours instead of the grey system pop-up menu (design review).
+                    .pickerStyle(.navigationLink)
+                    TextField("Größe in cm", text: $height, prompt: Text("Größe in cm").foregroundStyle(Palette.inkMuted))
                         .keyboardType(.decimalPad)
-                    TextField("Gewicht in kg", text: $weight)
+                    TextField("Gewicht in kg", text: $weight, prompt: Text("Gewicht in kg").foregroundStyle(Palette.inkMuted))
                         .keyboardType(.decimalPad)
                 } header: {
                     Text("Profil")
                 } footer: {
                     Text("Alle Angaben sind freiwillig und bleiben auf diesem iPhone. Sie helfen bei Einordnungen, ersetzen aber keine Untersuchung.")
                 }
+                .listRowBackground(Palette.surfaceRaised)
                 Section("Geräte") {
                     NavigationLink {
                         ConnectScreen(options: options)
@@ -51,6 +54,7 @@ struct ProfileSheet: View {
                     }
                     .accessibilityIdentifier("profile.devices")
                 }
+                .listRowBackground(Palette.surfaceRaised)
                 Section("Analyse") {
                     NavigationLink {
                         IntelligenceSettingsView()
@@ -58,6 +62,7 @@ struct ProfileSheet: View {
                         Label("KI-Anbieter", systemImage: "key")
                     }
                 }
+                .listRowBackground(Palette.surfaceRaised)
                 Section("App") {
                     Button {
                         save()
@@ -71,6 +76,7 @@ struct ProfileSheet: View {
                         .font(Typography.caption)
                         .foregroundStyle(Palette.inkMuted)
                 }
+                .listRowBackground(Palette.surfaceRaised)
             }
             .scrollContentBackground(.hidden)
             .background(ScreenBackground())
