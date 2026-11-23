@@ -172,7 +172,10 @@ final class DurchstichTests: XCTestCase {
             try expectState("running")
             Thread.sleep(forTimeInterval: 2.5)
             let now = M1.element(app, M1.Workout.remaining).label
-            XCTAssertNotEqual(now, remainingPaused, "Timer läuft nach dem Fortsetzen nicht")
+            // A repetition step shows "10 Wiederholungen" (no clock); only a timed phase must count down.
+            if containsClockTime(remainingPaused) {
+                XCTAssertNotEqual(now, remainingPaused, "Timer läuft nach dem Fortsetzen nicht")
+            }
             return now
         }
 
