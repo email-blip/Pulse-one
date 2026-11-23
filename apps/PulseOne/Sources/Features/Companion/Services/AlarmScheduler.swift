@@ -242,11 +242,12 @@ enum CompanionNotifications {
         return ids
     }
 
-    static func add(id: String, title: String, body: String, components: DateComponents) async throws {
+    static func add(id: String, title: String, body: String, components: DateComponents, category: String? = nil) async throws {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        if let category { content.categoryIdentifier = category }
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     }

@@ -1099,5 +1099,46 @@
         "unique": false
       }
     }
+  },
+  "WorkoutRecord": {
+    "file": "apps/PulseOne/Sources/Features/Training/WorkoutRecord.swift",
+    "properties": {
+      "day": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "endedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "profileID": {
+        "default": false,
+        "optional": true,
+        "type": "UUID",
+        "unique": false
+      },
+      "sessionID": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "startedAt": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "summaryJSON": {
+        "default": true,
+        "optional": false,
+        "type": "Data",
+        "unique": false
+      }
+    }
   }
 }

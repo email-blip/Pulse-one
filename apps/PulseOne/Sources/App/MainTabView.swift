@@ -44,6 +44,8 @@ struct MainTabView: View {
             Tab("Mehr", systemImage: "ellipsis.circle", value: AppTab.intelligence) { IntelligenceHubView() }
         }
         .tint(Palette.bioCyan)
+        // Team 05: the guided training session opens full screen from any tab (Coach, ROOK's action).
+        .trainingSessionCover()
         .environment(\.openProfile) { showProfile = true }
         .sheet(isPresented: $showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.

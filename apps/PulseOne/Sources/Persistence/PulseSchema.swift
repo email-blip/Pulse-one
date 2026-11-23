@@ -11,4 +11,5 @@ enum PulseSchema {
         + NutritionPersistence.models
         + CompanionPersistence.models
         + CheckInPersistence.models
+        + TrainingPersistence.models
 }
