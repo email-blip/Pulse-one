@@ -1,158 +1,157 @@
-# PULSE ONE – Neubau von Oberfläche, Diagrammen und KI
+# PULSE ONE – Neubau: Integrationsplan (Leitstand 00)
 
-Stand: 2026-11-23 · Grundlage: Build 17 (main `2c5dae4`), 8 Screenshots von Johannes, Marktvergleich.
-Status: **Phase 1 (Analyse und Plan)**. Gebaut wird erst, wenn die ChatGPT-Vorgaben eingearbeitet sind und Johannes „los“ sagt.
+Stand: 2026-11-23, Version 2 (ChatGPT-Vorgaben „Motion Dashboard & Personal AI Coach“ und „Medienbibliothek und Gesundheitscoach“ eingearbeitet).
+Verbindlich bei Widerspruch: dieser Plan vor älteren Konzepten (Begleiter-Konzept, Kern-wie-Oura, Master-Directive-Teile zu UI).
+Verträge im Detail: `VERTRAEGE.md`. Auftragstexte je Team: `auftraege/01…06`.
 
 ---
 
-## 1. Was Johannes nicht passt (Zusammenfassung)
+## 1. Bestand und Sicherung
 
-1. **Optik und Bedienung:** statisch, textlastig, wirkt wie eine Liste von Textkarten. Nicht vergleichbar mit Oura, QRing, Whoop.
-2. **Keine Bewegung:** Zahlen und Ringe erscheinen einfach, nichts lebt, nichts reagiert auf neue Messungen.
-3. **Verlauf unbrauchbar:** Der Tab „Verlauf“ ist eine Liste („62 bpm · 3 Tage mit Daten“). Man sieht nicht, welcher Wert wann gemessen wurde.
-4. **Schlaf ohne Phasen:** Es gibt nur „5,8 h“. Kein Hypnogramm mit Leicht-, Tief-, REM- und Wachphasen auf der Uhrzeit-Achse.
-5. **KI redet über Lücken statt zu deuten:** Sätze wie „Für deine Basislinie fehlen mir Vergleichswerte“, „kann ich nur als Verlauf lesen“, „Normalbereich gibt der Hersteller nicht her“, „3 von 3 Messsignalen sind noch unbekannt“, „lernt noch (12 Tage)“, „Noch 5 Tage bis zu deinem üblichen Bereich“.
-6. **KI-Ton:** zu technisch und zu vorsichtig. Gewünscht: locker, cool, konkret. „So geht's dir heute, so lief dein Tag.“ Nachfragen „warum?“ jederzeit. Auch per Sprache.
-7. **Startseite:** Alle Werte sollen als Kacheln frei anordenbar sein.
-8. **Anspruch:** mindestens so gut wie die Marktführer, Ziel deutlich besser.
-9. **Vorgehen:** kompletter Neubau, alter Code raus, mehrere Teams parallel, ein Koordinator führt zusammen.
-
-## 2. Marktanalyse: Was die Großen zeigen
-
-| | Startseite | Diagramme | Schlaf | KI | Bewegung/Gefühl |
-|---|---|---|---|---|---|
-| **Oura** (Redesign Okt./Nov. 2025) | Tab „Heute“ mit 3 Scores oben (Schlaf, Erholung, Aktivität) und **einer** Tageserkenntnis („One Big Thing“). Tabs: Heute · Vitals · My Health | Puls-Tageskurve mit Messpunkten, Tag/Woche/Monat/Jahr, persönliches Band | Hypnogramm (Wach/REM/Leicht/Tief über Uhrzeit), Puls- und HRV-Kurve der Nacht darunter, Beiträger mit Balken | „Advisor“: Chat, kennt Schlaf, Aktivität, Mahlzeiten, analytischer Ton, merkt sich Dinge | Ruhig, edle Farbverläufe, Zahlen zählen hoch, Ringe füllen sich |
-| **QRing** (Colmi, gleicher Ring) | Kacheln je Wert (Puls, Schlaf, SpO₂, Stress, HRV, Schritte) mit Mini-Diagramm | Tagesdiagramm: **jeder 5-Minuten-Messwert als Balken/Punkt** mit Uhrzeit beim Antippen | Phasenbalken über Uhrzeit, Summen je Phase | keine | einfach, aber zeigt jeden Messpunkt |
-| **Whoop** (Home-Redesign 2025, KI 2026) | 3 große Zahlenräder (Schlaf, Erholung, Belastung), Wochenplan, iOS-Widgets | Belastung über den Tag, Wochenvergleich | Phasen, Schlafbedarf, Schlafschuld | „Whoop Coach“ in jeder Ansicht, Gedächtnis, **Spracheingabe**, KI erstellt Trainings | kräftige Farben, Haptik |
-| **Ultrahuman** (Update 2026) | „UltraSphere“: Vorschläge statt Diagramme, eigener KI-Tab „Jade“ | Stress-Rhythmus, zirkadianer Rhythmus | Schlaf-Screener + smarter Wecker in einer Ansicht | Jade-Assistent mit eigenem Tab | dynamische Scores, alles auch offline |
-| **Garmin Connect** | „Mein Tag“: frei anordenbare Karten, ein-/ausblendbar | Body Battery über den Tag, Puls-Tageskurve, Stress-Balken | Phasen-Zeitachse, Schlaf-Coach | „Active Intelligence“-Kurzsätze | funktional, sehr vollständig |
-| **Apple Health / Fitness** | Favoriten anheften, Highlights | Swift-Charts-Stil, Antippen und Wischen zeigt Wert mit Zeit | Phasen-Diagramm (Wach/REM/Kern/Tief) mit Uhrzeit | Highlights als Sätze | Aktivitätsringe mit Feder-Animation, Haptik |
-
-Quellen: [Oura Redesign (TechCrunch)](https://techcrunch.com/2025/10/20/oura-launches-redesigned-app-and-cumulative-stress-feature), [Oura Advisor (Droid Life)](https://www.droid-life.com/2025/11/13/oura-ring-app-gets-big-facelift-ai-gets-more-access-to-your-metrics/), [Whoop Home Screen](https://www.whoop.com/us/en/thelocker/the-all-new-whoop-home-screen/), [Whoop 2026](https://www.whoop.com/es/es/thelocker/2026-whats-new/), [Ultrahuman Emerald](https://www.wareable.com/wearable-tech/ultrahuman-emerald-platform-ai-ultrasphere-app-update). QRing, Garmin und Apple aus deren aktuellen App-Ständen.
-
-**Was alle gemeinsam haben (Pflicht für uns):**
-- 3 Haupt-Scores als animierte Ringe oben, darunter **ein** Satz, der den Tag deutet.
-- Jeder Wert hat ein **Tagesdiagramm mit echten Messpunkten**, antippen zeigt Wert und Uhrzeit.
-- Schlaf = **Hypnogramm** plus Nachtkurven von Puls/HRV/SpO₂.
-- Tag/Woche/Monat/Jahr per Wischen, mit persönlichem Band.
-- Kacheln/Karten frei anordenbar.
-
-**Wo PULSE ONE besser sein soll (unser Vorsprung):**
-1. **KI-Markierungen direkt im Diagramm:** An der Stelle, wo etwas passiert ist (Pulsspitze 14:20, Tiefschlafloch 03:10), sitzt ein Symbol mit Nox' Deutung. Antippen → „Warum?“-Gespräch. Das hat keiner.
-2. **Live-Takt:** Kommt ein neuer Messwert vom Ring, „landet“ er sichtbar im Diagramm und in der Kachel (Punkt fliegt ein, Zahl zählt um, kurzer Haptik-Tick). Oura und Whoop aktualisieren nur beim Öffnen.
-3. **Nox spricht:** Morgenbericht als Sprachausgabe, Rückfragen per Sprache. Locker, frech, konkret.
-4. **Kein Abo, alles auf dem iPhone**, alle Rohpunkte sichtbar (wie QRing) **und** schön (wie Oura).
-5. **Querbezüge:** „Dein Puls blieb nach dem Kaffee um 16 Uhr bis Mitternacht 6 Schläge höher, dein Tiefschlaf kam erst um 2.“ Kurven übereinanderlegen (Puls + Stress + Schlaf).
-
-## 3. Befund Build 17: Warum es so aussieht
-
-| Problem | Ursache im Code |
+| Punkt | Stand |
 |---|---|
-| Kein Hypnogramm möglich | Schlafphasen kommen vom Ring (`BC 27`, `ColmiHistory.swift`), werden aber nur als Text-Zusammenfassung in `rawDataReference` gespeichert (`session.stageSummary`). Es gibt keine Phasen mit Uhrzeit in der Datenbank. |
-| Verlauf ist eine Liste | `Features/Health/HealthScreen.swift` listet Messarten; Diagramme (Swift Charts) gibt es nur in 3 Detailansichten, ohne Messpunkt-Auswahl. |
-| KI spricht über Lücken | Prompt `CheckInPrompts` (`PulseCore/Companion/CheckIn.swift`): „Bei dünner Datenlage: sag ehrlich, was fehlt“ und „Trenne Messung und Deutung (gemessen: …)“. Dazu `IntelligencePrompts.rules` mit Basislinien-Pflicht. |
-| „lernt noch“, „Noch 5 Tage …“ | `DailyScores.swift` (Erholung erst ab 14 Tagen) und `PersonalBaseline.swift` (Band erst ab 7 Tagen). |
-| Kacheln = Textkarten | `Features/Today/*`, `DesignSystem/Components.swift`: Zahl + Fließtext, kein Mini-Diagramm, keine Größen, kein Drag & Drop. |
-| Keine Bewegung | Im ganzen App-Code nur ~10 Animationsstellen; kein Hochzählen, keine Übergänge zwischen Zeiträumen, keine Live-Updates. |
-| Zu viele Bereiche | Begleiter, Sprechstunde, Expertenrunde, Detektiv, Labor, Herz-3D, Ernährung: viele Module nebeneinander, die alle eigenen Text erzeugen. |
+| Repository | `email-blip/Pulse-one` (öffentlich), native SwiftUI, Swift 6, iOS 18+ |
+| Integrationsstand | `main` = `2c5dae4` (#55) = **TestFlight Build 17** |
+| Sicherungspunkt | Commit `2c5dae4` + Build 17 in TestFlight (Rückfall-Installation). Ein Git-Tag `vor-neubau-build17` wurde vom Server abgelehnt (keine Tag-Rechte); `main` ist unveränderlich in der Historie, damit reicht der Commit. |
+| Offene PRs | nur #57 (dieser Plan). Keine ungesicherten Änderungen anderer Threads auf `main`. |
+| Datenbank | SwiftData, **nicht versioniert** (kein `VersionedSchema`), 21 Modelle laut `docs/schema-snapshot.json` (u. a. `StoredSample`, `StoredMeasurement`, `StoredInsight`, `StoredCheckIn`, Coach-, Aktivierungs-, Ernährungs- und Konferenz-Datensätze). Öffnet die Datenbank nicht, läuft die App mit Hinweis auf einem temporären Speicher (kein stilles Löschen). |
+| Codeumfang | ~33.000 Zeilen Swift (App + PulseCore) |
+| Bestätigt am R03 | alle Verlaufsarten (Puls 5 min, Stress 30 min, HRV, SpO₂, Schritte, Schlaf `BC 27` mit Phasen), Nacht über 9 h verbunden mit Auto-Reconnect (`docs/colmi-protokoll.md`) |
 
-Die **Grundlage ist gut und bleibt:** Ring-Protokoll und Verlauf-Abruf (alle Verlaufsarten am R03 bestätigt), 5-Minuten-Puls, Datenbank mit Zeitstempel und Quelle je Messwert, HealthKit-Import, Score-Logik, Coach-Logik, Claude-Anbindung mit Schlüssel im Schlüsselbund, CI-Pipeline.
+**Regel:** Keine Messdaten werden beim Umbau gelöscht. Modelle verlassen das Schema erst mit einer versionierten Migration (`VersionedSchema` V1 → V2) und einem Migrationstest mit echter Datenbank-Kopie (Aufgabe 00, Meilenstein M2).
 
-## 4. Zielbild
+## 2. Threadbaum
 
-### 4.1 Aufbau (Tabs)
-**Heute · Verlauf · Nox · Coach**, Profil/Ring oben rechts.
-- **Heute:** oben 3 Score-Ringe (Schlaf, Erholung, Aktivität), darunter Nox' Tagessatz (2–3 Sätze, Lautsprecher-Knopf). Darunter **Kacheln** für alle Werte, frei anordenbar.
-- **Verlauf:** eine große, interaktive Diagramm-Ansicht je Wert. Oben Wert-Auswahl als wischbare Chips, Zeitraum Tag/Woche/Monat/Jahr. Kein Listenbildschirm mehr.
-- **Nox:** ein einziges Gespräch (ersetzt Sprechstunde, Expertenrunde, Detektiv, Berichte). Morgen-, Mittag-, Abendbericht als Nachrichten im Verlauf, „Warum?“ und Spracheingabe.
-- **Coach:** Logik bleibt, Optik wird ans neue Design angepasst.
-
-### 4.2 Kachel-Katalog (Startseite)
-Größen: klein (1×1), breit (2×1), groß (2×2). Jede Kachel: Wert, Uhrzeit der letzten Messung, **Mini-Diagramm des Tages mit echten Messpunkten**, pulsierender Punkt bei Live-Verbindung. Antippen → Verlauf dieses Werts. Langes Drücken → Bearbeiten (wackeln, ziehen, Größe, ausblenden).
-
-Kacheln: Puls (live), Ruhepuls, HRV, SpO₂, Stress, Schlaf (Mini-Hypnogramm), Schritte (Stundenbalken), Aktive Energie, Erholung, Aktivität, Ring/Akku, Coach heute, Training, Tagesabschluss. Später: Temperatur (R09), Polar H10.
-
-Leere Kachel: zeigt den letzten bekannten Wert mit Datum („gestern 23:10“), **nie** „lernt noch“ oder „keine Daten“.
-
-### 4.3 Diagramme (ein gemeinsamer Baukasten)
-- **Tag:** jeder Messpunkt (Puls 5 min, Stress 30 min, HRV, SpO₂, Live-Messungen hervorgehoben) als Punkt/Balken auf der Uhrzeit-Achse. Finger drüberziehen = Wert + Uhrzeit + Quelle (Ring-Verlauf / Live / Apple Health), Haptik-Tick je Punkt. Schlafzeit grau hinterlegt.
-- **Woche/Monat/Jahr:** Tageswerte als Balken oder Spanne (min–max), persönliches Band, Trendlinie. Wechsel per Wischen, Balken wachsen animiert in den neuen Zeitraum.
-- **Überlagern:** zweiten Wert einblenden (z. B. Puls + Stress, Schlaf + Ruhepuls).
-- **Nox-Markierungen:** Symbole an Zeitpunkten mit Deutung; Antippen öffnet Gespräch.
-- **Live:** neuer Ringwert erscheint mit Einflug-Animation, Kurve verlängert sich.
-
-### 4.4 Schlaf
-- **Hypnogramm:** Wach/REM/Leicht/Tief als Stufenbalken über Uhrzeit (Einschlaf- bis Aufwachzeit), Farbe je Phase, antippen zeigt Phase + Dauer + Uhrzeit.
-- Darunter synchron: Puls, HRV, SpO₂ der Nacht auf derselben Zeitachse (Wischen über eine Kurve markiert alle).
-- Summen je Phase als Ringsegmente, Schlafscore mit Beiträgern (Dauer, Tiefschlaf, REM, Effizienz, Ruhepuls, Timing).
-- Wochenansicht: Schlafenszeiten als Balken über 7 Nächte (wann ins Bett, wann wach).
-- Nox-Satz zur Nacht oben.
-
-### 4.5 Bewegung und Stil
-- Dunkel, edel, ruhig, aber lebendig: animierter Farbverlauf im Hintergrund (MeshGradient), der die Tagesverfassung spiegelt (Erholung hoch = wärmer/heller).
-- Score-Ringe füllen sich beim Öffnen mit Federbewegung, Zahlen zählen hoch (`contentTransition(.numericText)`).
-- Übergang Kachel → Detail als fließender Zoom (`matchedTransitionSource` / `navigationTransition(.zoom)`).
-- Diagramme bauen sich von links auf, Zeitraumwechsel morpht.
-- Haptik bei Scrubbing, Bearbeiten, neuem Messwert. Optional Sound (abschaltbar).
-- Reduce Motion: alle Bewegungen auf Überblenden reduziert (Pflicht laut Studio-Standard).
-- Feinheiten (Farben, Schrift, Kartenform) kommen aus den ChatGPT-Vorgaben.
-
-### 4.6 KI „Nox“: neue Regeln
-1. **Nur deuten, was da ist.** Nie erwähnen, dass etwas fehlt, nicht messbar ist, keine Basislinie hat oder „noch lernt“. Wenn nur ein Wert da ist, wird dieser eine gedeutet.
-2. Ohne eigenen Vergleichszeitraum vergleicht Nox mit allgemeinen Erfahrungswerten für Alter/Geschlecht und mit gestern/vorgestern, ohne das anzukündigen.
-3. Ton: locker, cool, frech, Du-Form, kurze Sätze, konkrete Uhrzeiten und Zahlen. „So geht's dir heute, so lief dein Tag.“ Keine „gemessen: …“-Aufzählungen, kein Fachjargon, keine Floskeln.
-4. Jede Aussage ist begründbar: Antippen von „Warum?“ zeigt die Werte und Zeitpunkte, auf die sich Nox stützt (im Diagramm markiert).
-5. **Bleibt:** deutlicher Hinweis bei gefährlichen Werten (S5/S6, Notruf 112), verordnete Medikamente nie umstellen lassen, Einordnung „passt gut/teilweise/kaum“ statt Prozenten.
-6. Sprache: Ausgabe mit der besten deutschen Apple-Stimme auf dem Gerät (kostenlos, offline); Eingabe per Diktat (Apple Speech, auf dem Gerät).
-7. Datenschutz unverändert: Zusammenfassungen nur gemäß bestehender Freigabe (3 Checks täglich + Gespräch).
-
-Diese Regeln ersetzen in `CheckInPrompts`, `IntelligencePrompts.rules` und `MorningForecaster` alle Anweisungen zu „ehrlich sagen, was fehlt“. Neuer Eintrag in `DECISIONS.md` (Entscheidung Johannes 2026-11-23). Auch „lernt noch (12 Tage)“ entfällt: Erholung wird ab Tag 1 berechnet (Startwerte aus Erfahrungswerten, wird mit jeder Nacht persönlicher).
-
-## 5. Was weg muss (Löschliste)
-
-| Weg | Umfang (Zeilen) | Ersatz |
+| Nr. | Thread | Zuordnung |
 |---|---|---|
-| Ernährung komplett: `Features/Nutrition`, `PulseCore/Nutrition`, `StoredNutrition` (mit Schema-Migration) | ~2.350 | entfällt (Entscheidung 2026-11-22) |
-| Herz-3D: `Features/HeartChamber`, `HeartGeometry.swift` | ~470 | entfällt |
-| Labor/Detektiv/Experimente/Biografie/Zwei Gehirne: `LabViews`, `BodyDetective`, `ExperimentLab`, `BodyBiography`, `TwoBrains` | ~1.200 | Nox-Gespräch |
-| Sprechstunde + Expertenrunde: `ConsultationView`, `ConferenceView/Runner`, `CompanionConference` | ~1.120 | Nox-Gespräch |
-| Nachtforscher, Kleidungsberater: `ResearchNightResearcher`, `ClothingAdvisor` | ~520 | Nox-Morgenbericht |
-| Alte Oberfläche: `Features/Today`, `Features/Health`, `Features/Scores` (UI), `Features/Companion` (UI-Teile), `DesignSystem` | ~6.700 | Neubau A–D, F |
-| Alte Texte: „lernt noch“, „Noch X Tage bis …“, „N von N Messsignalen unbekannt“ | – | entfällt |
+| **00** | Leitstand / Architektur / Integration | **dieser Thread** („App komplett neu wie Oura gestalten“) |
+| **01** | Daten / R03 / HealthKit / Schlaf | bestehender Thread **„Ring dauerhaft verbunden halten“** (hat schon Ring-Protokoll, Hintergrund, AccessorySetupKit-Prüfung); Auftrag wird erweitert |
+| **02** | Design-System / Motion / Assets | neu |
+| **03** | Dashboard / Zeitspuren / Diagramme | neu |
+| **04** | Coach Intelligence / Interpretation / Gedächtnis | neu |
+| **05** | Sprache / Training / Timer / Mitteilungen | neu |
+| **06** | QA / Performance / Release-Prüfung | neu |
 
-Insgesamt rund **12.000 von ~33.000 Zeilen** App-Code gehen raus. Die zugehörigen UI-Tests und Screenshot-Szenarien werden mit entfernt bzw. neu geschrieben.
+Alle älteren Threads (Begleiter, Oura-Kern, Coach, Sprechstunde, Verzahnung, KI-Rundgang …) sind abgeschlossen und bauen **keine** UI mehr. Threads können nicht direkt miteinander schreiben; Übergaben laufen über PRs auf `main`, diese Dateien und Nachrichten über den Leitstand.
 
-**Bleibt (Kern):** `Bluetooth`, `Connect`, `Persistence` (ohne Ernährung), `PulseCore` Ring-Protokoll/Verlauf/Sync, `Scores`-Logik, `Coach`-Logik, `Activation`, Check-in-Motor (`CheckInGate`, `NightAssembler`), `AnthropicClient`, `KeychainStore`, HealthKit-Import, Wecker, CI.
+Nur 00 lädt zu TestFlight hoch.
 
-## 6. Arbeitspakete (parallel)
+## 3. Marktvergleich (kurz) und Lückenliste
 
-Jedes Paket = eigener Thread, eigener Branch, eigene Dateien (keine Überschneidung). Gemeinsame Schnittstellen legt Paket 0 fest, danach laufen A–F gleichzeitig.
+| | Oura | QRing | Whoop | Garmin | Apple | **PULSE ONE Ziel** |
+|---|---|---|---|---|---|---|
+| Start | 3 Scores + 1 Tageserkenntnis | Kacheln je Wert | 3 Zahlenräder + Wochenplan | „Mein Tag“-Karten frei anordenbar | Favoriten | **ROOK-Deutung + Handlung, dann frei anordenbare Kacheln** |
+| Tagesverlauf | Kurve mit Messpunkten | jeder 5-min-Wert antippbar | Belastungskurve | Puls-/Body-Battery-Kurve | Swift-Charts-Scrubbing | **mehrere synchrone Spuren, Pinch-Zoom, gemeinsamer Cursor, Originalwert + Originalzeit** |
+| Schlaf | Hypnogramm + Nachtkurven | Phasenbalken | Phasen, Schlafschuld | Phasen-Zeitachse | Phasen-Diagramm | **Hypnogramm auf derselben Zeitachse wie Puls/HRV/SpO₂, unbekannte Phasen sichtbar** |
+| KI | Advisor-Chat | – | Coach mit Gedächtnis, Spracheingabe | Kurzsätze | Highlights | **ein Charakter: deutet, handelt, fasst nach, spricht, Zeitcursor folgt der Stimme** |
+| Training | – | – | KI-Workouts | Workouts | Fitness+ (Video) | **animierte Übung, Ansagen, Timer aus Zeitstempeln, Live Activity** |
 
-| Paket | Inhalt | Besitzt Dateien | Hängt ab von |
-|---|---|---|---|
-| **0 Fundament & Aufräumen** (Integrator) | Löschliste umsetzen, neue Tab-Struktur leer, Ordner `Features/Home`, `Features/Trends`, `Features/Sleep`, `Features/Nox`, `DesignKit`; Schnittstellen `MetricSeriesProvider` (Messpunkte je Wert und Zeitraum), `TileKind`, `NoxMarker`; Testdaten-Szenarien | `App/*`, `project.yml`, `PulseSchema`, Workflows | – |
-| **A Design-System & Bewegung** | Farben je Messart, Schrift (Zahlen), Karten, animierter Hintergrund, Score-Ringe, Hochzähl-Zahlen, Zoom-Übergänge, Haptik/Sound-Bausteine, Reduce Motion; danach Coach und Profil im neuen Stil | `DesignKit/*`, `Features/Coach` (UI) | 0 |
-| **B Startseite mit Kacheln** | Kachel-Katalog, 3 Größen, Mini-Diagramme, Live-Punkt, Bearbeiten (ziehen, Größe, ausblenden), Layout speichern, Nox-Satz oben | `Features/Home/*` | 0, nutzt A + C-Mini-Charts |
-| **C Diagramme & Verlauf** | Diagramm-Baukasten (Tag mit Messpunkten, Woche/Monat/Jahr, Scrubbing, Band, Überlagern, Nox-Markierungen, Live-Einflug), Verlauf-Tab | `Features/Trends/*`, `DesignKit/Charts/*` | 0 |
-| **D Schlaf** | Hypnogramm, synchrone Nachtkurven, Phasen-Summen, Beiträger, Schlafenszeiten-Woche | `Features/Sleep/*` | 0, E (Phasen-Daten); bis dahin Testdaten |
-| **E Datenpipeline Ring** | Schlafphasen mit Uhrzeit speichern (neues Modell, Migration, alte Nächte aus Text nachrechnen), alle Messpunkte mit Zeit+Quelle über `MetricSeriesProvider`, Live-Strom an die UI, „zuletzt gemessen“, Hintergrund-Sync prüfen, Erholung ab Tag 1 | `Bluetooth`, `Connect`, `Persistence`, `PulseCore` (Ring, Scores, Baseline) | 0 |
-| **F KI Nox** | Neue Prompts nach 4.6, Nox-Tab (ein Gespräch, „Warum?“, Spracheingabe, Sprachausgabe), Berichte morgens/mittags/abends, Markierungen an C liefern, alte KI-Oberflächen weg | `Features/Nox/*`, `PulseCore/Companion`, `PulseCore/Intelligence` | 0 |
-| **G Integration & Abnahme** (Koordinator) | Merge-Reihenfolge, CI, Screenshot-Prüfung aller Bildschirme, Simulator-Video, TestFlight-Build, Testanleitung | – | A–F |
+Quellen: Oura-Redesign Okt./Nov. 2025 (TechCrunch, Droid Life), Whoop Home + 2026-Neuerungen (whoop.com), Ultrahuman Emerald 2026 (Wareable), QRing/Garmin/Apple aus den App-Ständen.
 
-**Merge-Reihenfolge:** 0 → E und A → C → B, D, F → G.
+**Lücken in Build 17:** Schlafphasen nur als Text gespeichert (kein Hypnogramm möglich) · Verlauf als Liste · Kacheln ohne Mini-Verlauf, nicht verschiebbar · KI-Prompt verlangt „sag ehrlich, was fehlt“ · „lernt noch“-Texte · drei getrennte KI-Persönlichkeiten (Begleiter, Sprechstunde, Expertenrunde) · Training ohne Sprache und ohne Animation · ~10 Animationsstellen in der ganzen App.
 
-**Abnahme je Paket:** CI grün, Screenshots (3 Größen, große Schrift) geprüft, Reduce Motion geprüft, Szenario mit Testdaten-Banner, keine verbotenen Sätze (automatischer Textwächter in CI: „fehlt“, „Basislinie“, „lernt noch“, „nicht lesen“, „unbekannt“ in KI-Ausgaben und UI-Texten).
+## 4. Produkt: drei Bereiche
 
-**CI-Engpass:** Ein Lauf belegt alle 5 Gratis-Mac-Jobs (~15–20 Min.). Bei 6 parallelen Teams heißt das: jedes Team pusht gebündelt, Branch-Läufe nur per Start auf Anfrage, PulseCore-Logik wird zuerst mit den Linux-Prüfungen getestet. Der Integrator plant die Läufe.
+**Dashboard · Verlauf · Coach** (native Tableiste unten, Profil/Ring/Status oben rechts, diskret).
 
-**Ergebnis:** ein TestFlight-Build „Neubau 1“ mit allen Paketen gleichzeitig, kein halbfertiger Zwischenstand auf dem iPhone.
+Referenz-Ansicht (Mockup von ChatGPT, verbindlich in Aufbau und Hierarchie):
+1. Kopf: **ROOK**-Zeichen (Ring-Orb) + Name, rechts „Vorlesen“.
+2. Große Schlagzeile (2–3 Zeilen), darunter 1–2 Sätze Deutung.
+3. Primärhandlung („Meine Einheit starten ↗“), daneben „Warum?“.
+4. „Dein Cockpit“ + „Kacheln anordnen“: 2-spaltige Kacheln (Name, Symbol, große Zahl + Einheit, Bezug „NACHT · 07:00“, Mini-Verlauf).
+5. Schlafvorschau und Tagesereignisse.
 
-## 7. Grenzen, ehrlich (intern, nicht in der App)
+Palette (fest): Obsidian `#070D19`, Bio Cyan `#15D9F3`, Neural Violet `#9B70FF`, Pulse Coral `#FF644F`, Ice White `#E6F4FA`.
 
-- R03 misst keine Hauttemperatur und keine Atemfrequenz → Erholung wird aus Ruhepuls, HRV, Schlaf und Belastung berechnet. R09 bringt Temperatur, sobald der Realtest den Befehl bestätigt.
-- Ring-Verlauf liefert Puls in 5-Minuten-Schritten, Stress in 30 Minuten; dichter wird es nur bei Live-Messungen. Das Diagramm zeigt genau diese echten Punkte.
-- Die KI erwähnt Lücken nicht mehr; im Diagramm sieht man sie trotzdem (Lücke in der Kurve), so bleibt es nachvollziehbar.
+Coach-Name: **ROOK** (Arbeitsname, austauschbar, blockiert nichts).
 
-## 8. Was von ChatGPT kommt und hier einfließt
+## 5. Was bleibt, was neu wird, was später rausfliegt
 
-Siehe `UEBERGABE-CHATGPT.md`. Nach Eingang: Abschnitte 4.1–4.5 und Paket A anpassen, dann Freigabe durch Johannes, dann startet der Koordinator die Threads 0, A–F.
+| Bleibt (nach Bestandsprüfung durch das zuständige Team) | Neu | Wird entfernt, sobald ersetzt |
+|---|---|---|
+| Ring-Protokoll, Verlauf-Abruf, Reconnect, Messprofile (01) | Schlafsegmente als eigene Daten (01) | Ernährung komplett (UI sofort, Modell mit Migration) |
+| `StoredSample`/`HealthSample` als einzige Datenwelt (01) | `MeasurementPoint`-Abfragen für Spuren (01) | Herz-3D (`HeartChamber`, `HeartGeometry`) |
+| HealthKit-Import (01) | Design-Kit, Motion, Medienregister (02) | Labor, Detektiv, Experimente, Biografie, Zwei Gehirne |
+| Score-Logik 0–100 (01, ohne „lernt noch“) | Dashboard, Kacheleditor, Zeitspuren, Hypnogramm (03) | Sprechstunde, Expertenrunde, Nachtforscher, Kleidungsberater |
+| Check-in-Motor `CheckInGate`, `NightAssembler`, Claude-Client, Schlüsselbund, Kostenzähler (04) | ROOK-Deutung, Nachfassen, Rückfragen, „Warum?“ (04) | Alte Heute-/Verlauf-/Score-/Begleiter-Oberflächen |
+| Coach- und Aktivierungslogik, Übungskatalog (05) | Audio-Koordinator, Trainingssession, Live Activity (05) | Alte Prompts mit „ehrlich sagen, was fehlt“ |
+| Wecker/AlarmKit, Benachrichtigungs-Delegate (05) | Szenarien, Video-Abnahme, Performance-Messung (06) | Alte UI-Tests und Screenshot-Szenarien der entfernten Bildschirme |
+
+Wer eine alte Oberfläche ersetzt, entfernt sie im selben PR aus dem produktiven Pfad. 00 macht am Ende jedes Meilensteins den Aufräum-Durchgang. Historie bleibt in Git.
+
+## 6. Gemeinsame Verträge (Kurzfassung)
+
+Code: `apps/PulseOne/Packages/PulseCore/Sources/PulseCore/Contracts/` (Besitzer 00), Tests: `ContractsTests.swift`.
+
+| Vertrag | Typ | Kern |
+|---|---|---|
+| Measurement | `MeasurementPoint` | Sicht auf `HealthSample`: Subjekt, Gerät, Quelle, Art, Einheit, Methode, Messzeit, Empfangszeit, Importzeit, Qualität, Originalreferenz |
+| SleepSegment | `SleepSegment`, `SleepPhase`, `SleepNight` | Rohcode, normalisierte Phase (inkl. `unknown`), Beginn/Ende, Quelle, Firmware; Zeit im Bett ≠ Schlaf; Lücken bleiben Lücken |
+| TimelineState | `TimelineState`, `TimelineTrack`, `TimelineRange`, `NarrationCue` | sichtbares Fenster, Zoom, gemeinsamer Cursor, Spuren, gewählter Originalpunkt; Cursor in einer Lücke wählt nichts |
+| CoachInsight | `CoachInsight`, `EvidenceRef`, `CoachAction`, `UserCorrection`, `CoachRevision`, `RookPresence` | Beobachtung, Deutung, Richtung, Belege, Handlung, Priorität, Gültigkeit, Nachprüfung, Korrekturen, Revisionen, Sprech-Abschnitte |
+| WorkoutSession | `WorkoutSession`, `WorkoutStep`, `AnnouncementState` | Zeit nur aus Zeitstempeln und Pausen, `catchUp` nach Sperren, Pause verwirft Ansagen |
+| DashboardLayout | `DashboardLayout`, `DashboardTile`, `DashboardTileSize` | stabile IDs, Reihenfolge, Größe, Sichtbarkeit, pro Profil |
+
+Ein Zustand speist alles: Bildschirm, Stimme, Mitteilung, Diagramm-Markierung und Trainingssteuerung lesen dieselbe `WorkoutSession` bzw. denselben `CoachInsight`. Änderungen an Verträgen nur über 00.
+
+## 7. Dateibesitz
+
+| Team | Schreibt (allein) |
+|---|---|
+| 00 | `Sources/App/PulseOneApp.swift`, `LaunchOptions.swift`, `apps/PulseOne/project.yml`, `Sources/Persistence/PulseSchema.swift` + Migrationen, `PulseCore/Contracts/*`, `.github/workflows/*`, `DECISIONS.md`, `CLAUDE.md`, `docs/neubau/*` |
+| 01 | `Sources/Bluetooth/*`, `Sources/Connect/*`, `Sources/Persistence/*` (außer `PulseSchema.swift`), PulseCore: `Colmi*`, `RingHistorySync`, `RingSettings`, `RingSnapshot`, `Connect/*`, `Scores/*`, `Insights/PersonalBaseline*`, `Day/*`, neu `PulseCore/Timeline/*` (Abfragen) |
+| 02 | neu `Sources/DesignKit/*` (Tokens, Komponenten, Motion, Haptik-Muster), `Sources/Assets.xcassets`, neu `Resources/Media/*`, `docs/media/MEDIA-REGISTER.md`, `scripts/assets/*`; alt `Sources/DesignSystem/*` (wird von 02 abgelöst) |
+| 03 | `Sources/App/MainTabView.swift`, neu `Sources/Features/Dashboard/*`, `Sources/Features/Timeline/*` (Verlauf, Spuren, Hypnogramm), `PulseCore/Insights/TodayLayout.swift` (ablösen); alt `Features/Today`, `Features/Health`, `Features/Scores` |
+| 04 | `PulseCore/Companion/*`, `PulseCore/Intelligence/*`, `PulseCore/Insights/*` (außer TodayLayout, PersonalBaseline), `Sources/Features/Intelligence/*`, neu `Sources/Features/Coach/Conversation/*`; alt `Features/Companion` (ohne Services), `Features/Nutrition`, `Features/HeartChamber` |
+| 05 | neu `Sources/Audio/*`, neu `Sources/Features/Training/*`, `Sources/Features/Coach/*` (außer `Conversation/`), `Sources/Features/Companion/Services/*` (Wecker, Mitteilungen, Sprecher), `App/NotificationDelegate.swift`, `PulseCore/Activation/*`, `PulseCore/Coach/*`, neu Live-Activity-Ziel (Projektänderung über 00) |
+| 06 | `apps/PulseOne/UITests/*`, `apps/PulseOne/IntegrationTests/*`, neu `scripts/qa/*`, `docs/neubau/TESTBERICHT-*.md`, Testanleitungen |
+
+Fremde Datei nötig? Kleinen Patch im eigenen PR mit Begründung, Besitzer-Team im PR-Text nennen, 00 entscheidet beim Merge.
+
+## 8. Arbeitspakete, Reihenfolge, Abnahme
+
+**Paket 0 (00, jetzt):** Verträge als Code + Tests, dieser Plan, Auftragstexte. Danach starten 01–06 gleichzeitig von `main`.
+
+| Team | M1-Lieferung | Abnahme (je PR) |
+|---|---|---|
+| 01 | `SleepSegment` speichern (neues Modell, alte Nächte aus `stageSummary` nicht raten), `MeasurementPoint`-Abfragen je Spur/Zeitraum inkl. Aggregation, `receivedAt`, Erholung ab Tag 1, Szenario-Daten (volle Nacht, Lücke, unbekannter Code, Doppel-Sync, Sommerzeit) | PulseCore-Tests für alle Szenarien, kein Datenverlust, Migration lokal geprüft |
+| 02 | Design-Kit (Palette, Schrift, Karte, Kachel, Knöpfe, Orb), Motion-Verträge (Dauer/Kurven je Ereignis), Haptik-Muster, Reduce-Motion-Regeln; Medienregister angelegt; Quellen-Erreichbarkeit geprüft | Referenzansicht in Screenshots (3 Größen, XXXL, hell nicht nötig), Kontrast AA |
+| 03 | Dashboard nach Referenz, Kacheleditor (ziehen, Größe, ausblenden, barrierefreie Alternative, pro Profil gespeichert), Verlauf mit synchronen Spuren (Pinch, Pan, Cursor, Originalpunkt), Hypnogramm | UI-Test: Kachel verschieben → Neustart → Reihenfolge bleibt; Cursor zeigt Originalzeit |
+| 04 | Prompt v-neu (Deutung → Richtung → Handlung, ≤3 Sätze, keine Lückensätze), `CoachInsight` aus Check-ins, „Warum?“-Belege, Nutzerkorrektur mit Revision, Textwächter gegen verbotene Sätze | Tests: positive und auffällige Deutung, Korrektur, Wächter |
+| 05 | Audio-Koordinator (eine Warteschlange, AVSpeechSynthesizer, Unterbrechungen, Kopfhörer), Trainingssession-Bildschirm (Timer aus Zeitstempeln, Pause/Weiter/Überspringen/Ende, Ansagen), Phasenend-Mitteilung | Tests: Pause → keine Ansage; Sperren/Öffnen → richtige Restzeit |
+| 06 | Szenario-Starter `-scenario neubauM1`, UI-Test über den ganzen Ablauf, Bildschirmvideo im CI, Prüfliste §15 | Video liegt als CI-Artefakt vor |
+
+Merge-Reihenfolge M1: Verträge (00) → 02 und 01 → 03 und 04 → 05 → 06 → Integration 00.
+
+**Erster integrierter Meilenstein M1 „Durchstich“** (Schritt C der Vorgabe), ein TestFlight-Build:
+App öffnen → ROOK begrüßt und spricht die Deutung → Kachel verschieben (bleibt nach Neustart) → Kachel öffnet Verlauf → Cursor durch Puls/HRV/Schlaf-Spuren, Originalwert + Uhrzeit → Hypnogramm-Abschnitt antippen → „Warum?“ zeigt Belege → Korrektur „Ich bin krank“ ändert die Empfehlung → Einheit starten (Ansage) → Pause → Fortsetzen → Abschluss mit Anstrengung 1–10 → erscheint im Tagesverlauf.
+Nachweis: Simulator-Video aus CI + Screenshots + Testbericht; danach TestFlight. Am iPhone mit echten R03-Daten ist M1 „gebaut“, „abgenommen“ erst nach Johannes' Test.
+
+**M2:** echte Daten und Migration (Schritt D: Schlaf Ende-zu-Ende vom Ring, Dubletten, Zeitzonen, Profile, `VersionedSchema`), Medien-Erstlieferung (Körpermodell-Kandidat, zwei geprüfte Übungsanimationen, ROOK-Zustand, drei Sounds, Stimme, gesprochener Rückblick mit synchronem Cursor), Live Activity, alte Modelle entfernen.
+**M3:** Belastungs-Echo, gezielte Rückfrage, nachfassender Coach, Wirkungskarte, Gesundheitschronik.
+
+Nachweisstufen werden getrennt gemeldet: Konzept / implementiert / gebaut / Simulator / iPhone / abgenommen.
+
+## 9. ROOK: Regeln für Sprache und Deutung
+
+- Standard: **Deutung → Richtung → nächste Handlung**, höchstens drei kurze Sätze, locker, direkt, gelegentlich trockener Humor, „Bro/Junge/mein Freund“ nur selten und nur wenn Johannes das mag.
+- Nie im Normalbetrieb: „Ich bin kein Arzt“, „kann ich nicht lesen“, „Basislinie fehlt“, „lernt noch“, Sync-Berichte, Zahlenlisten.
+- Ohne persönliche Grundlage: normal begrüßen und eine passende Interaktion anbieten; keine erfundene Tagesdiagnose.
+- „Warum?“ öffnet Messwerte, Vergleichszeitraum, Ereignisse, Berechnung, Alternativen, Unsicherheit.
+- Keine erfundene Sicherheit, keine Diagnose-Prozente, keine Medikamentenänderung; Warnzeichen klar und kurz zur Abklärung.
+- Fragt nach („Fühlst du dich auch so?“), nimmt Korrekturen ernst, fasst später nach.
+- Meldet sich nur mit Anlass; „Heute Ruhe“, „Weniger antreiben“, „Sei direkter“, „Erinnere mich später“ wirken sofort.
+
+## 10. Medien und Laufzeit
+
+- Laufzeit M1: SwiftUI + Swift Charts; ROOK-Orb nativ (SwiftUI/Canvas) hinter `RookPresence`, damit eine spätere Rive-Datei ihn ohne Umbau ersetzen kann. **Keine** neue Bibliothek in M1.
+- Rive, Lottie, Inferno, AudioKit, sherpa-onnx: nur mit `DECISIONS.md`-Eintrag (Zweck, Lizenz, Version) und belegtem Nutzen. Rive-Dateien entstehen im Rive-Editor; 02 klärt, ob das kostenlos geht.
+- Quellen (Poly Haven, ambientCG, MakeHuman/MPFB, Quaternius, Kenney, NIH 3D, Freesound CC0, Sonniss GDC): Auswahl durch 02, jede Datei ins Medienregister (ID, Quelle, Autor, Lizenz, Nachweis, Version, Prüfsumme, Format, Größe, Verwendung, Attribution). Mixamo braucht Johannes' Adobe-ID und läuft nur über ihn.
+- Erreichbarkeit: Die Cloud-Umgebung blockiert diese Seiten derzeit (Proxy 403). Freigabe der Hosts ist beantragt; sonst lädt 02 über Johannes' PC.
+- Keine Gesundheitsdaten an Asset-Plattformen.
+
+## 11. CI und Builds
+
+- Ein CI-Lauf belegt alle 5 Gratis-Mac-Jobs (15–20 Min.). Teams öffnen PRs erst, wenn ein Paketteil fertig ist; Zwischenstände bleiben auf dem Branch. Pro Team höchstens ein laufender CI-Lauf.
+- Grüne Team-PRs merged 00 in der Reihenfolge aus §8 (squash). Teams mergen nicht selbst, damit `main` stabil bleibt.
+- TestFlight nur aus `main` durch 00, wenn der Meilenstein-Ablauf im Video funktioniert.
