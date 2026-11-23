@@ -55,7 +55,7 @@ struct DevicesScreen: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("DEVICES")
+                Text("GERÄTE")
                     .font(Typography.motto)
                     .tracking(2)
                     .foregroundStyle(Palette.bioCyan)
