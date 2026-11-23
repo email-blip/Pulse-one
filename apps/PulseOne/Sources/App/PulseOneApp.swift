@@ -50,6 +50,9 @@ struct PulseOneApp: App {
         ring.onHistory = { observations, deviceID in
             sources.ingestHistory(observations, deviceIdentifier: deviceID)
         }
+        ring.onSleep = { segments, deviceID, firmware in
+            sources.ingestSleep(segments, deviceIdentifier: deviceID, firmware: firmware)
+        }
         // After the test scenario's rows are in, so the store starts from the same data the screens show.
         let companion = CompanionStore(context: container.mainContext)
         let checkIns = CheckInService(context: container.mainContext, ring: ring, sources: sources, profile: profile,

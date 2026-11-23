@@ -18,6 +18,8 @@ final class RingStore {
     @ObservationIgnored var onMeasurement: (@MainActor (VitalReading) -> Void)?
     /// Receives values read from the ring's stored history (already normalised observations).
     @ObservationIgnored var onHistory: (@MainActor ([RawObservation], String) -> Void)?
+    /// Sleep phases of the nights the ring sent (`BC 27`), with ring id and firmware.
+    @ObservationIgnored var onSleep: (@MainActor ([SleepSegment], String, String?) -> Void)?
     /// How often the ring measures on its own; applied on every connect.
     private(set) var measurementProfile: RingMeasurementProfile = RingStore.savedProfile()
     private static let profileKey = "ring.measurementProfile"
@@ -103,6 +105,10 @@ final class RingStore {
 
     func recordHistory(_ observations: [RawObservation], deviceIdentifier: String) {
         onHistory?(observations, deviceIdentifier)
+    }
+
+    func recordSleep(_ segments: [SleepSegment], deviceIdentifier: String) {
+        onSleep?(segments, deviceIdentifier, snapshot.firmware)
     }
 
     private static func savedProfile() -> RingMeasurementProfile {

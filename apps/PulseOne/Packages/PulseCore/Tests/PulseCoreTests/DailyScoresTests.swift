@@ -44,10 +44,19 @@ struct DailyScoresTests {
         #expect(late.components.last?.detail == "180 min später als üblich")
     }
 
-    @Test func recoveryLearnsFirst() {
+    @Test func recoveryWorksFromTheFirstDay() throws {
+        // Only today: rated against typical values, no "still learning".
+        let first = try #require(DailyScores.recovery(on: today, restingHeartRate: [DayValue(day: today, value: 60)], hrv: [],
+                                                      nights: [], steps: [], calendar: calendar).score)
+        #expect(first.value == 75)
+        #expect(first.components.first?.detail == "wie üblich (60 bpm)")
+        // Nine own days at 55: the band has moved most of the way toward 55.
         let resting = (0..<10).map { DayValue(day: day($0), value: 55) }
-        let result = DailyScores.recovery(on: today, restingHeartRate: resting, hrv: [], nights: [], steps: [], calendar: calendar)
-        #expect(result == .learning(daysAvailable: 9, daysNeeded: 5))
+        let blended = try #require(DailyScores.recovery(on: today, restingHeartRate: resting, hrv: [], nights: [], steps: [],
+                                                        calendar: calendar).score)
+        // Band median 9/14 × 55 + 5/14 × 60 ≈ 56.8; today 55 lies a little below it.
+        #expect(blended.value == 85)
+        #expect(blended.components.first?.detail == "2 bpm unter deinem bisherigen Mittel (57 bpm)")
         #expect(DailyScores.recovery(on: today, restingHeartRate: [], hrv: [], nights: [], steps: [], calendar: calendar) == .noData)
     }
 
