@@ -24,6 +24,7 @@ extension EnvironmentValues {
 struct RookCard: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
+    @Environment(ProfileStore.self) private var profile
     @Environment(\.rookActionHandler) private var actionHandler
     @State private var store = RookStore.shared
     @State private var showCorrections = false
@@ -48,7 +49,10 @@ struct RookCard: View {
                 Text("Einen Moment, ich schaue auf deine Werte.").font(Typography.body).foregroundStyle(Palette.inkMuted).wraps()
             }
         }
-        .task { store.load(modelContext: modelContext, owner: sources.ownerProfileID) }
+        .task {
+            store.load(modelContext: modelContext, owner: sources.ownerProfileID)
+            store.configure(modelContext: modelContext, owner: sources.ownerProfileID, profile: profile.profile)
+        }
         .sheet(item: $why) { statement in
             RookWhyView(statement: statement) { why = nil }
                 .preferredColorScheme(.dark)

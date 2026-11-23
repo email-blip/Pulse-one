@@ -292,3 +292,83 @@ struct RookTextGuardTests {
         #expect(RookTextGuard.violations(in: "Die Synchronisierung lief.", visible: false).isEmpty)
     }
 }
+
+@Suite("ROOK free conversation (speech)")
+struct RookSpeechTests {
+    @Test("Streamed text becomes sentences as soon as each one is finished")
+    func sentencesWhileStreaming() {
+        var buffer = RookSentenceBuffer()
+        #expect(buffer.append("Klingt nach einer zä").isEmpty)
+        #expect(buffer.append("hen Nacht.").isEmpty) // waits for the next word before closing the sentence
+        #expect(buffer.append(" Wie") == ["Klingt nach einer zähen Nacht."])
+        #expect(buffer.append(" fühlst du dich? ").isEmpty)
+        #expect(buffer.finish() == "Wie fühlst du dich?")
+    }
+
+    @Test("Abbreviations, dates and decimals do not end a sentence")
+    func noFalseEnds() {
+        var buffer = RookSentenceBuffer()
+        let out = buffer.append("Geh z. B. zehn Minuten raus, am 26.10. war es ähnlich. Puls 7.5 höher? Ja. ")
+            + buffer.append("Gut")
+        #expect(out == ["Geh z. B. zehn Minuten raus, am 26.10. war es ähnlich.", "Puls 7.5 höher?", "Ja."])
+        #expect(buffer.finish() == "Gut")
+    }
+
+    @Test("Spoken answers lose Markdown, list marks, guessed percentages and routine sentences")
+    func speakable() {
+        #expect(RookSpeech.speakable("- **Heute** locker bleiben.", mode: .clinical) == "Heute locker bleiben.")
+        #expect(RookSpeech.speakable("Die Basislinie fehlt noch.", mode: .clinical) == nil)
+        #expect(RookSpeech.speakable("   ", mode: .clinical) == nil)
+        let percent = RookSpeech.speakable("Mit etwa 70 % ist es ein Infekt.", mode: .clinical) ?? ""
+        #expect(!percent.contains("70"))
+    }
+
+    @Test("History alternates, starts with the person and ends with the new message")
+    func messages() {
+        let at = Date(timeIntervalSince1970: 1_800_000_000)
+        let history = [RookTurn(at: at, role: .rook, text: "Hallo"),
+                       RookTurn(at: at, role: .person, text: "Bin müde"),
+                       RookTurn(at: at, role: .rook, text: "Kurze Nacht?"),
+                       RookTurn(at: at, role: .person, text: "Ja")]
+        let messages = RookSpeech.messages(history: history, message: "Was soll ich heute machen?")
+        let roles = messages.compactMap { message -> String? in
+            if case .string(let role)? = message["role"] { return role }
+            return nil
+        }
+        #expect(roles == ["user", "assistant", "user"])
+        #expect(messages.last?["content"]?.encodedString().contains("Ja\\nWas soll ich heute machen?") == true)
+        #expect(RookSpeech.messages(history: [], message: "Hi").count == 1)
+    }
+
+    @Test("The spoken prompt is free of routine phrases and carries today's figures")
+    func prompt() {
+        let context = RookDemo.sampleContext(.positive)
+        let system = RookSpeech.system(mode: .clinical, context: context, current: nil)
+        #expect(RookTextGuard.violations(in: system, visible: false).isEmpty)
+        #expect(system.contains("Notruf 112"))
+        #expect(system.contains(context.compactJSON()))
+    }
+
+    @Test("Server-sent events: text deltas, usage and stop reason")
+    func streamParser() {
+        let start = #"data: {"type":"message_start","message":{"id":"m","model":"claude-sonnet-5-5","usage":{"input_tokens":1200,"output_tokens":1,"cache_read_input_tokens":800}}}"#
+        #expect(AnthropicStreamParser.event(fromLine: start)
+                == .started(model: "claude-sonnet-5-5", usage: TokenUsage(inputTokens: 1200, outputTokens: 1, cacheReadInputTokens: 800)))
+        let delta = #"data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hallo"}}"#
+        #expect(AnthropicStreamParser.event(fromLine: delta) == .text("Hallo"))
+        let stop = #"data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":42}}"#
+        #expect(AnthropicStreamParser.event(fromLine: stop) == .finished(stopReason: "end_turn", outputTokens: 42))
+        #expect(AnthropicStreamParser.event(fromLine: "event: ping") == nil)
+        #expect(AnthropicStreamParser.event(fromLine: #"data: {"type":"ping"}"#) == nil)
+        let error = #"data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#
+        #expect(AnthropicStreamParser.event(fromLine: error) == .failed("Overloaded"))
+    }
+
+    @Test("A streamed request asks for a stream and a small output cap")
+    func streamingBody() {
+        let body = AnthropicAPI.streaming(AnthropicAPI.body(model: .sonnet, system: "s", messages: [], schema: nil, effort: "low"),
+                                          maxTokens: RookSpeech.maxOutputTokens)
+        #expect(body["stream"] == .bool(true))
+        #expect(body["max_tokens"] == .number(Double(RookSpeech.maxOutputTokens)))
+    }
+}

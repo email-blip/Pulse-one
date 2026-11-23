@@ -2,9 +2,9 @@ import PulseCore
 import SwiftData
 import SwiftUI
 
-/// Top of the Coach tab: ROOK's statement and the one conversation with him (no second character). Quick
-/// corrections stay local; typed questions go to Claude under the check-ins' standing permission.
-/// Identifiers: `rook.conversation`, `rook.turn.<n>`, `rook.input`, `rook.send`.
+/// Top of the Coach tab: ROOK's statement and the one free conversation with him (no second character). Quick
+/// corrections stay local; what the person types or says goes to Claude under the check-ins' standing permission.
+/// Identifiers: `rook.conversation`, `rook.turn.<n>`, `rook.streaming`, `rook.input`, `rook.send`.
 struct RookConversationSection: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
@@ -23,8 +23,13 @@ struct RookConversationSection: View {
                         bubble(turn).accessibilityIdentifier("rook.turn.\(index)")
                     }
                     if store.isThinking {
-                        Label("ROOK denkt nach …", systemImage: "ellipsis")
-                            .font(Typography.caption).foregroundStyle(Palette.inkMuted)
+                        if store.streamingText.isEmpty {
+                            Label("ROOK denkt nach …", systemImage: "ellipsis")
+                                .font(Typography.caption).foregroundStyle(Palette.inkMuted)
+                        } else {
+                            bubble(RookTurn(at: store.now, role: .rook, text: store.streamingText))
+                                .accessibilityIdentifier("rook.streaming")
+                        }
                     }
                 }
                 .accessibilityIdentifier("rook.conversation")
@@ -42,10 +47,13 @@ struct RookConversationSection: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isThinking)
                     .accessibilityIdentifier("rook.send")
-                Text("Korrekturen wirken sofort auf dem iPhone. Fragen gehen mit deinen Tageskennzahlen an Claude, wie die automatischen Checks.")
+                // 05's voice channel (microphone button, live transcript) sits here once #61 is merged; it calls
+                // RookStore.shared.talk(_:onSentence:) and shares this conversation's memory.
+                Text("Red mit ROOK wie mit einem Menschen. Korrekturen wirken sofort auf dem iPhone, Antworten kommen mit deinen Tageskennzahlen von Claude, wie die automatischen Checks.")
                     .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
             }
         }
+        .task { store.configure(modelContext: modelContext, owner: sources.ownerProfileID, profile: profile.profile) }
         // The two demonstration cases mark this section as their screen.
         .screenIdentifier(RookDemo.Case.positive.rawValue)
         .screenIdentifier(RookDemo.Case.clarify.rawValue)

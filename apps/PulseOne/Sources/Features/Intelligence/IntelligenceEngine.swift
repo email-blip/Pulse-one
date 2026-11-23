@@ -492,6 +492,75 @@ final class IntelligenceEngine {
         }
     }
 
+    /// Free conversation with ROOK, spoken or typed. Streams plain text; each finished, checked sentence goes to
+    /// `onSentence` at once, so speech output starts after the first sentence. Same standing permission, model
+    /// choice and budget as the check-ins; every turn is in the history with its cost. Returns what ROOK said, or nil
+    /// when nothing usable came back.
+    func streamRookSpeech(message: String, history: [RookTurn], current: RookStatement?, context: HealthAnalysisContext,
+                          modelContext: ModelContext, onSentence: (String) -> Void) async -> String? {
+        let model = settings.model == .haiku ? ClaudeModel.haiku : ClaudeModel.sonnet
+        let mode = settings.safetyMode
+        let record = StoredAnalysis(kind: Self.rookConversationKind, title: "Gespräch mit ROOK", model: model,
+                                    contextJSON: context.compactJSON(), question: message)
+        record.promptVersion = RookSpeech.promptVersion
+        modelContext.insert(record)
+        var usage = TokenUsage()
+        var responder = model.id
+        var spoken: [String] = []
+        var buffer = RookSentenceBuffer()
+        do {
+            guard let key = services.secrets.read(), !key.isEmpty else { throw AnthropicError.missingKey }
+            let request = AnthropicAPI.body(model: model, system: RookSpeech.system(mode: mode, context: context, current: current),
+                                            messages: RookSpeech.messages(history: history, message: message),
+                                            schema: nil, effort: "low")
+            let body = AnthropicAPI.streaming(request, maxTokens: RookSpeech.maxOutputTokens)
+            var stopReason: String?
+            for try await event in services.transport.stream(body, apiKey: key) {
+                switch event {
+                case .started(let id, let start):
+                    if !id.isEmpty { responder = id }
+                    usage = usage + start
+                case .text(let delta):
+                    for sentence in buffer.append(delta) {
+                        guard let line = RookSpeech.speakable(sentence, mode: mode) else { continue }
+                        spoken.append(line)
+                        onSentence(line)
+                    }
+                case .finished(let reason, let outputTokens):
+                    stopReason = reason
+                    if outputTokens > 0 { usage.outputTokens = outputTokens }
+                case .failed(let text):
+                    throw SpeechError.failed(text)
+                }
+            }
+            if let rest = buffer.finish(), let line = RookSpeech.speakable(rest, mode: mode) {
+                spoken.append(line)
+                onSentence(line)
+            }
+            if stopReason == "refusal" { throw AnthropicError.refusal }
+            guard !spoken.isEmpty else { throw SpeechError.failed("Leere Antwort") }
+            let text = spoken.joined(separator: " ")
+            record.apply(usage, responder: responder, model: model)
+            record.resultJSON = Self.json(["reply": text])
+            try? modelContext.save()
+            return text
+        } catch {
+            record.apply(usage, responder: responder, model: model)
+            record.statusRaw = "failed"
+            if let speech = error as? SpeechError, case .failed(let text) = speech {
+                record.errorMessage = text
+            } else {
+                record.errorMessage = Self.message(for: error)
+            }
+            try? modelContext.save()
+            return spoken.isEmpty ? nil : spoken.joined(separator: " ")
+        }
+    }
+
+    enum SpeechError: Error {
+        case failed(String)
+    }
+
     /// `StoredAnalysis.kindRaw` of conversation turns with ROOK.
     nonisolated static let rookConversationKind = "rook"
 
