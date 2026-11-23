@@ -19,11 +19,14 @@ public struct RawObservation: Equatable, Sendable {
     /// Origin inside an aggregating source, e.g. the app and device that wrote a HealthKit sample
     /// (`HealthOrigin`: "bundle|model|device hash"). Keeps devices apart in the resolver.
     public var originDetail: String?
+    /// When the app received the value from the device (BLE packet, HealthKit delivery); nil = at import.
+    public var receivedAt: Date?
 
     public init(kind: SampleKind, value: Double, unit: SampleUnit, start: Date, end: Date? = nil,
                 timeZoneIdentifier: String? = nil, source: DataSourceKind, deviceID: String,
                 originalSampleID: String, method: MeasurementMethod, identity: SampleIdentity = .sourceID,
-                deviceFlag: String? = nil, rawDataReference: String? = nil, originDetail: String? = nil) {
+                deviceFlag: String? = nil, rawDataReference: String? = nil, originDetail: String? = nil,
+                receivedAt: Date? = nil) {
         self.kind = kind
         self.value = value
         self.unit = unit
@@ -38,6 +41,7 @@ public struct RawObservation: Equatable, Sendable {
         self.deviceFlag = deviceFlag
         self.rawDataReference = rawDataReference
         self.originDetail = originDetail
+        self.receivedAt = receivedAt
     }
 }
 
@@ -81,7 +85,7 @@ public enum MeasurementNormalizer {
                             source: raw.source, deviceID: raw.deviceID, originalSampleID: raw.originalSampleID,
                             importedAt: importedAt, quality: quality, qualityReason: reason, method: raw.method,
                             identity: raw.identity, rawDataReference: raw.rawDataReference,
-                            originDetail: raw.originDetail)
+                            originDetail: raw.originDetail, receivedAt: raw.receivedAt)
     }
 
     /// First matching rule wins; the order is part of the contract (tested).

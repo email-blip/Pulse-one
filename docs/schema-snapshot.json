@@ -1062,6 +1062,12 @@
         "type": "String",
         "unique": false
       },
+      "receivedAt": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      },
       "sampleID": {
         "default": false,
         "optional": false,
@@ -1096,6 +1102,77 @@
         "default": false,
         "optional": false,
         "type": "Double",
+        "unique": false
+      }
+    }
+  },
+  "StoredSleepSegment": {
+    "file": "apps/PulseOne/Sources/Persistence/StoredSleepSegment.swift",
+    "properties": {
+      "deviceID": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "end": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "firmware": {
+        "default": false,
+        "optional": true,
+        "type": "String",
+        "unique": false
+      },
+      "importedAt": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "phaseRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "rawCode": {
+        "default": false,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "segmentID": {
+        "default": false,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "sessionID": {
+        "default": false,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "sourceRaw": {
+        "default": false,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "start": {
+        "default": false,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "subjectID": {
+        "default": false,
+        "optional": true,
+        "type": "UUID",
         "unique": false
       }
     }

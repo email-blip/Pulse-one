@@ -12,7 +12,7 @@ extension RawObservation {
                   timeZoneIdentifier: timeZoneIdentifier, source: .colmiRing, deviceID: reading.deviceIdentifier,
                   originalSampleID: Self.ringSampleID(source: reading.source, timestamp: reading.timestamp, kind: kind,
                                                       value: reading.value, interval: nil),
-                  method: method, identity: .derived)
+                  method: method, identity: .derived, receivedAt: reading.source == .ringLive ? reading.timestamp : nil)
     }
 
     /// Derived identity (Review 3.2 §3 B). The ring has no sample ids, and a timestamp alone is not unique
@@ -120,7 +120,8 @@ extension HealthSample {
         HealthSample(id: id, profileID: profileID, kind: kind, value: value, unit: unit, start: start, end: end,
                      timeZoneIdentifier: timeZoneIdentifier, source: source, deviceID: deviceID,
                      originalSampleID: newID, importedAt: importedAt, quality: quality, qualityReason: qualityReason,
-                     method: method, identity: identity, rawDataReference: rawDataReference, originDetail: originDetail)
+                     method: method, identity: identity, rawDataReference: rawDataReference, originDetail: originDetail,
+                     receivedAt: receivedAt)
     }
 }
 

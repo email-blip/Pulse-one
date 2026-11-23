@@ -401,6 +401,10 @@ final class ColmiCentral: NSObject {
         if !sync.observations.isEmpty, let id = store?.snapshot.deviceIdentifier {
             store?.recordHistory(sync.observations, deviceIdentifier: id)
         }
+        // After the values, so the night's sleepDuration and its phases arrive in the same sync.
+        if !sync.sleepSegments.isEmpty, let id = store?.snapshot.deviceIdentifier {
+            store?.recordSleep(sync.sleepSegments, deviceIdentifier: id)
+        }
         if !interrupted {
             UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
             store?.noteHistorySynced(at: now)

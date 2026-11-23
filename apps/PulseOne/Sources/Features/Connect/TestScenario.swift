@@ -134,6 +134,7 @@ enum TestScenario {
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
         if historyScenarios.contains(name) { insertTabHistory(into: context) }
+        if NeubauScenario.all.contains(name) { NeubauScenario.insert(name, into: context) }
         if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         if name == "coach" { CoachScenario.insert(into: context) }
         if name == "nutrition" { NutritionTestData.insert(into: context) }
