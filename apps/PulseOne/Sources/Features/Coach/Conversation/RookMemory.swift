@@ -60,6 +60,16 @@ enum RookMemory {
         save(snapshot)
     }
 
+    /// The person's corrections on the day of `date` ("Ich bin krank", "Heute nur zehn Minuten", ...), oldest first.
+    /// Team 05's day plan reads these through `CoachRepository.correctionsProvider`.
+    static func corrections(on date: Date, calendar: Calendar = .current) -> [(feedback: RookFeedback, at: Date)] {
+        load().turns.compactMap { turn in
+            guard turn.role == .person, calendar.isDate(turn.at, inSameDayAs: date),
+                  let feedback = RookFeedback.match(turn.text), feedback != .why else { return nil }
+            return (feedback, turn.at)
+        }
+    }
+
     /// The newest statement that is valid now: Claude's check-in or a corrected one beats the plain local reading.
     static func latestValid(at now: Date, subjectID: UUID?) -> RookStatement? {
         load().statements.last { $0.insight.isValid(at: now) && $0.insight.subjectID == subjectID }
