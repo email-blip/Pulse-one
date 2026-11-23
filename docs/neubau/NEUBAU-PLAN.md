@@ -152,6 +152,6 @@ Nachweisstufen werden getrennt gemeldet: Konzept / implementiert / gebaut / Simu
 
 ## 11. CI und Builds
 
-- Ein CI-Lauf belegt alle 5 Gratis-Mac-Jobs (15–20 Min.). Teams öffnen PRs erst, wenn ein Paketteil fertig ist; Zwischenstände bleiben auf dem Branch. Pro Team höchstens ein laufender CI-Lauf.
+- Jeder Push mit App-Änderungen startet die volle CI; ein Lauf belegt alle 5 Gratis-Mac-Jobs (15–20 Min.). Teams pushen gebündelt (etwa alle 2 Stunden), reine Doku-Pushes starten nichts. Bei sechs Teams entstehen Wartezeiten; 00 priorisiert die Läufe in Merge-Reihenfolge.
 - Grüne Team-PRs merged 00 in der Reihenfolge aus §8 (squash). Teams mergen nicht selbst, damit `main` stabil bleibt.
 - TestFlight nur aus `main` durch 00, wenn der Meilenstein-Ablauf im Video funktioniert.
