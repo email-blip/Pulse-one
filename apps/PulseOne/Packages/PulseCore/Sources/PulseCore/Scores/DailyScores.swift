@@ -2,7 +2,8 @@ import Foundation
 
 // Three day scores 0–100 like Oura (owner decision 2026-11-23): sleep, recovery, activity. Each score is
 // the weighted mean of a few visible building blocks, so every number can be traced. Our own simple
-// formulas, not Oura's. Recovery is rated against the person's own band and needs 14 days of data first.
+// formulas, not Oura's. Recovery works from the first day: it starts from typical adult values and moves
+// to the person's own band with every measured day (fully personal after `personalDays`).
 
 public enum ScoreKind: String, CaseIterable, Sendable, Identifiable {
     case sleep, recovery, activity
@@ -74,8 +75,6 @@ public struct DayScore: Equatable, Sendable {
 
 public enum ScoreResult: Equatable, Sendable {
     case ready(DayScore)
-    /// The personal band is still being learned.
-    case learning(daysAvailable: Int, daysNeeded: Int)
     /// Nothing measured for this day.
     case noData
 
@@ -88,7 +87,6 @@ public enum ScoreResult: Equatable, Sendable {
     public var placeholder: String {
         switch self {
         case .ready(let score): score.word
-        case .learning(_, let needed): "lernt noch (\(needed) Tage)"
         case .noData: "keine Daten"
         }
     }
@@ -124,8 +122,8 @@ public struct NightSleep: Equatable, Sendable {
 }
 
 public enum DailyScores {
-    /// Days of personal data the recovery score needs before it shows a number.
-    public static let learningDays = 14
+    /// Measured days after which the recovery band is fully personal; before, it blends with `RecoveryPrior`.
+    public static let personalDays = 14
     /// Daily step goal until the profile has its own.
     public static let defaultStepGoal = 8_000.0
     static let windowDays = 28
@@ -169,7 +167,8 @@ public enum DailyScores {
     // MARK: Recovery
 
     /// Recovery for `day`: resting pulse and HRV against the 28 days before, plus last night's sleep score
-    /// and the previous day's steps. Needs `learningDays` resting-pulse or HRV days.
+    /// and the previous day's steps. From the first day: with fewer than `personalDays` earlier days the
+    /// band is a blend of typical adult values and the person's own days.
     public static func recovery(on day: Date, restingHeartRate: [DayValue], hrv: [DayValue], nights: [NightSleep],
                                 steps: [DayValue], calendar: Calendar) -> ScoreResult {
         let target = calendar.startOfDay(for: day)
@@ -183,22 +182,18 @@ public enum DailyScores {
         let restingWindow = window(restingHeartRate), hrvWindow = window(hrv)
         let restingToday = today(restingHeartRate), hrvToday = today(hrv)
         guard restingToday != nil || hrvToday != nil else { return .noData }
-        let available = max(restingToday == nil ? 0 : restingWindow.count, hrvToday == nil ? 0 : hrvWindow.count)
-        guard available >= learningDays else {
-            return .learning(daysAvailable: available, daysNeeded: learningDays - available)
-        }
         var parts: [ScoreComponent] = []
-        if let value = restingToday, restingWindow.count >= learningDays {
-            let (median, spread) = robust(restingWindow, minimumSpread: 1)
+        if let value = restingToday {
+            let (median, spread) = band(restingWindow, prior: .restingHeartRate, minimumSpread: 1)
             let difference = value - median
             parts.append(ScoreComponent(title: "Ruhepuls", score: Int((75 - 15 * difference / spread).rounded()),
-                                        detail: relativeText(difference, unit: "bpm", median: median), weight: 0.35))
+                                        detail: relativeText(difference, unit: "bpm", median: median, days: restingWindow.count), weight: 0.35))
         }
-        if let value = hrvToday, hrvWindow.count >= learningDays {
-            let (median, spread) = robust(hrvWindow, minimumSpread: 2)
+        if let value = hrvToday {
+            let (median, spread) = band(hrvWindow, prior: .hrv, minimumSpread: 2)
             let difference = value - median
             parts.append(ScoreComponent(title: "HRV", score: Int((75 + 15 * difference / spread).rounded()),
-                                        detail: relativeText(difference, unit: "ms", median: median), weight: 0.35))
+                                        detail: relativeText(difference, unit: "ms", median: median, days: hrvWindow.count), weight: 0.35))
         }
         if let sleep = sleep(on: target, nights: nights, calendar: calendar).score {
             parts.append(ScoreComponent(title: "Schlaf letzte Nacht", score: sleep.value, detail: "Schlafwert \(sleep.value)", weight: 0.2))
@@ -259,6 +254,17 @@ public enum DailyScores {
         return last.1
     }
 
+    /// Reference band for recovery: the person's own days, blended with `prior` while there are fewer than
+    /// `personalDays` of them (weight = days / personalDays). Without own days the prior alone.
+    static func band(_ values: [Double], prior: RecoveryPrior, minimumSpread: Double) -> (median: Double, spread: Double) {
+        let weight = min(Double(values.count) / Double(personalDays), 1)
+        guard weight > 0 else { return (prior.median, max(prior.spread, minimumSpread)) }
+        let own: (median: Double, spread: Double) = values.count >= 2
+            ? robust(values, minimumSpread: minimumSpread) : (median: values[0], spread: prior.spread)
+        return (weight * own.median + (1 - weight) * prior.median,
+                max(weight * own.spread + (1 - weight) * prior.spread, minimumSpread))
+    }
+
     /// Median and a robust spread (IQR / 1.349, at least `minimumSpread`).
     static func robust(_ values: [Double], minimumSpread: Double) -> (median: Double, spread: Double) {
         let sorted = values.sorted()
@@ -282,13 +288,25 @@ public enum DailyScores {
         return "\(minutes / 60) h \(minutes % 60) min"
     }
 
-    static func relativeText(_ difference: Double, unit: String, median: Double) -> String {
+    /// `days`: own earlier days in the band; with fewer than `personalDays` the band still leans on typical values.
+    static func relativeText(_ difference: Double, unit: String, median: Double, days: Int = personalDays) -> String {
         let amount = Int(abs(difference).rounded())
+        let reference = days >= personalDays ? "deinem Mittel" : (days == 0 ? "typischen Werten" : "deinem bisherigen Mittel")
         guard amount > 0 else { return "wie üblich (\(Int(median.rounded())) \(unit))" }
-        return "\(amount) \(unit) \(difference > 0 ? "über" : "unter") deinem Mittel (\(Int(median.rounded())) \(unit))"
+        return "\(amount) \(unit) \(difference > 0 ? "über" : "unter") \(reference) (\(Int(median.rounded())) \(unit))"
     }
 
     static func grouped(_ value: Double) -> String {
         Int(value.rounded()).formatted(.number.grouping(.automatic).locale(Locale(identifier: "de_DE")))
     }
+}
+
+/// Typical adult starting values for the recovery band (resting pulse in bpm, ring HRV in ms). Only a start:
+/// each measured day moves the band toward the person's own values.
+public struct RecoveryPrior: Equatable, Sendable {
+    public let median: Double
+    public let spread: Double
+
+    public static let restingHeartRate = RecoveryPrior(median: 60, spread: 6)
+    public static let hrv = RecoveryPrior(median: 40, spread: 10)
 }

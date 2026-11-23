@@ -92,7 +92,8 @@ public enum SyncCoordinator {
                      start: new.start, end: new.end, timeZoneIdentifier: new.timeZoneIdentifier, source: new.source,
                      deviceID: new.deviceID, originalSampleID: new.originalSampleID, importedAt: new.importedAt,
                      quality: new.quality, qualityReason: new.qualityReason, method: new.method,
-                     identity: new.identity, rawDataReference: new.rawDataReference, originDetail: new.originDetail)
+                     identity: new.identity, rawDataReference: new.rawDataReference, originDetail: new.originDetail,
+                     receivedAt: stored.receivedAt ?? new.receivedAt)
     }
 }
 

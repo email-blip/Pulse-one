@@ -59,7 +59,7 @@ public enum HealthImportMigration {
                             source: old.source, deviceID: old.deviceID, originalSampleID: old.originalSampleID,
                             importedAt: old.importedAt, quality: quality, qualityReason: reason, method: old.method,
                             identity: old.identity, rawDataReference: old.rawDataReference,
-                            originDetail: old.originDetail)
+                            originDetail: old.originDetail, receivedAt: old.receivedAt)
     }
 }
 

@@ -258,12 +258,14 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
     public let rawDataReference: String?
     /// Origin inside an aggregating source (HealthKit app + device); nil for direct sources.
     public let originDetail: String?
+    /// First time the app received this value from the device; nil for rows stored before it was recorded.
+    public let receivedAt: Date?
 
     public init(id: UUID = UUID(), profileID: UUID?, kind: SampleKind, value: Double, unit: SampleUnit,
                 start: Date, end: Date? = nil, timeZoneIdentifier: String?, source: DataSourceKind,
                 deviceID: String, originalSampleID: String, importedAt: Date, quality: SampleQuality,
                 qualityReason: String? = nil, method: MeasurementMethod, identity: SampleIdentity = .sourceID,
-                rawDataReference: String? = nil, originDetail: String? = nil) {
+                rawDataReference: String? = nil, originDetail: String? = nil, receivedAt: Date? = nil) {
         self.id = id
         self.profileID = profileID
         self.kind = kind
@@ -282,6 +284,7 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
         self.identity = identity
         self.rawDataReference = rawDataReference
         self.originDetail = originDetail
+        self.receivedAt = receivedAt
     }
 
     /// The same sample attributed to another profile (explicit correction only, never by a sync).
@@ -290,7 +293,7 @@ public struct HealthSample: Equatable, Sendable, Identifiable {
                      timeZoneIdentifier: timeZoneIdentifier, source: source, deviceID: deviceID,
                      originalSampleID: originalSampleID, importedAt: importedAt, quality: quality,
                      qualityReason: qualityReason, method: method, identity: identity, rawDataReference: rawDataReference,
-                     originDetail: originDetail)
+                     originDetail: originDetail, receivedAt: receivedAt)
     }
 
     /// Identity across repeated syncs: the same source sample always maps to the same key.
