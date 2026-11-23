@@ -48,6 +48,23 @@ Diagnosedatei Johannes, 64 Einträge, nichts verworfen.
 - Live-Puls Variante A erneut erfolgreich: Quittung sofort, erste Werte nach 25,5 s, 69–71 bpm, Stopp `6A 01` quittiert.
 - **Verlauf nicht abgerufen**: Die App hat den Abruf zurückgestellt, weil gleichzeitig die Live-Messung lief („Verlauf später abrufen: Messung läuft“). Schritte-, Puls-, Stress-, HRV-, SpO₂- und Schlafverlauf bleiben am R03 unbestätigt. Bis Build 11 wurde ein so zurückgestellter Abruf erst beim nächsten Verbinden oder App-Start nachgeholt. Seit diesem Befund holt die App ihn eine Sekunde nach dem Ende der Messung nach (Diagnosezeile „Verlauf nach der Messung abrufen“). Nächster Realtest: verbinden, **ohne** eine Messung zu starten, und die Diagnose nach dem Abgleich senden.
 
+## R03-Realtest 4 (2026-11-22 23:53Z bis 2026-11-23 09:10Z, Build 1.0.1 (14), Firmware RY03_3.00.28_250401)
+
+Diagnosedatei Johannes, 490 Einträge, nichts verworfen. Ring über Nacht getragen, App im Hintergrund.
+
+- **Verlauf am R03 bestätigt**, alle sechs Arten kommen an und werden gelesen:
+  - Schritte `0x43`: Viertelstunden-Pakete wie Tabelle unten, „leer“-Kopf `43 F0 <Anzahl>`.
+  - Puls `0x15`: Kopf `15 00 18 05` = 24 Pakete, **5-Minuten-Takt** (passt zu Profil „Standard“).
+  - Stress `0x37`: Kopf `37 00 05 1E` = 5 Pakete, 30-Minuten-Takt, Werte 22–60.
+  - HRV `0x39`: Kopf `39 00 05 1E`; Byte 2 von Paket 1 ist `TageZurück` (`00` heute, `01` gestern). Werte 31–49 ms.
+  - SpO₂ `BC 2A`: fast alle Stunden min = max = 99 %, einzelne 98 %. Auffällig gleichförmig, Gegenprobe mit QRing offen.
+  - Schlaf `BC 27`: drei Nächte mit Beginn, Ende und Phasen, z. B. letzte Nacht 00:47–06:39 (Ringzeit), Phasen 2/3/4/5 wie Tabelle.
+- **Verbindung über Nacht gehalten**: 9 h 2 min durchgehend verbunden, dann „connection has timed out unexpectedly“. Wiederverbindung nach 1 s bzw. 3 s ohne Zutun, danach Uhrzeit, Profil und Verlauf automatisch. Ein zweiter Abbruch folgte nach 11,5 min.
+- **Kein Abgleich während der 9 Stunden**: Build 14 holte den Verlauf nur beim Verbinden und im Vordergrund. Seit Build 15 kommen die Check-ins (Hintergrundaktualisierung) dazu. Neu: Der Ring meldet neue Daten von selbst mit `73 01 …` (gesehen 81 s nach dem Verbinden, Gadgetbridge `NOTIFICATION_NEW_HR_DATA`). Die App wertet `73 01/03/04` jetzt als „neue Daten“ und holt den Verlauf, wenn der 30-Minuten-Abstand erreicht ist. So weckt der Ring die App im Hintergrund selbst. Wie oft der R03 `73 01` schickt, zeigt der nächste Nachttest.
+- Akku-Push `73 0C 33` = 51 % kam ungefragt; Akku 52 % beim Start, 44 % nach 9 h (Profil „Standard“), also etwa 1 % pro Stunde.
+- Am Ende wurde das Profil „Akku sparen“ gesendet (Puls 15 min, SpO₂ und Stress aus) und vom Ring bestätigt.
+- Werbedaten (Dienste, Hersteller-ID) fehlen in dieser Datei, weil sie erst ab Build 15 protokolliert werden. Sie sind die Voraussetzung für AccessorySetupKit.
+
 ## Selbstständige Messungen und Verlauf (Welle 1, 2026-11-21, noch nicht am Ring getestet)
 
 Quelle: Gadgetbridge `ColmiR0xConstants`, `ColmiR0xDeviceSupport`, `ColmiR0xPacketHandler` (Stand master, 2026-11-21); Schritte zusätzlich tahnok `steps.py`. Übernommen ist nur das Byte-Format, der Code ist eigen. Status: **Implementiert**, nicht am R03/R09 bestätigt.

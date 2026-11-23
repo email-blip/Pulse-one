@@ -46,8 +46,14 @@ struct ColmiProtocolTests {
     @Test func statusPushCarriesBattery() throws {
         let packet = try ColmiProtocol.makePacket(.statusPush, payload: [0x0C, 87, 1])
         #expect(ColmiProtocol.decode(packet) == .battery(.init(level: 87, charging: true)))
-        let other = try ColmiProtocol.makePacket(.statusPush, payload: [0x01])
+        let other = try ColmiProtocol.makePacket(.statusPush, payload: [0x12])
         #expect(ColmiProtocol.decode(other) == .unknown(hex: ColmiProtocol.hex(other)))
+    }
+
+    @Test func statusPushAnnouncesNewData() {
+        // Seen on the R03 (firmware 3.00.28) about a minute after connecting, 2026-11-23.
+        let packet: [UInt8] = [0x73, 0x01] + Array(repeating: 0, count: 13) + [0x74]
+        #expect(ColmiProtocol.decode(packet) == .newData(0x01))
     }
 
     @Test func setTimeRejectsDatesBefore2000() {
