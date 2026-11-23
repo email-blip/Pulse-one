@@ -115,3 +115,24 @@ Geändert:
 - `COACH-ENGINE-SPEC.md`: Trainingsorte ohne Default.
 
 Priorität unverändert: installierbares iPhone, R03-Nachweis, grüne Review-CI.
+
+## Antwort 8 – P1-005 Begleiter als belegte Einordnung (2026-11-22)
+
+**Stand vorab.** Branch `claude/project-thread-f2pqtw`, ein Schreiber (dieser Thread), keine parallele Implementierung. WIP `de53a30` (Checks, Hintergrund, Ring-Wiederherstellung, Ernährung raus) baut grün und besteht die Core-Tests (Lauf 45056271623). Danach `3ac80fd` mit P1-005.
+
+**Status nach §14.**
+- Implementiert + gebaut: automatische Checks morgens/mittags/abends, Einwilligungsprotokoll (`StoredConsentLog`: Kategorien, Empfänger, Takt, Budget, Modell, Promptversion), Hintergrund-Refresh, BLE-State-Restoration.
+- Implementiert (CI läuft): Einordnung `InsightEngine` + `InsightScreen`, drei Demo-Fälle `insightNormal`, `insightNights`, `insightGap` mit Banner „Testansicht“, `CheckInGate`, `NightAssembler`, `TrainingReviewer`.
+- Nicht erledigt: Simulator-*Video* (CI liefert Screenshots Normal/XXXL/Reduce Motion, kein Video), iPhone-/R03-Test, AccessorySetupKit, Zeitnavigation in die Einordnung, neue Tab-Struktur Jetzt·Verlauf·Coach.
+
+**Umsetzung der Punkte.**
+- Kette Beobachtung → Deutung mit Alternativen → eine Aktion → Nachprüfung. Gespeichert: Profil, Zeit, Herkunft/Methode, Abdeckung, üblicher Bereich, Belege mit IDs, Hypothesen mit Für/Gegen, Aktion, Recheck, Revisionen.
+- Antworten ändern nur Deutung, Passung und Aktion; Messwerte und Nächte bleiben gleich (Test `contradictionChangesTheInterpretationNotTheMeasurement`).
+- Aussagearten sichtbar getrennt: gemessen · berechnet · Hypothese · Vorschlag.
+- Keine Prozente; Passung „passt gut/teilweise/kaum/offen“. Gilt für Checks und Einordnung. Die bestehende Sprechstunde behält den von Johannes freigegebenen klinischen Modus (Konflikt zur Entscheidung 2026-11-21, bitte klären).
+- Ein starker Einzelwert reicht (Ruhepuls ≥ +8 bpm oder HRV ≤ −30 %), keine Zwei-Werte-Pflicht.
+- Keine starren Pushes: nichts Neues → kein KI-Aufruf, kein Push; höchstens 2 am Tag, 3 h Abstand, Ruhe 22–7; alte Nacht nie als aktuell („Noch nicht abgeglichen“).
+- Training: Ausführung, Reaktion, Wirkung getrennt; Puls bestätigt keine Wirkung und bewertet nie die Person.
+- iOS/BLE: TN3115 in `BEGLEITER-IOS-GRENZEN.md`. Unter iOS 26 kein Neustart nach Beendigung ohne AccessorySetupKit.
+
+**Tests (PulseCore).** `InsightTests` (normal, offene Ursache, Datenlücke, veralteter Abgleich, Widerspruch, Lernphase, Recheck), `CheckInGateTests` (fehlende Einwilligung, Kategorien zurückgezogen, Budget, Tageslimit, Anbieterfehler, Doppelhinweis, Quellenwechsel), `TrainingReviewTests` (kein Wirkungsnachweis aus BPM, kein Urteil bei niedrigem Puls). UI: `testInsightAnswerRevisesInterpretation`, Audits der drei Fälle.

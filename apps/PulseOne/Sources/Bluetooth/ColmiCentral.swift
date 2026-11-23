@@ -38,7 +38,11 @@ final class ColmiCentral: NSObject {
     private var syncStepTimer: Task<Void, Never>?
     private var postReadyTask: Task<Void, Never>?
     private var writeQueue: Task<Void, Never>?
-    private let syncSchedule = RingSyncSchedule()
+    /// The owner wants the charts always current (2026-11-22): while the ring stays connected in the
+    /// background, the history is fetched every 30 minutes instead of every 6 hours.
+    private let syncSchedule = RingSyncSchedule(minimumGap: 30 * 60)
+    /// Lets iOS relaunch the app in the background for ring events and keep the link (bluetooth-central).
+    static let restoreIdentifier = "de.sommerlabs.pulseone.ring"
 
     private enum PendingAction { case scan, reconnect(UUID) }
 
@@ -57,6 +61,8 @@ final class ColmiCentral: NSObject {
     private static let bigDataWriteID = CBUUID(string: ColmiHistory.bigDataWrite)
     private static let bigDataNotifyID = CBUUID(string: ColmiHistory.bigDataNotify)
     static let lastSyncKey = "ring.lastHistorySync"
+    /// Rings whose advertisement was written to the trace in this scan session.
+    private var advertisementTraced: Set<UUID> = []
     /// Seconds without an answer before a history step counts as unanswered.
     private static let stepTimeout: Duration = .seconds(8)
 
@@ -439,7 +445,9 @@ final class ColmiCentral: NSObject {
 
     private func makeManager() {
         if manager == nil {
-            manager = CBCentralManager(delegate: self, queue: .main)
+            let options: [String: Any] = LaunchOptions.current.isUITesting
+                ? [:] : [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
+            manager = CBCentralManager(delegate: self, queue: .main, options: options)
         } else if let manager {
             centralManagerDidUpdateState(manager)
         }
@@ -602,11 +610,25 @@ extension ColmiCentral: @preconcurrency CBCentralManagerDelegate {
         }
     }
 
+    /// iOS relaunched the app for the ring in the background: keep the restored peripheral known, the
+    /// state update that follows reconnects or reuses it through the remembered ring.
+    func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
+        let restored = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
+        for peripheral in restored { peripherals[peripheral.identifier] = peripheral }
+        trace(.event, "Im Hintergrund wiederhergestellt: \(restored.count) Ring(e)")
+    }
+
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let advertised = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         guard let name = advertised ?? peripheral.name, !name.isEmpty else { return }
         peripherals[peripheral.identifier] = peripheral
+        if ColmiModel.detect(advertisedName: name) != nil, advertisementTraced.insert(peripheral.identifier).inserted {
+            // Needed once from a real scan: AccessorySetupKit discovers only by advertised service or company ID.
+            let services = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []).map(\.uuidString)
+            let manufacturer = (advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data).map { [UInt8]($0) }
+            trace(.event, AdvertisementSummary.describe(name: name, serviceUUIDs: services, manufacturerData: manufacturer))
+        }
         let ring = DiscoveredRing(id: peripheral.identifier, name: name, rssi: RSSI.intValue,
                                   model: ColmiModel.detect(advertisedName: name))
         update { $0.upsert(ring) }

@@ -125,3 +125,17 @@ Not compiled: the `if`-expression assignment to `schedule` and the generic `.ala
 - The Open-Meteo example URLs. To check them live, open-meteo.com, api.open-meteo.com, geocoding-api.open-meteo.com and air-quality-api.open-meteo.com have to be allowed in the session's network settings.
 
 Sources: developer.apple.com/documentation/alarmkit (scheduling-an-alarm-with-alarmkit, alarmmanager, alarmconfiguration, alarmpresentation/alert, alarmbutton, alarmattributes, alarmmetadata, alarm/schedule), developer.apple.com/videos/play/wwdc2025/230, usernotifications/unnotificationsound, critical-alerts entitlement, backgroundtasks/bgtaskrequest/earliestbegindate, corebluetooth/cbcentralmanageroptionrestoreidentifierkey, avfaudio docs, github.com/open-meteo/open-meteo README, github.com/open-meteo/open-meteo-website docs source, [open-meteo.com/en/terms](https://open-meteo.com/en/terms) (via search results).
+
+## Nachtrag 2026-11-22: TN3115 und Bluetooth im Hintergrund (Codex P1-005)
+
+Quelle: Apple Technote TN3115 „Bluetooth State Restoration app relaunch rules“.
+
+- iOS startet eine App mit State Restoration neu, wenn das System sie aus dem Speicher genommen hat, nach einem Absturz, nach Bluetooth- oder Flugmodus-Umschalten im Kontrollzentrum und nach einem Neustart (sobald das iPhone einmal entsperrt wurde).
+- Kein Neustart nach Wegwischen durch die Person und nach Bluetooth-Aus in den Einstellungen.
+- Neustart nur, wenn die App auf ein bestimmtes Bluetooth-Ereignis wartet (Verbindung, abonnierte Meldung, Suche).
+- **iOS 26: Nur Apps, die ihr Zubehör über AccessorySetupKit eingerichtet haben, werden nach Beendigung neu gestartet.** PULSE ONE nutzt AccessorySetupKit noch nicht. Folge: Solange die App im Hintergrund pausiert ist, kommen Ring-Ereignisse an; wird sie beendet, bleibt der Ring bis zum nächsten Öffnen getrennt. Ein Umstieg auf AccessorySetupKit ist als eigener Schritt nötig.
+
+Getrennte Zustände (nie gleichsetzen): Bluetooth verbunden · Verlauf abgeglichen (mit Zeitpunkt) · echter Live-Strom. Pro Messart zu berichten: Rate, Verzögerung, Lücken, Akkulast. Lückenlose R03-Daten werden erst nach einem Realtest behauptet.
+
+Weitere Fakten: Entsperren ist kein Aufwachsignal. Ein Fokus-Filter ist keine Schlafüberwachung. BGAppRefresh und BGProcessing sind getrennte Aufgaben ohne garantierte Zeit. AlarmKit gibt es erst ab iOS 26. Eine Live Activity bekommt keine Bluetooth-Daten und läuft nicht endlos.
+
