@@ -536,6 +536,12 @@ final class ColmiCentral: NSObject {
             publishMeasurement()
         case .setTimeAck, .realTimeStopAck, .packetSize, .settingWriteAck:
             break
+        case .newData:
+            // The ring wakes the app in the background with this; fetch only when the schedule says so.
+            let last = UserDefaults.standard.object(forKey: Self.lastSyncKey) as? Date
+            guard historySync == nil, syncSchedule.isDue(lastSync: last, now: .now) else { return }
+            trace(.event, "Ring meldet neue Daten")
+            syncHistory(force: false)
         case .setting(let report):
             update {
                 $0.ringSettings[report.feature] = report
