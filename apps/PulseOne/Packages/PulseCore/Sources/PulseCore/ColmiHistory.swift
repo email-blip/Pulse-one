@@ -424,7 +424,7 @@ public struct RingHistoryMapper: Sendable {
                        timeZoneIdentifier: zone, source: .colmiRing, deviceID: deviceID,
                        originalSampleID: RawObservation.ringHistorySampleID(kind: kind, slotStart: start, interval: interval,
                                                                             calendar: calendar),
-                       method: .deviceHistory, identity: .derived)
+                       method: .deviceHistory, identity: .derived, receivedAt: today)
     }
 
     /// Ring wall-clock time `minuteOfDay` on `day`, built from date components so a daylight-saving day

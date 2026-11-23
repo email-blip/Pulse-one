@@ -69,8 +69,6 @@ struct ScoreDetailScreen: View {
     private var headlineText: String {
         switch today {
         case .ready(let score): "\(score.value) · \(score.word)"
-        case .learning(let available, let needed):
-            "PULSE ONE lernt noch deinen üblichen Bereich: \(available) Tage da, noch \(needed) Tage."
         case .noData:
             loaded ? "Für heute gibt es noch keine Werte. Trag den Ring, auch nachts." : ""
         }
