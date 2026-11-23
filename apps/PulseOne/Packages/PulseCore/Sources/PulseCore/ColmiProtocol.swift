@@ -48,7 +48,8 @@ public enum ColmiProtocol {
         case findDevice = 80
         case realTimeStart = 105
         case realTimeStop = 106
-        /// Unsolicited status from the ring; subtype 0x0C carries battery (anikbharadwaj129/Colmi, unverified on the R03).
+        /// Unsolicited status from the ring. Subtype 0x0C carries battery (seen on the R03);
+        /// 0x01/0x03/0x04 announce new heart-rate, SpO2 or step data (Gadgetbridge `NOTIFICATION_NEW_*`, 0x01 seen on the R03 2026-11-23).
         case statusPush = 115
     }
 
@@ -197,6 +198,8 @@ public enum ColmiProtocol {
         case setting(RingSettingReport)
         /// The ring confirmed writing a setting.
         case settingWriteAck(Command)
+        /// The ring announced newly stored data (subtype byte), a cue to fetch the history when due.
+        case newData(UInt8)
         case unknown(hex: String)
     }
 
@@ -231,6 +234,8 @@ public enum ColmiProtocol {
             return .setting(RingSettingReport(feature: feature, enabled: packet[2] == 1, intervalMinutes: nil))
         case .statusPush where packet[1] == 0x0C:
             return .battery(Battery(level: Int(packet[2]), charging: packet[3] == 1))
+        case .statusPush where newDataNotices.contains(packet[1]):
+            return .newData(packet[1])
         case .realTimeStop:
             return .realTimeStopAck
         case .packetSize:
@@ -241,6 +246,9 @@ public enum ColmiProtocol {
             return .unknown(hex: hex(packet))
         }
     }
+
+    /// Status subtypes that announce new stored data: heart rate, SpO2, steps (Gadgetbridge).
+    static let newDataNotices: Set<UInt8> = [0x01, 0x03, 0x04]
 
     static func bcd(_ value: Int) -> UInt8 {
         UInt8(((value / 10) << 4) | (value % 10))
