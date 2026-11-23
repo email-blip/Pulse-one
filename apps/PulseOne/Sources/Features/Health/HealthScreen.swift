@@ -73,7 +73,7 @@ struct HealthScreen: View {
                     .padding(.bottom, Spacing.xl)
                 }
             }
-            .navigationTitle("Gesundheit")
+            .navigationTitle("Verlauf")
             .profileToolbar()
             .navigationDestination(for: SampleKind.self) { MetricDetailScreen(kind: $0) }
             .task(id: "\(sources.syncing.count)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)") { reload() }

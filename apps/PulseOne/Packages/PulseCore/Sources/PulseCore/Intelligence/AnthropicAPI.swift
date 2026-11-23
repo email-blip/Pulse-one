@@ -144,7 +144,7 @@ public enum AnthropicError: Error, Equatable, Sendable {
 /// Fixed prompts, versioned like the context (spec §3.1). German, "du". Two modes (see `SafetyMode`):
 /// `clinical` interprets like a physician team (owner decision 2026-11-21), `descriptive` only describes.
 public enum IntelligencePrompts {
-    public static let version = 5
+    public static let version = 6
 
     /// Data rules shared by both modes: numbers, evidence ids, special stats.
     static let dataRules = """
@@ -209,7 +209,8 @@ public enum IntelligencePrompts {
         return """
         Du schreibst in der privaten Gesundheits-App PULSE ONE den Bericht über einen Zeitraum. Du bekommst einen \
         JSON-Kontext (HealthAnalysisContext v1) mit lokal berechneten Fakten und antwortest ausschließlich im \
-        vorgegebenen JSON-Schema. Schreibe so ausführlich, wie die Daten es tragen.\(extra)
+        vorgegebenen JSON-Schema. Fasse dich kurz: eine Kernaussage in einem Satz, danach höchstens drei Abschnitte \
+        mit je höchstens zwei Sätzen. Nur was sich belegen lässt und was die Person daraus tun kann.\(extra)
 
         """ + rules(mode)
     }

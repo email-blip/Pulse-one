@@ -36,6 +36,8 @@ struct IntelligenceHubView: View {
     @State private var question = ""
     @State private var localAnswer: String?
     @State private var caseCount = 0
+    /// Nights with sleep data; reports need 7, the lab tools 28 (core rebuild 2026-11-23).
+    @State private var nights = 0
     @Query(sort: \StoredAnalysis.createdAt, order: .reverse) private var analyses: [StoredAnalysis]
     @Query(sort: \StoredConsultation.updatedAt, order: .reverse) private var consultations: [StoredConsultation]
 
@@ -60,7 +62,7 @@ struct IntelligenceHubView: View {
                     .padding(Spacing.l)
                 }
             }
-            .navigationTitle("Analyse")
+            .navigationTitle("Mehr")
             .profileToolbar()
             .navigationDestination(for: IntelligenceRoute.self) { route in
                 switch route {
@@ -151,13 +153,20 @@ struct IntelligenceHubView: View {
     private var reportsCard: some View {
         Card {
             SectionHeader(title: "Berichte von Claude")
-            Text("Claude bekommt nur lokal berechnete Kennzahlen, nie Rohdaten. Du siehst vorher genau, was gesendet wird.")
-                .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-            ForEach(AnalysisPeriodKind.allCases, id: \.self) { kind in
-                Button(kind.title) { prepareReport(kind) }
-                    .buttonStyle(SecondaryButtonStyle())
-                    .disabled(engine.activity != nil)
-                    .accessibilityIdentifier("intelligence.report.\(kind.rawValue)")
+            if nights < Self.reportNights {
+                // Too little to say anything worth paying for (owner, 2026-11-23: no KI under 7 days).
+                Text("Ein Wochenrückblick lohnt sich ab \(Self.reportNights) Nächten mit Schlafdaten. Bisher: \(nights).")
+                    .font(Typography.body).foregroundStyle(Palette.ink).wraps()
+            } else {
+                Text("Kurz und belegt. Claude bekommt nur lokal berechnete Kennzahlen, nie Rohdaten. Du siehst vorher, was gesendet wird.")
+                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+                // The daily line comes from the morning report; Claude writes the weekly review (and monthly once there is a month).
+                ForEach(reportKinds, id: \.self) { kind in
+                    Button(kind == .weekly ? "Wochenrückblick" : kind.title) { prepareReport(kind) }
+                        .buttonStyle(SecondaryButtonStyle())
+                        .disabled(engine.activity != nil)
+                        .accessibilityIdentifier("intelligence.report.\(kind.rawValue)")
+                }
             }
         }
     }
@@ -185,15 +194,28 @@ struct IntelligenceHubView: View {
         }
     }
 
+    static let reportNights = 7
+    static let labNights = 28
+
+    private var reportKinds: [AnalysisPeriodKind] { nights >= Self.labNights ? [.weekly, .monthly] : [.weekly] }
+
     private var labCard: some View {
         Card {
             SectionHeader(title: "Labor")
-            row("Körper-Detektiv", detail: caseCount == 0 ? "Gerade keine Abweichung" : "\(caseCount) Abweichung vom üblichen Bereich",
-                systemImage: "magnifyingglass", route: .detective)
-            row("Experimente", detail: "Selbstversuche planen und auswerten", systemImage: "flask", route: .experiments)
-            row("Körperbiografie", detail: "Was sich über Monate bestätigt", systemImage: "book.closed", route: .biography)
-            row("Verlauf", detail: "\(analyses.count) Analysen auf diesem iPhone", systemImage: "clock.arrow.circlepath", route: .history)
+            if nights >= Self.labNights { labRows } else {
+                // Parked until there are four weeks of ring data: without them these tools only guess.
+                Text("Körper-Detektiv, Experimente und Körperbiografie kommen dazu, sobald 4 Wochen Schlafdaten da sind. Bisher: \(nights) Nächte.")
+                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+            }
+            row("Bisherige Analysen", detail: "\(analyses.count) auf diesem iPhone", systemImage: "clock.arrow.circlepath", route: .history)
         }
+    }
+
+    @ViewBuilder private var labRows: some View {
+        row("Körper-Detektiv", detail: caseCount == 0 ? "Gerade keine Abweichung" : "\(caseCount) Abweichung vom üblichen Bereich",
+            systemImage: "magnifyingglass", route: .detective)
+        row("Experimente", detail: "Selbstversuche planen und auswerten", systemImage: "flask", route: .experiments)
+        row("Körperbiografie", detail: "Was sich über Monate bestätigt", systemImage: "book.closed", route: .biography)
     }
 
     private func row(_ title: String, detail: String, systemImage: String, route: IntelligenceRoute) -> some View {
@@ -231,6 +253,8 @@ struct IntelligenceHubView: View {
     private func refresh() async {
         let context = engine.reportContext(.daily, modelContext: modelContext, owner: sources.ownerProfileID,
                                            profile: profileStore.profile)
+        let now = LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : Date.now
+        nights = ScoreModel(reader: SampleReader(context: modelContext), profileID: sources.ownerProfileID, now: now).nightsWithData()
         caseCount = engine.detectiveCases(modelContext: modelContext, owner: sources.ownerProfileID).count
         let allowModel = services.settings.useOnDeviceModel && !LaunchOptions.current.isUITesting
         daily = await OnDeviceBrain.summary(context, allowModel: allowModel)

@@ -30,8 +30,8 @@ final class InteractionTests: XCTestCase {
         XCTAssertTrue(next.waitForExistence(timeout: 15))
         for _ in 0..<4 { app.buttons["setup.next"].tap() }
         app.buttons["setup.finish"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Gesundheit"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Gesundheit"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Verlauf"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Verlauf"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["openProfile"].firstMatch.waitForExistence(timeout: 5))
     }
 

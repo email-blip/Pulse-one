@@ -668,7 +668,7 @@ struct ConsultationTests {
         #expect(clinical.contains("Notruf 112"))
         #expect(!IntelligencePrompts.report(.descriptive).contains("Differenzialdiagnosen"))
         #expect(IntelligencePrompts.consultation.contains("anamnesisQuestions"))
-        #expect(IntelligencePrompts.version == 5)
+        #expect(IntelligencePrompts.version == 6)
     }
 }
 
