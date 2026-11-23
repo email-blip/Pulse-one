@@ -30,7 +30,7 @@ final class TrainingController {
     init(audio: AudioCoordinator = .shared) {
         self.audio = audio
         audio.trainingValidator = { [weak self] token in self?.session?.accepts(token) ?? false }
-        audio.onInterruption = { [weak self] in self?.pause() }
+        audio.addInterruptionHandler { [weak self] in self?.pause() }
         restore()
     }
 

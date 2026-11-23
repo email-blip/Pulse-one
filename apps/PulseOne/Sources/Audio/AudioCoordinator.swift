@@ -13,8 +13,14 @@ import PulseCore
 final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
     static let shared = AudioCoordinator()
 
-    /// What ROOK's figure shows; only this coordinator sets `speaking`.
-    private(set) var presence: RookPresence = .idle
+    /// Speaking or idle, from the queue.
+    private(set) var speechPresence: RookPresence = .idle
+    /// Set by the voice conversation (listening, thinking) while the microphone is on.
+    var conversationPresence: RookPresence?
+    /// What ROOK's figure shows: speaking wins, otherwise the conversation's state.
+    var presence: RookPresence { speechPresence == .speaking ? .speaking : (conversationPresence ?? speechPresence) }
+    /// The voice conversation owns the audio session (play and record) while it runs.
+    var conversationOwnsSession = false
     /// The item being spoken (also while paused).
     private(set) var current: SpeechItem?
     /// Paused by the person, a call or lost headphones; `resume()` continues.
@@ -24,8 +30,10 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
 
     /// Training cues are checked against the running session right before they are spoken.
     @ObservationIgnored var trainingValidator: ((WorkoutCueToken) -> Bool)?
-    /// Called on a call or lost headphones, so the training pauses with the voice.
-    @ObservationIgnored var onInterruption: (() -> Void)?
+    /// Called on a call or lost headphones, so the training pauses and the conversation ends with the voice.
+    @ObservationIgnored private var interruptionHandlers: [() -> Void] = []
+    /// Called when an item ended (spoken, cut or dropped), for the conversation's turn-taking.
+    @ObservationIgnored var onFinished: ((SpeechItem) -> Void)?
 
     @ObservationIgnored private var queue = SpeechQueue()
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
@@ -48,19 +56,22 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
 
     // MARK: Speaking
 
-    func say(_ text: String, channel: SpeechChannel, sensitive: Bool, token: WorkoutCueToken? = nil) {
+    @discardableResult
+    func say(_ text: String, channel: SpeechChannel, sensitive: Bool, token: WorkoutCueToken? = nil) -> UUID? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
+        let item = SpeechItem(text: trimmed, channel: channel, isSensitive: sensitive, workoutToken: token)
         droppedForPrivacy = false
         // A new request after a drop starts fresh; a paused sentence still waits for `resume()`.
         if current == nil { isPaused = false }
-        queue.enqueue(SpeechItem(text: trimmed, channel: channel, isSensitive: sensitive, workoutToken: token))
+        queue.enqueue(item)
         // Time-critical items cut a running interpretation short instead of waiting behind it.
         if channel == .training || channel == .alert, let current, current.channel != .training, current.channel != .alert {
             stopCurrent()
-            return
+            return item.id
         }
         speakNext()
+        return item.id
     }
 
     /// Replaces whatever this channel says now (a new "Vorlesen" replaces the old one).
@@ -94,7 +105,7 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
     func pause() {
         guard current != nil, !isPaused else { return }
         isPaused = true
-        presence = .idle
+        speechPresence = .idle
         if !isSilent { synthesizer.pauseSpeaking(at: .word) }
     }
 
@@ -107,8 +118,20 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
             stopCurrent()
             return
         }
-        presence = .speaking
+        speechPresence = .speaking
         if isSilent || !synthesizer.continueSpeaking() { finishCurrent() }
+    }
+
+    /// Drops these items (queued or speaking), e.g. ROOK's answer when the person talks into it.
+    func cancel(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        queue.removeAll { ids.contains($0.id) }
+        if let current, ids.contains(current.id) { stopCurrent() }
+    }
+
+    /// True while the item is still queued or speaking.
+    func isPending(_ id: UUID) -> Bool {
+        current?.id == id || queue.pending.contains { $0.id == id }
     }
 
     /// Stops everything and empties the queue.
@@ -125,16 +148,23 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
             start(item)
             return
         }
-        presence = .idle
+        speechPresence = .idle
         releaseSession()
     }
 
     private func start(_ item: SpeechItem) {
         current = item
-        presence = .speaking
+        speechPresence = .speaking
         guard !isSilent else {
-            // UI tests: nothing is played; the item counts as spoken right away.
-            finishCurrent()
+            // UI tests: nothing is played; the item "speaks" for about as long as the voice would need, so the
+            // screen shows ROOK speaking and an interruption can be tested.
+            let id = item.id
+            let seconds = min(6, 0.3 * Double(item.text.split(separator: " ").count) + 0.5)
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(seconds))
+                guard let self, self.current?.id == id else { return }
+                self.finishCurrent()
+            }
             return
         }
         activateSession()
@@ -158,7 +188,13 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
         }
     }
 
+    /// Adds a listener for calls and lost headphones (training and conversation both listen).
+    func addInterruptionHandler(_ handler: @escaping () -> Void) {
+        interruptionHandlers.append(handler)
+    }
+
     private func finishCurrent() {
+        if let ended = current { onFinished?(ended) }
         current = nil
         utteranceID = nil
         isPaused = false
@@ -186,7 +222,7 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
     // MARK: Audio session
 
     private func activateSession() {
-        guard !sessionActive else { return }
+        guard !sessionActive, !conversationOwnsSession else { return }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .spokenAudio,
@@ -199,7 +235,7 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func releaseSession() {
-        guard sessionActive else { return }
+        guard sessionActive, !conversationOwnsSession else { return }
         sessionActive = false
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -232,7 +268,7 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
     private func handleInterruption(began: Bool) {
         guard began else { return }
         if current != nil { pause() }
-        onInterruption?()
+        interruptionHandlers.forEach { $0() }
     }
 
     /// Headphones pulled: pause, and drop health content instead of continuing it over the speaker.
@@ -251,7 +287,7 @@ final class AudioCoordinator: NSObject, AVSpeechSynthesizerDelegate {
             }
             droppedForPrivacy = hadSensitive
         }
-        onInterruption?()
+        interruptionHandlers.forEach { $0() }
     }
 }
 
