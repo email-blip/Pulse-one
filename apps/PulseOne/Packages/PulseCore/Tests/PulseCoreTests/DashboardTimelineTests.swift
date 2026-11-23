@@ -46,8 +46,8 @@ struct DashboardTimelineTests {
         let window = DateInterval(start: t0, end: t0.addingTimeInterval(12_000))
         let values = TrackSeries.values(before + after, kind: .heartRate, in: window, resolution: .original, calendar: calendar)
         #expect(values.count == 9)
-        #expect(Set(values.prefix(6).map(\.run)) == [0])
-        #expect(Set(values.suffix(3).map(\.run)) == [1])
+        #expect(Set(values.prefix(6).map { $0.run }) == [0])
+        #expect(Set(values.suffix(3).map { $0.run }) == [1])
         #expect(!values.contains { $0.value == 0 })
         let gaps = TrackSeries.gaps(in: values)
         #expect(gaps == [DateInterval(start: t0.addingTimeInterval(1500), end: t0.addingTimeInterval(9000))])
@@ -58,7 +58,8 @@ struct DashboardTimelineTests {
         let later = [pulse(80, at: 3 * 3600 + 60)]
         let window = DateInterval(start: t0.addingTimeInterval(-3600), end: t0.addingTimeInterval(5 * 3600))
         let values = TrackSeries.values(morning + later, kind: .heartRate, in: window, resolution: .hourly, calendar: calendar)
-        #expect(values.allSatisfy(\.isAggregated))
+        let allAggregated = values.allSatisfy { $0.isAggregated }   // outside #expect: rethrows trips the macro
+        #expect(allAggregated)
         #expect(values.count == 2)
         #expect(values[0].value == 63)
         #expect(values[0].low == 60 && values[0].high == 66)
@@ -118,7 +119,7 @@ struct DashboardTimelineTests {
         let live = pulse(66, at: 3590, received: 3595)
         let history = pulse(62, at: 600, received: 3595)   // synced just now, measured an hour ago
         let arrivals = LiveArrival.arrivals(known: [], current: [live, history], now: now)
-        #expect(arrivals.map(\.id) == [live.id])
+        #expect(arrivals.map { $0.id } == [live.id])
         #expect(LiveArrival.arrivals(known: [live.id], current: [live], now: now).isEmpty)
     }
 
@@ -149,7 +150,7 @@ struct DashboardTimelineTests {
         let me = UUID()
         let old = DashboardLayout(subjectID: me, tiles: [DashboardTile(id: "training"), DashboardTile(id: "sleep")])
         let restored = DashboardLayout.restore(old.encoded(), subjectID: me)
-        #expect(restored.tiles.prefix(2).map(\.id) == ["training", "sleep"])
+        #expect(restored.tiles.prefix(2).map { $0.id } == ["training", "sleep"])
         #expect(restored.tiles.count == DashboardLayout.standard(subjectID: me).tiles.count)
     }
 
@@ -157,9 +158,9 @@ struct DashboardTimelineTests {
         var layout = DashboardLayout(subjectID: nil, tiles: [DashboardTile(id: "a"), DashboardTile(id: "b", isVisible: false),
                                                              DashboardTile(id: "c")])
         layout.step(id: "a", by: 1)
-        #expect(layout.visibleTiles.map(\.id) == ["c", "a"])
+        #expect(layout.visibleTiles.map { $0.id } == ["c", "a"])
         layout.step(id: "a", by: 1)   // already last: nothing happens
-        #expect(layout.visibleTiles.map(\.id) == ["c", "a"])
+        #expect(layout.visibleTiles.map { $0.id } == ["c", "a"])
     }
 
     @Test func tileKindTitleAndTrack() {
