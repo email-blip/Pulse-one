@@ -39,6 +39,10 @@ final class ScreenshotTests: XCTestCase {
                 let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
                 if row.waitForExistence(timeout: 10) { row.tap() }
             }
+            capture(scenario: "today", dynamicType: type, reduceMotion: false, name: "score") { app in
+                let ring = app.buttons["today.score.recovery"]
+                if ring.waitForExistence(timeout: 10) { ring.tap() }
+            }
         }
     }
 

@@ -21,6 +21,14 @@ final class AccessibilityTests: XCTestCase {
             row.tap()
         }
     }
+    /// Recovery score with its building blocks, opened from the rings on TODAY.
+    func testScoreAudit() throws {
+        try audit(scenario: "today", screen: "score") { app in
+            let ring = app.buttons["today.score.recovery"]
+            XCTAssertTrue(ring.waitForExistence(timeout: 15))
+            ring.tap()
+        }
+    }
     func testCoachAudit() throws { try audit(scenario: "coach") }
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
