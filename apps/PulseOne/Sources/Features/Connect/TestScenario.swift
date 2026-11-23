@@ -134,6 +134,8 @@ enum TestScenario {
     @MainActor
     static func insertSampleHistory(for name: String, into context: ModelContext) {
         if historyScenarios.contains(name) { insertTabHistory(into: context) }
+        // Team 03: dense ring history and sleep phases for the Dashboard and Verlauf test views.
+        if TimelineDemo.scenarios.contains(name) { TimelineDemo.insert(name, into: context, now: TimelineClock.now) }
         if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         if name == "coach" { CoachScenario.insert(into: context) }
         if name == "nutrition" { NutritionTestData.insert(into: context) }

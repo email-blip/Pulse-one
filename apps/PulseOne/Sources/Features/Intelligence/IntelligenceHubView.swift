@@ -254,7 +254,7 @@ struct IntelligenceHubView: View {
         let context = engine.reportContext(.daily, modelContext: modelContext, owner: sources.ownerProfileID,
                                            profile: profileStore.profile)
         let now = LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : Date.now
-        nights = ScoreModel(reader: SampleReader(context: modelContext), profileID: sources.ownerProfileID, now: now).nightsWithData()
+        nights = SampleReader(context: modelContext).daily(.sleepDuration, days: 62, profileID: sources.ownerProfileID, now: now).count
         caseCount = engine.detectiveCases(modelContext: modelContext, owner: sources.ownerProfileID).count
         let allowModel = services.settings.useOnDeviceModel && !LaunchOptions.current.isUITesting
         daily = await OnDeviceBrain.summary(context, allowModel: allowModel)

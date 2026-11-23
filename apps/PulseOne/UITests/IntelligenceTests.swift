@@ -55,24 +55,6 @@ final class IntelligenceTests: XCTestCase {
         XCTAssertFalse(stored.label.contains("0000000000"))
     }
 
-    /// The evening note suggests tags from the sentence; the saved card shows tags, not the text.
-    func testEveningNoteSuggestsTags() {
-        let app = launch("today")
-        let open = app.buttons["eveningNote.open"]
-        XCTAssertTrue(open.waitForExistence(timeout: 15))
-        open.tap()
-        let field = app.textFields["eveningNote.text"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        field.tap()
-        field.typeText("Stressiger Tag")
-        let stress = app.buttons["eveningNote.tag.stress"]
-        XCTAssertTrue(stress.waitForExistence(timeout: 5))
-        XCTAssertTrue(stress.isSelected)
-        app.buttons["Speichern"].tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stress")).firstMatch.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["Stressiger Tag"].exists)
-    }
-
     /// The consultation: preview before the first send, then possible diagnoses with their fit and
     /// questions; a follow-up goes without a second preview and gets its own answer.
     func testConsultationConversation() {

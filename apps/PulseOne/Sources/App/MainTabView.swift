@@ -2,48 +2,50 @@ import PulseCore
 import SwiftData
 import SwiftUI
 
-/// The four areas of PULSE ONE: Heute · Verlauf · Coach · Mehr (core rebuild 2026-11-23, like Oura).
-/// Claude, Sprechstunde and the lab tools live under "Mehr". Profile, devices and the ring live in the
-/// profile sheet that every tab opens from the top right. Module roots: see INTEGRATION.md.
+/// The three areas of PULSE ONE (rebuild M1, 2026-11-23): Dashboard · Verlauf · Coach. Profile, ring and
+/// status sit discreetly top right; Begleiter, analyses and Sprechstunde open from the dashboard's "Mehr".
 enum AppTab: Hashable {
-    // Nutrition left the tab bar on 2026-11-22 (owner's decision); its code stays for now.
-    case today, health, intelligence, coach
+    case dashboard, timeline, coach
 
     static func forScenario(_ scenario: String?) -> AppTab {
         switch scenario {
-        case "health", "healthDetail": .health
-        case "intelligence": .intelligence
-        case "coach": .coach
-        default: .today
+        case "timeline", "timelineHypnogram", "timelineYear", "health", "healthDetail": .timeline
+        case "coach", "rookPositive", "rookClarify": .coach
+        default: .dashboard
         }
     }
 }
 
 struct MainTabView: View {
     let options: LaunchOptions
-    @State private var tab: AppTab
+    @State private var navigator: AppNavigator
     @State private var showProfile: Bool
     @Environment(RingStore.self) private var ring
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
+    @Environment(CompanionStore.self) private var companion
+    @Environment(CheckInService.self) private var checkIns
     @Environment(\.modelContext) private var modelContext
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
 
     init(options: LaunchOptions) {
         self.options = options
-        _tab = State(initialValue: AppTab.forScenario(options.scenario))
+        let scenario = options.usesTestScenario ? options.scenario : nil
+        _navigator = State(initialValue: AppNavigator(tab: AppTab.forScenario(scenario),
+                                                      showMore: scenario == "intelligence"))
         _showProfile = State(initialValue: options.usesTestScenario && options.scenario == "profile")
     }
 
     var body: some View {
-        TabView(selection: $tab) {
-            Tab("Heute", systemImage: "sun.horizon", value: AppTab.today) { TodayScreen() }
-            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.health) { HealthScreen() }
+        @Bindable var navigator = navigator
+        TabView(selection: $navigator.tab) {
+            Tab("Dashboard", systemImage: "square.grid.2x2", value: AppTab.dashboard) { DashboardScreen() }
+            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.timeline) { TimelineTab() }
             Tab("Coach", systemImage: "figure.run", value: AppTab.coach) { CoachScreen() }
-            Tab("Mehr", systemImage: "ellipsis.circle", value: AppTab.intelligence) { IntelligenceHubView() }
         }
-        .tint(Palette.bioCyan)
+        .tint(DKColor.accent)
+        .environment(navigator)
         .environment(\.openProfile) { showProfile = true }
         .sheet(isPresented: $showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.
@@ -57,5 +59,61 @@ struct MainTabView: View {
                 .preferredColorScheme(.dark)
                 .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
         }
+        .sheet(isPresented: $navigator.showMore) {
+            MoreHubSheet(options: options)
+                .environment(ring)
+                .environment(sources)
+                .environment(profile)
+                .environment(companion)
+                .environment(checkIns)
+                .environment(navigator)
+                .modelContext(modelContext)
+                .environment(\.reduceMotionEffective, reduceMotion)
+                .environment(\.freezeAnimations, freeze)
+                .preferredColorScheme(.dark)
+                .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
+        }
+    }
+}
+
+/// The Verlauf tab; rebuilt at the requested place whenever a tile, the sleep preview or "Warum?" opens it.
+private struct TimelineTab: View {
+    @Environment(AppNavigator.self) private var navigator
+
+    var body: some View {
+        NavigationStack {
+            TimelineScreen(focus: navigator.timelineFocus)
+                .id(navigator.timelineRequest)
+                .profileToolbar()
+        }
+    }
+}
+
+/// Begleiter, analyses and Sprechstunde (Team 04's hub) until they find their place in Coach; the profile
+/// opens as a nested sheet so the hub's own profile button keeps working.
+private struct MoreHubSheet: View {
+    let options: LaunchOptions
+    @State private var showProfile = false
+    @Environment(RingStore.self) private var ring
+    @Environment(SourcesStore.self) private var sources
+    @Environment(ProfileStore.self) private var profile
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.reduceMotionEffective) private var reduceMotion
+    @Environment(\.freezeAnimations) private var freeze
+
+    var body: some View {
+        IntelligenceHubView()
+            .environment(\.openProfile) { showProfile = true }
+            .sheet(isPresented: $showProfile) {
+                ProfileSheet(options: options)
+                    .environment(ring)
+                    .environment(sources)
+                    .environment(profile)
+                    .modelContext(modelContext)
+                    .environment(\.reduceMotionEffective, reduceMotion)
+                    .environment(\.freezeAnimations, freeze)
+                    .preferredColorScheme(.dark)
+                    .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
+            }
     }
 }

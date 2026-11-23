@@ -9,9 +9,18 @@ final class AccessibilityTests: XCTestCase {
     func testHeartAudit() throws { try audit(scenario: "heart") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
-    func testTodayAudit() throws { try audit(scenario: "today") }
-    func testHealthAudit() throws { try audit(scenario: "health") }
-    func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
+    func testDashboardAudit() throws { try audit(scenario: "dashboard") }
+    /// The tile editor (team 03): arrows, size menu and on/off switch per tile.
+    func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard") }
+    func testTimelineAudit() throws { try audit(scenario: "timeline") }
+    /// ROOK's "Warum?" with the numbers behind the statement.
+    func testWhyAudit() throws {
+        try audit(scenario: "dashboard", screen: "why") { app in
+            let why = app.buttons["rook.why"]
+            XCTAssertTrue(why.waitForExistence(timeout: 15))
+            why.tap()
+        }
+    }
     func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
     /// The stored consultation of the test scenario, opened from the Analyse tab.
     func testConsultationAudit() throws {
@@ -21,14 +30,6 @@ final class AccessibilityTests: XCTestCase {
             row.tap()
         }
     }
-    /// Recovery score with its building blocks, opened from the rings on TODAY.
-    func testScoreAudit() throws {
-        try audit(scenario: "today", screen: "score") { app in
-            let ring = app.buttons["today.score.recovery"]
-            XCTAssertTrue(ring.waitForExistence(timeout: 15))
-            ring.tap()
-        }
-    }
     func testCoachAudit() throws { try audit(scenario: "coach") }
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
@@ -36,12 +37,16 @@ final class AccessibilityTests: XCTestCase {
     /// DesignKit component preview (team 02): tokens, tile, buttons, chips, orb states.
     func testDesignKitAudit() throws { try audit(scenario: "designKit") }
 
+    /// Scenarios whose start screen identifier differs from the scenario name.
+    private static let startScreens = ["dashboardEdit": "dashboard"]
+
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
     private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
-        XCTAssertTrue(app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15))
+        let start = prepare == nil ? (screen ?? scenario) : (Self.startScreens[scenario] ?? scenario)
+        XCTAssertTrue(app.descendants(matching: .any)["screen.\(start)"].waitForExistence(timeout: 15))
         if let prepare {
             prepare(app)
             XCTAssertTrue(app.descendants(matching: .any)["screen.\(screen ?? scenario)"].waitForExistence(timeout: 15))

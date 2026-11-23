@@ -5,9 +5,12 @@ import XCTest
 @MainActor
 final class ScreenshotTests: XCTestCase {
     static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices",
-                            "onboarding", "today", "health", "healthDetail", "profile", "intelligence", "coach",
+                            "onboarding", "dashboard", "dashboardEdit", "timeline", "timelineHypnogram", "profile", "intelligence", "coach",
                             "companion", "companionWake", "companionConference", "companionActivation",
                             "insightNormal", "insightNights", "insightGap", "designKit"]
+
+    /// Scenarios that start on a shared screen (its identifier does not carry the scenario name).
+    static let screens = ["dashboardEdit": "screen.dashboard", "timelineHypnogram": "screen.timeline"]
 
     override func setUp() async throws {
         continueAfterFailure = true   // one broken cell must not hide the others
@@ -21,7 +24,7 @@ final class ScreenshotTests: XCTestCase {
         }
         capture(scenario: "live", dynamicType: "default", reduceMotion: true)
         capture(scenario: "heart", dynamicType: "default", reduceMotion: true)
-        for scenario in ["insightNormal", "insightNights", "insightGap", "designKit"] {
+        for scenario in ["insightNormal", "insightNights", "insightGap", "designKit", "dashboard", "timeline"] {
             capture(scenario: scenario, dynamicType: "default", reduceMotion: true)
         }
         // A contradicting answer revises the interpretation; the measurements above stay as they were.
@@ -39,9 +42,15 @@ final class ScreenshotTests: XCTestCase {
                 let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
                 if row.waitForExistence(timeout: 10) { row.tap() }
             }
-            capture(scenario: "today", dynamicType: type, reduceMotion: false, name: "score") { app in
-                let ring = app.buttons["today.score.recovery"]
-                if ring.waitForExistence(timeout: 10) { ring.tap() }
+            // Team 03: "Warum?" under ROOK's statement, and a picked sleep phase in the hypnogram.
+            capture(scenario: "dashboard", dynamicType: type, reduceMotion: false, name: "why") { app in
+                let why = app.buttons["rook.why"]
+                if why.waitForExistence(timeout: 10) { why.tap() }
+            }
+            capture(scenario: "timelineHypnogram", dynamicType: type, reduceMotion: false, name: "hypnogramSelection",
+                    expectedScreen: "hypnogram.selection") { app in
+                let segment = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "hypnogram.segment.")).element(boundBy: 2)
+                if segment.waitForExistence(timeout: 10) { segment.tap() }
             }
         }
     }
@@ -53,8 +62,9 @@ final class ScreenshotTests: XCTestCase {
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario, "-AppleLanguages", "(de)", "-AppleLocale", "de_DE",
                                "-dynamicType", dynamicType, "-reduceMotion", reduceMotion ? "YES" : "NO"]
         app.launch()
-        let screen = app.descendants(matching: .any)["screen.\(scenario)"]
-        XCTAssertTrue(screen.waitForExistence(timeout: 15), "screen.\(scenario) did not appear")
+        let screenID = Self.screens[scenario] ?? "screen.\(scenario)"
+        let screen = app.descendants(matching: .any)[screenID]
+        XCTAssertTrue(screen.waitForExistence(timeout: 15), "\(screenID) did not appear")
         if let prepare, let name {
             prepare(app)
             let target = expectedScreen ?? "screen.\(name)"
