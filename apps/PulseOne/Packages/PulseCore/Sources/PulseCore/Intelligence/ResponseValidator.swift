@@ -158,7 +158,7 @@ public struct ResponseValidator: Sendable {
         let hedge = #"(?:etwa|ca\.|circa|rund|ungefähr|grob|geschätzt)"#
         let patterns = [
             #"\s*\((?:"# + hedge + #"\s*)?"# + number + #"\)"#,
-            #",?\s*(?:mit|zu)\s+"# + hedge + #"\s*"# + number,
+            #",?\s*(?:mit|zu)\s+"# + hedge + #"\s*"# + number + #"(?:\s+Wahrscheinlichkeit)?"#,
         ]
         var result = text
         for pattern in patterns {

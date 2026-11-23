@@ -278,7 +278,11 @@ struct ResponseValidatorTests {
         let medication = ReportStatement(text: "Du könntest mit deiner Ärztin besprechen, den Betablocker zu reduzieren.",
                                          type: .recommendation, evidence: [])
         let result = ResponseValidator(context: ctx).validate(report(summary: [diagnosis, disclaimer, invented, medication]))
-        #expect(result.report.summary == [diagnosis, medication])
+        // The guessed probability is cut from the sentence (owner decision 2026-11-22), the diagnosis stays.
+        #expect(result.report.summary.map(\.text) == [
+            "Das deutet auf einen beginnenden Infekt hin, weil der Ruhepuls über 100 bpm Grenze noch weit entfernt ist.",
+            medication.text,
+        ])
         #expect(result.flagged[medication.text] != nil)
         #expect(result.issues.contains { $0.rule == "S7" })
         #expect(result.issues.contains { $0.rule == "Zahl" })
