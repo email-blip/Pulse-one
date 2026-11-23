@@ -1,33 +1,20 @@
 import SwiftUI
 
-/// PULSE ONE colors from the master directive §5.1. Views never use raw colors.
+/// Legacy names, kept until every screen uses `DKColor` (DesignKit). Values come from the DesignKit tokens,
+/// so old and new screens already share one palette. New code: use `DKColor`.
 enum Palette {
-    static let obsidian      = Color(hex: 0x070D19)
-    static let bioCyan       = Color(hex: 0x15D9F3)
-    static let neuralViolet  = Color(hex: 0x9B70FF)
-    static let pulseCoral    = Color(hex: 0xFF644F)
-    static let iceWhite      = Color(hex: 0xE6F4FA)
+    static let obsidian      = DKColor.obsidian
+    static let bioCyan       = DKColor.bioCyan
+    static let neuralViolet  = DKColor.neuralViolet
+    static let pulseCoral    = DKColor.pulseCoral
+    static let iceWhite      = DKColor.iceWhite
 
-    // Derived surfaces for the cinematic dark base.
-    static let surface       = obsidian
-    static let surfaceRaised = Color(hex: 0x0F1A2C)
-    static let hairline      = Color(hex: 0x23344F)
-    static let surfaceButton = Color(hex: 0x16243A)
-    static let ink           = iceWhite
-    static let inkMuted      = Color(hex: 0xBACCDA)
+    static let surface       = DKColor.background
+    static let surfaceRaised = DKColor.surface
+    static let hairline      = DKColor.hairline
+    static let surfaceButton = DKColor.surfaceRaised
+    static let ink           = DKColor.textPrimary
+    static let inkMuted      = DKColor.textSecondary
 
-    /// Background mesh (3×3), row by row: deep obsidian with a cyan/violet glow behind the orb.
-    static let mesh: [Color] = [
-        0x070D19, 0x0A1426, 0x070D19,
-        0x0B1630, 0x14204A, 0x0E1430,
-        0x070D19, 0x0A1224, 0x070D19
-    ].map(Color.init(hex:))
-}
-
-extension Color {
-    init(hex: UInt32) {
-        self.init(red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255)
-    }
+    static let mesh: [Color] = DKColor.backgroundMesh
 }

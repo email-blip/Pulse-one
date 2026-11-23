@@ -33,6 +33,8 @@ final class AccessibilityTests: XCTestCase {
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }
+    /// DesignKit component preview (team 02): tokens, tile, buttons, chips, orb states.
+    func testDesignKitAudit() throws { try audit(scenario: "designKit") }
 
     // Rebuild M1 screens (team 06). Skipped until integrated; failures once `PULSE_M1_STRICT=1`.
     func testM1DashboardAudit() throws { try auditM1(.dashboard) }
