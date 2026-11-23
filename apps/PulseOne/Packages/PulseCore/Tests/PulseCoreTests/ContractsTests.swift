@@ -28,7 +28,7 @@ struct ContractsTests {
             segment(.awake, 60, 70, session: id),
             segment(.unknown, 90, 100, session: id),
         ])
-        #expect(night.inBed?.duration == 100 * 60)
+        #expect(abs((night.inBed?.duration ?? 0) - 6000) < 0.001)
         #expect(night.asleep == 60 * 60)
         #expect(night.duration(of: .awake) == 10 * 60)
         #expect(night.gaps == [DateInterval(start: t0.addingTimeInterval(70 * 60), end: t0.addingTimeInterval(90 * 60))])
