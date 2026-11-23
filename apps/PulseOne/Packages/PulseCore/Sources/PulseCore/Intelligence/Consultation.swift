@@ -27,25 +27,61 @@ public enum ConsultationUrgency: String, Codable, Sendable, CaseIterable, Compar
     }
 }
 
-/// One possible diagnosis or condition with an honest probability.
+/// One possible diagnosis or condition and how well it fits the data. No percentages (owner decision
+/// 2026-11-22 after Codex P1-005): there is no calibrated model behind such numbers.
 public struct DifferentialDiagnosis: Codable, Sendable, Equatable, Hashable {
     public var name: String
-    public var likelihoodPercent: Int
+    public var fit: InsightFit
     public var reasoning: String
     public var supporting: [String]
     public var against: [String]
     public var workup: [String]
     public var evidence: [String]
 
-    public init(name: String, likelihoodPercent: Int, reasoning: String, supporting: [String], against: [String],
+    public init(name: String, fit: InsightFit, reasoning: String, supporting: [String], against: [String],
                 workup: [String], evidence: [String]) {
         self.name = name
-        self.likelihoodPercent = likelihoodPercent
+        self.fit = fit
         self.reasoning = reasoning
         self.supporting = supporting
         self.against = against
         self.workup = workup
         self.evidence = evidence
+    }
+}
+
+extension DifferentialDiagnosis {
+    private enum CodingKeys: String, CodingKey {
+        case name, fit, likelihoodPercent, reasoning, supporting, against, workup, evidence
+    }
+
+    /// Reads replies stored before 2026-11-22 too: an old percentage becomes a fit, never shown as a number.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        if let fit = try c.decodeIfPresent(InsightFit.self, forKey: .fit) {
+            self.fit = fit
+        } else if let percent = try c.decodeIfPresent(Int.self, forKey: .likelihoodPercent) {
+            fit = percent >= 50 ? .strong : percent >= 20 ? .partial : .weak
+        } else {
+            fit = .open
+        }
+        reasoning = try c.decodeIfPresent(String.self, forKey: .reasoning) ?? ""
+        supporting = try c.decodeIfPresent([String].self, forKey: .supporting) ?? []
+        against = try c.decodeIfPresent([String].self, forKey: .against) ?? []
+        workup = try c.decodeIfPresent([String].self, forKey: .workup) ?? []
+        evidence = try c.decodeIfPresent([String].self, forKey: .evidence) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(fit, forKey: .fit)
+        try c.encode(reasoning, forKey: .reasoning)
+        try c.encode(supporting, forKey: .supporting)
+        try c.encode(against, forKey: .against)
+        try c.encode(workup, forKey: .workup)
+        try c.encode(evidence, forKey: .evidence)
     }
 }
 
@@ -140,10 +176,9 @@ public struct ValidatedConsultation: Sendable, Equatable {
 
 extension AnalysisSchema {
     public static var consultationV1: JSONValue {
-        let integer: JSONValue = .object(["type": .string("integer")])
         let differential: [String: JSONValue] = [
             "name": string(),
-            "likelihoodPercent": integer,
+            "fit": enumeration(["strong", "partial", "weak"]),
             "reasoning": string(),
             "supporting": strings(),
             "against": strings(),
@@ -172,7 +207,7 @@ extension AnalysisSchema {
 
 extension ResponseValidator {
     /// Checks a consultation answer: ids must exist, measured statements must match their facts,
-    /// disclaimers are dropped, probabilities are clamped, and the urgency never falls below the fixed
+    /// disclaimers are dropped, differentials are ordered by fit, and the urgency never falls below the fixed
     /// thresholds (S5) or an emergency the person described (S6).
     public func validateConsultation(json: String, userText: String) throws -> ValidatedConsultation {
         let raw = try decode(ConsultationReply.self, from: json)
@@ -187,12 +222,13 @@ extension ResponseValidator {
         var differentials: [DifferentialDiagnosis] = []
         for d in raw.differentials where !d.name.trimmingCharacters(in: .whitespaces).isEmpty {
             var kept = d
-            kept.likelihoodPercent = min(100, max(0, d.likelihoodPercent))
             kept.evidence = knownIDs(d.evidence, at: "Diagnosen", text: d.name, log: &log)
             kept.reasoning = SafetyRules.removingBoilerplate(d.reasoning)
             differentials.append(kept)
         }
-        result.differentials = differentials.sorted { $0.likelihoodPercent > $1.likelihoodPercent }
+        result.differentials = differentials.enumerated()
+            .sorted { $0.element.fit != $1.element.fit ? $0.element.fit > $1.element.fit : $0.offset < $1.offset }
+            .map(\.element)
         var recommendations: [CareRecommendation] = []
         for r in raw.recommendations where allowText(r.text, at: "Empfehlungen", log: &log) {
             var kept = r

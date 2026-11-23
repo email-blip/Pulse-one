@@ -160,11 +160,11 @@ struct MockTransport: ClaudeTransport {
             "reply": .string(reply),
             "assessment": .array(assessment),
             "differentials": .array([
-                .object(["name": "Unvollständige Erholung nach Belastung", "likelihoodPercent": 55,
+                .object(["name": "Unvollständige Erholung nach Belastung", "fit": "strong",
                          "reasoning": "Ruhepuls am oberen Rand deines Bereichs, kürzere Nächte.",
                          "supporting": ["Ruhepuls am oberen Rand", "kürzere Nächte"], "against": ["keine Beschwerden notiert"],
                          "workup": ["Ruhepuls und HRV drei Tage morgens beobachten"], "evidence": .array(evidence)]),
-                .object(["name": "Beginnender Infekt", "likelihoodPercent": 20,
+                .object(["name": "Beginnender Infekt", "fit": "partial",
                          "reasoning": "Ein steigender Ruhepuls geht Infekten oft ein bis zwei Tage voraus.",
                          "supporting": ["Ruhepuls erhöht"], "against": ["kein Fieber bekannt"],
                          "workup": ["Temperatur morgens messen", "bei Fieber über 38,5 Grad Hausarzt"], "evidence": .array(evidence)]),

@@ -24,6 +24,21 @@ final class CompanionTests: XCTestCase {
                       "briefing headline did not appear")
     }
 
+    /// Codex P1-005: an answer revises the interpretation and is logged; the measured block stays.
+    func testInsightAnswerRevisesInterpretation() throws {
+        let app = launch("insightNights")
+        XCTAssertTrue(app.descendants(matching: .any)["screen.insightNights"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["testBanner"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["insight.header"].waitForExistence(timeout: 10))
+        let answer = app.buttons["insight.answer.training.Ja"]
+        XCTAssertTrue(answer.waitForExistence(timeout: 10))
+        for _ in 0..<6 where !answer.isHittable { app.swipeUp() }
+        answer.tap()
+        let revisions = app.descendants(matching: .any)["insight.revisions"]
+        for _ in 0..<6 where !revisions.exists { app.swipeUp() }
+        XCTAssertTrue(revisions.waitForExistence(timeout: 10))
+    }
+
     func testWakeUpFlowRevealsBriefing() throws {
         let app = launch("companionWake")
         XCTAssertTrue(app.descendants(matching: .any)["screen.companionWake"].waitForExistence(timeout: 15))

@@ -381,6 +381,95 @@
       }
     }
   },
+  "StoredCheckIn": {
+    "file": "apps/PulseOne/Sources/Features/Companion/CheckIn/CheckInService.swift",
+    "properties": {
+      "costUSD": {
+        "default": true,
+        "optional": false,
+        "type": "Double",
+        "unique": false
+      },
+      "dataThrough": {
+        "default": false,
+        "optional": true,
+        "type": "Date",
+        "unique": false
+      },
+      "date": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "fingerprint": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "headline": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "id": {
+        "default": true,
+        "optional": false,
+        "type": "UUID",
+        "unique": false
+      },
+      "markersJSON": {
+        "default": false,
+        "optional": true,
+        "type": "Data",
+        "unique": false
+      },
+      "notified": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      },
+      "slotRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "source": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "suggestion": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "text": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "trigger": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "urgencyRaw": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      }
+    }
+  },
   "StoredConference": {
     "file": "apps/PulseOne/Sources/Persistence/CompanionRecords.swift",
     "properties": {
@@ -424,6 +513,65 @@
         "default": true,
         "optional": false,
         "type": "Bool",
+        "unique": false
+      }
+    }
+  },
+  "StoredConsentLog": {
+    "file": "apps/PulseOne/Sources/Features/Companion/CheckIn/CheckInService.swift",
+    "properties": {
+      "cadence": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "categories": {
+        "default": true,
+        "optional": false,
+        "type": "[String]",
+        "unique": false
+      },
+      "date": {
+        "default": true,
+        "optional": false,
+        "type": "Date",
+        "unique": false
+      },
+      "enabled": {
+        "default": true,
+        "optional": false,
+        "type": "Bool",
+        "unique": false
+      },
+      "maxSendsPerMonth": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "modelID": {
+        "default": true,
+        "optional": false,
+        "type": "String",
+        "unique": false
+      },
+      "monthlyBudgetUSD": {
+        "default": true,
+        "optional": false,
+        "type": "Double",
+        "unique": false
+      },
+      "promptVersion": {
+        "default": true,
+        "optional": false,
+        "type": "Int",
+        "unique": false
+      },
+      "recipient": {
+        "default": true,
+        "optional": false,
+        "type": "String",
         "unique": false
       }
     }

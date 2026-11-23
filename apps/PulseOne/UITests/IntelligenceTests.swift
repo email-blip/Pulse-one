@@ -73,7 +73,7 @@ final class IntelligenceTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Stressiger Tag"].exists)
     }
 
-    /// The consultation: preview before the first send, then possible diagnoses with probabilities and
+    /// The consultation: preview before the first send, then possible diagnoses with their fit and
     /// questions; a follow-up goes without a second preview and gets its own answer.
     func testConsultationConversation() {
         let app = launch()
@@ -89,7 +89,9 @@ final class IntelligenceTests: XCTestCase {
         XCTAssertTrue(send.waitForExistence(timeout: 10))
         send.tap()
         XCTAssertTrue(app.descendants(matching: .any)["consultation.differentials"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["55 %"].exists)
+        // No percentages (owner decision 2026-11-22): the fit is shown in words.
+        XCTAssertTrue(app.staticTexts["passt gut"].exists)
+        XCTAssertFalse(app.staticTexts["55 %"].exists)
         let field = app.textFields["consultation.input"]
         field.tap()
         field.typeText("Kein Fieber")

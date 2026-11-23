@@ -63,7 +63,10 @@ final class IntelligenceEngine {
         let descriptor = FetchDescriptor<StoredAnalysis>(predicate: #Predicate { $0.createdAt >= start && $0.modelID != local })
         let runs = (try? modelContext.fetch(descriptor)) ?? []
         let spent = runs.reduce(0) { $0 + $1.costUSD }
-        return MonthUsage(spentUSD: spent, sends: runs.count)
+        // Automatic check-ins count against the money budget, but not against the number of manual sends
+        // (about 90 a month would otherwise use up the default 30 before the first report).
+        let manual = runs.filter { $0.kindRaw != Self.checkInKind }.count
+        return MonthUsage(spentUSD: spent, sends: manual)
     }
 
     func sendBudget(in modelContext: ModelContext) -> SendBudget {
@@ -438,6 +441,51 @@ final class IntelligenceEngine {
 
     enum PlanError: Error {
         case rejected(String)
+    }
+
+    // MARK: Automatic check-in (Aktiver Begleiter)
+
+    /// The companion's automatic check-in. The owner allowed on 2026-11-22 that these short summaries go
+    /// to Claude without a preview each time (standing permission, switchable, every send is in the
+    /// history with its cost). Uses Sonnet unless the person picked Haiku; Opus stays for reports.
+    /// Returns nil when the answer could not be used; the caller then falls back to the local text.
+    func runCheckIn(slot: CheckInSlot, context: HealthAnalysisContext, name: String,
+                    modelContext: ModelContext) async -> (message: CheckInMessage, record: StoredAnalysis)? {
+        let model = settings.model == .haiku ? ClaudeModel.haiku : ClaudeModel.sonnet
+        let record = StoredAnalysis(kind: Self.checkInKind, title: slot.title, model: model, contextJSON: context.compactJSON())
+        record.promptVersion = CheckInPrompts.version
+        modelContext.insert(record)
+        beginRun(modelContext: modelContext)
+        defer { endRun() }
+        do {
+            let body = AnthropicAPI.body(model: model, system: CheckInPrompts.system(slot: slot, mode: settings.safetyMode, name: name),
+                                         messages: [AnthropicAPI.userText(context.compactJSON())],
+                                         schema: CheckInPrompts.schemaV1, effort: "low")
+            let reply = try await call(body)
+            record.apply(reply.response.usage, responder: reply.response.model, model: model)
+            let message = try CheckInValidator.validate(json: reply.response.text, mode: settings.safetyMode)
+            record.resultJSON = Self.json(message)
+            try? modelContext.save()
+            return (message, record)
+        } catch {
+            record.apply(billed, responder: billedResponder ?? model.id, model: model)
+            record.statusRaw = "failed"
+            record.errorMessage = error is CheckInValidator.Failure
+                ? "Die Antwort war nicht verwendbar; der Begleiter hat lokal formuliert." : Self.message(for: error)
+            try? modelContext.save()
+            return nil
+        }
+    }
+
+    /// `StoredAnalysis.kindRaw` of automatic check-ins.
+    nonisolated static let checkInKind = "checkin"
+
+    /// Reason an automatic check-in may not go to Claude, or nil. Same limits as every other send.
+    func checkInBlocker(modelContext: ModelContext) -> String? {
+        if !services.hasKey { return "kein Claude-Schlüssel" }
+        let estimate = CostEstimator.estimate(inputCharacters: 18_000, expectedOutputTokens: CheckInPrompts.expectedOutputTokens, model: .sonnet)
+        if !spendingBudget(in: modelContext).allows(estimate) { return "Monatsbudget aufgebraucht" }
+        return nil
     }
 
     // MARK: Plain text (used by the Begleiter's Expertenrunde)
