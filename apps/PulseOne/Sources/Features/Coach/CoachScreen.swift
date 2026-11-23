@@ -33,6 +33,8 @@ struct CoachScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
+                        // ROOK first: interpretation, action, "Warum?" and the conversation (team 04).
+                        RookConversationSection()
                         if let snapshot {
                             content(snapshot)
                         } else if loaded {
@@ -41,10 +43,6 @@ struct CoachScreen: View {
                                        systemImage: "figure.run", actionTitle: "Jetzt einrichten") { showSetup = true }
                                 .accessibilityIdentifier("coach.setup")
                         }
-                        Text("Der Coach gibt allgemeine Bewegungsvorschläge aus deinen eigenen Werten. Er stellt keine Diagnosen und ersetzt keine ärztliche Beratung.")
-                            .font(Typography.caption)
-                            .foregroundStyle(Palette.inkMuted)
-                            .wraps()
                     }
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.xl)

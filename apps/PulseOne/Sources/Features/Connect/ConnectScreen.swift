@@ -13,7 +13,6 @@ struct ConnectScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.reduceMotionEffective) private var reduceMotion
     @Environment(\.freezeAnimations) private var freeze
-    @State private var showHeart = false
     @State private var showDevices = false
     @Environment(SourcesStore.self) private var sources
 
@@ -37,7 +36,6 @@ struct ConnectScreen: View {
                         MeasurementCard(phase: snapshot.measurement, deviceName: snapshot.deviceName)
                     }
                     actions(snapshot)
-                    heartEntry
                     devicesEntry
                     if snapshot.connection.isConnected || snapshot.deviceName != nil, snapshot.connection != .scanning {
                         DeviceCard(snapshot: snapshot)
@@ -56,16 +54,6 @@ struct ConnectScreen: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen.\(options.scenario ?? "start")")
-        .fullScreenCover(isPresented: $showHeart) {
-            // Covers start a new presentation: hand over the environment explicitly.
-            HeartChamberView()
-                .environment(ring)
-                .modelContext(modelContext)
-                .environment(\.reduceMotionEffective, reduceMotion)
-                .environment(\.freezeAnimations, freeze)
-                .preferredColorScheme(.dark)
-                .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
-        }
         .sheet(isPresented: $showDevices) {
             DevicesScreen()
                 .environment(ring)
@@ -157,12 +145,6 @@ struct ConnectScreen: View {
         }
     }
 
-    private var heartEntry: some View {
-        Button("Heart Chamber öffnen", systemImage: "heart.circle") { showHeart = true }
-            .buttonStyle(SecondaryButtonStyle())
-            .accessibilityHint("Zeigt ein 3D-Herz im Takt deines Pulses")
-            .accessibilityIdentifier("openHeart")
-    }
 
     private var devicesEntry: some View {
         Button("Geräte & Datenquellen", systemImage: "sensor.tag.radiowaves.forward") { showDevices = true }

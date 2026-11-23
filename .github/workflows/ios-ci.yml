@@ -46,6 +46,9 @@ jobs:
       - name: Term guard (one word for the personal band in all texts)
         run: python3 scripts/term-guard.py --app "$APP"
 
+      - name: ROOK text guard (no routine sentences about missing data, baselines or disclaimers)
+        run: python3 scripts/rook-text-guard.py --app "$APP"
+
   test:
     name: test (${{ matrix.shard }})
     needs: guards

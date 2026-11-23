@@ -264,74 +264,7 @@ struct NudgeListCard: View {
     }
 }
 
-// MARK: - Body weather
-
-struct BodyWeatherCard: View {
-    let report: BodyWeatherReport?
-
-    var body: some View {
-        Card {
-            CompanionCardTitle(title: "Wetter und Kleidung", systemImage: "cloud.sun")
-            if let report {
-                Text(report.weatherLine)
-                    .font(Typography.body)
-                    .foregroundStyle(Palette.ink)
-                    .wraps()
-                StatementBadge(kind: .suggestion)
-                Text(report.clothing.sentence)
-                    .font(Typography.body)
-                    .foregroundStyle(Palette.ink)
-                    .wraps()
-                ForEach(report.bodyNotes, id: \.self) { note in
-                    Label(note, systemImage: "info.circle")
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.inkMuted)
-                        .wraps()
-                }
-                if let window = report.bestOutdoorWindow {
-                    Label("Gutes Fenster für draußen: \(CompanionUI.time(window.start))–\(CompanionUI.time(window.end))",
-                          systemImage: "figure.walk")
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.ink)
-                        .wraps()
-                }
-                WeatherAttribution(text: report.attribution)
-            } else {
-                Text("Noch kein Wetter. Wähle in den Einstellungen deinen Ort. Gesendet wird nur der auf etwa 1 km gerundete Ort, keine Gesundheitsdaten.")
-                    .font(Typography.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                    .wraps()
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("companion.weather")
-    }
-}
-
-/// Open-Meteo asks for visible credit with a link next to the data (CC BY 4.0).
-struct WeatherAttribution: View {
-    let text: String
-
-    var body: some View {
-        if let url = URL(string: "https://open-meteo.com/") {
-            Link(destination: url) {
-                Label(text, systemImage: "link")
-                    .font(Typography.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                    .wraps()
-                    .frame(minHeight: 44, alignment: .leading)
-            }
-            .accessibilityIdentifier("companion.weatherAttribution")
-        } else {
-            Text(text)
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
-        }
-    }
-}
-
-// MARK: - Forecast lab
+// MARK: - Forecast
 
 struct ForecastLabCard: View {
     let next: MorningForecast?
@@ -424,45 +357,5 @@ struct BodyPaceCard: View {
     private static func years(_ value: Double) -> String {
         let text = value.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "de_DE")))
         return value > 0 ? "+" + text : text
-    }
-}
-
-// MARK: - Night researcher
-
-struct ResearchCard: View {
-    let findings: [ResearchFinding]
-
-    var body: some View {
-        Card {
-            CompanionCardTitle(title: "Funde aus deinen Daten", systemImage: "moon.stars")
-            if findings.isEmpty {
-                Text("Diesmal nichts Belastbares gefunden. Das ist auch ein Ergebnis. Der Forscher braucht mindestens 21 Tage mit Daten.")
-                    .font(Typography.caption)
-                    .foregroundStyle(Palette.inkMuted)
-                    .wraps()
-            } else {
-                StatementBadge(kind: .observed)
-                ForEach(Array(findings.prefix(3))) { finding in
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Text(finding.sentence)
-                            .font(Typography.body)
-                            .foregroundStyle(Palette.ink)
-                            .wraps()
-                        Text("\(finding.sampleDays) Tage · Zusammenhang, keine Ursache")
-                            .font(Typography.caption)
-                            .foregroundStyle(Palette.inkMuted)
-                            .wraps()
-                        EvidenceTag(label: finding.label)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-            }
-            Text("Gerechnet wird nur auf diesem iPhone.")
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("companion.research")
     }
 }

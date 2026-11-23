@@ -115,10 +115,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            // The heart scenario renders the chamber directly so the screenshot needs no tap.
-            if options.usesTestScenario, options.scenario == "heart" {
-                HeartChamberView()
-            } else if options.usesTestScenario, options.scenario == "devices" {
+            if options.usesTestScenario, options.scenario == "devices" {
                 DevicesScreen(showsClose: false)
             } else if options.usesTestScenario, let scenario = options.scenario, TestScenario.ringScenarios.contains(scenario) {
                 // Ring states are captured on the ring screen itself, as before the tab app.

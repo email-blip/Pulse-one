@@ -5,11 +5,6 @@ import SwiftUI
 /// Where the Analyse tab can go.
 enum IntelligenceRoute: Hashable {
     case analysis(StoredAnalysis)
-    /// nil starts a new consultation.
-    case consultation(StoredConsultation?)
-    case detective
-    case experiments
-    case biography
     case history
     case settings
 }
@@ -22,8 +17,8 @@ struct PendingSend: Identifiable {
     let send: @MainActor () -> Void
 }
 
-/// Root of the Analyse tab: the iPhone's short lines first (free, offline), then Claude on request with a
-/// visible preview, plus the creative lab tools (detective, experiments, body biography).
+/// Root of the "Mehr" tab: the iPhone's short lines first (free, offline), then Claude reports on request with
+/// a visible preview. Consultation and lab tools left with the rebuild; ROOK in the Coach tab is the one coach.
 struct IntelligenceHubView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
@@ -35,11 +30,9 @@ struct IntelligenceHubView: View {
     @State private var daily: OnDeviceBrain.Lines?
     @State private var question = ""
     @State private var localAnswer: String?
-    @State private var caseCount = 0
     /// Nights with sleep data; reports need 7, the lab tools 28 (core rebuild 2026-11-23).
     @State private var nights = 0
     @Query(sort: \StoredAnalysis.createdAt, order: .reverse) private var analyses: [StoredAnalysis]
-    @Query(sort: \StoredConsultation.updatedAt, order: .reverse) private var consultations: [StoredConsultation]
 
     private var services: IntelligenceServices { engine.services }
 
@@ -53,7 +46,6 @@ struct IntelligenceHubView: View {
                         if let activity = engine.activity { WorkingCard(text: activity) }
                         dailyCard
                         if !services.hasKey { keyCard }
-                        consultationCard
                         reportsCard
                         questionCard
                         labCard
@@ -67,10 +59,6 @@ struct IntelligenceHubView: View {
             .navigationDestination(for: IntelligenceRoute.self) { route in
                 switch route {
                 case .analysis(let analysis): ReportView(analysis: analysis)
-                case .consultation(let consultation): ConsultationView(engine: engine, consultation: consultation)
-                case .detective: DetectiveView(engine: engine)
-                case .experiments: ExperimentsView(engine: engine)
-                case .biography: BiographyView(engine: engine)
                 case .history: AnalysisHistoryView()
                 case .settings: IntelligenceSettingsView()
                 }
@@ -130,26 +118,6 @@ struct IntelligenceHubView: View {
                    systemImage: "key", actionTitle: "Schlüssel eingeben") { path.append(.settings) }
     }
 
-    private var consultationCard: some View {
-        Card {
-            SectionHeader(title: "Sprechstunde")
-            Text(engine.settings.clinicalMode
-                 ? "Claude deutet deine Werte wie Internist, Sportmediziner und Coach: Einschätzung, mögliche Diagnosen mit Einordnung (passt gut, teilweise oder kaum), Abklärung und Plan. Mit Rückfragen zu deinem Befinden."
-                 : "Ein Gespräch mit Claude über deine Werte. Ärztliche Einschätzungen sind unter KI-Anbieter ausgeschaltet.")
-                .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-            Button("Neue Sprechstunde") { path.append(.consultation(nil)) }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(!engine.settings.clinicalMode || engine.activity != nil)
-                .accessibilityIdentifier("intelligence.consultation.new")
-            ForEach(consultations.prefix(3)) { consultation in
-                row(consultation.title,
-                    detail: consultation.updatedAt.formatted(date: .abbreviated, time: .shortened)
-                        + (consultation.urgency == ConsultationUrgency.none ? "" : " · " + consultation.urgency.title),
-                    systemImage: "stethoscope", route: .consultation(consultation))
-            }
-        }
-    }
-
     private var reportsCard: some View {
         Card {
             SectionHeader(title: "Berichte von Claude")
@@ -201,21 +169,9 @@ struct IntelligenceHubView: View {
 
     private var labCard: some View {
         Card {
-            SectionHeader(title: "Labor")
-            if nights >= Self.labNights { labRows } else {
-                // Parked until there are four weeks of ring data: without them these tools only guess.
-                Text("Körper-Detektiv, Experimente und Körperbiografie kommen dazu, sobald 4 Wochen Schlafdaten da sind. Bisher: \(nights) Nächte.")
-                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
-            }
+            SectionHeader(title: "Verlauf der Analysen")
             row("Bisherige Analysen", detail: "\(analyses.count) auf diesem iPhone", systemImage: "clock.arrow.circlepath", route: .history)
         }
-    }
-
-    @ViewBuilder private var labRows: some View {
-        row("Körper-Detektiv", detail: caseCount == 0 ? "Gerade keine Abweichung" : "\(caseCount) Abweichung vom üblichen Bereich",
-            systemImage: "magnifyingglass", route: .detective)
-        row("Experimente", detail: "Selbstversuche planen und auswerten", systemImage: "flask", route: .experiments)
-        row("Körperbiografie", detail: "Was sich über Monate bestätigt", systemImage: "book.closed", route: .biography)
     }
 
     private func row(_ title: String, detail: String, systemImage: String, route: IntelligenceRoute) -> some View {
@@ -255,7 +211,6 @@ struct IntelligenceHubView: View {
                                            profile: profileStore.profile)
         let now = LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : Date.now
         nights = ScoreModel(reader: SampleReader(context: modelContext), profileID: sources.ownerProfileID, now: now).nightsWithData()
-        caseCount = engine.detectiveCases(modelContext: modelContext, owner: sources.ownerProfileID).count
         let allowModel = services.settings.useOnDeviceModel && !LaunchOptions.current.isUITesting
         daily = await OnDeviceBrain.summary(context, allowModel: allowModel)
     }

@@ -6,21 +6,12 @@ final class AccessibilityTests: XCTestCase {
     func testStartAudit() throws { try audit(scenario: "start") }
     func testScanningAudit() throws { try audit(scenario: "scanning") }
     func testLiveAudit() throws { try audit(scenario: "live") }
-    func testHeartAudit() throws { try audit(scenario: "heart") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
     func testTodayAudit() throws { try audit(scenario: "today") }
     func testHealthAudit() throws { try audit(scenario: "health") }
     func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
     func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
-    /// The stored consultation of the test scenario, opened from the Analyse tab.
-    func testConsultationAudit() throws {
-        try audit(scenario: "intelligence", screen: "consultation") { app in
-            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 15))
-            row.tap()
-        }
-    }
     /// Recovery score with its building blocks, opened from the rings on TODAY.
     func testScoreAudit() throws {
         try audit(scenario: "today", screen: "score") { app in
@@ -30,6 +21,16 @@ final class AccessibilityTests: XCTestCase {
         }
     }
     func testCoachAudit() throws { try audit(scenario: "coach") }
+    /// ROOK's two demonstration cases (team 04) and the "Warum?" sheet.
+    func testRookPositiveAudit() throws { try audit(scenario: "rookPositive") }
+    func testRookClarifyAudit() throws { try audit(scenario: "rookClarify") }
+    func testRookWhyAudit() throws {
+        try audit(scenario: "rookClarify", screen: "why") { app in
+            let why = app.buttons["rook.why"]
+            XCTAssertTrue(why.waitForExistence(timeout: 15))
+            why.tap()
+        }
+    }
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }

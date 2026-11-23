@@ -18,7 +18,6 @@ struct CompanionScreen: View {
     @State private var speaker = BriefingSpeaker()
     @State private var doneActions: Set<String> = []
     @State private var showWake = false
-    @State private var showConference = false
     @State private var activation: ActivationStore?
     /// The activation session being shown (full screen), nil when none.
     @State private var activationPlan: ActivationPlan?
@@ -42,10 +41,6 @@ struct CompanionScreen: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Spacing.xl)
                     }
-                    Text("Der Begleiter beschreibt deine Werte im Vergleich zu deinem eigenen üblichen Bereich. Er stellt keine Diagnosen und ersetzt keine ärztliche Beratung.")
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.inkMuted)
-                        .wraps()
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.xl)
@@ -53,9 +48,6 @@ struct CompanionScreen: View {
             .refreshable { await refresh() }
         }
         .navigationTitle("Begleiter")
-        .navigationDestination(isPresented: $showConference) {
-            if let store { ConferenceView(store: store) }
-        }
         .task { await prepare() }
         .onDisappear { speaker.stop() }
         .fullScreenCover(isPresented: $showWake, onDismiss: { Task { await refreshActivation() } }) {
@@ -92,10 +84,6 @@ struct CompanionScreen: View {
             return
         }
         await refresh()
-        // Test view of the expert round: pushed like the entry card would, after today's day exists.
-        if options.usesTestScenario && options.scenario == CompanionUI.conferenceScenario {
-            showConference = true
-        }
         // Test view of the guided activation: today's first open session, like its start button would.
         if options.usesTestScenario && options.scenario == CompanionUI.activationScenario, let activation {
             activationPlan = activation.firstOpenPlan ?? activation.plan(for: .snack, now: CompanionUI.now)
@@ -170,27 +158,15 @@ private struct CompanionContent: View {
     @ViewBuilder
     private var insights: some View {
         let day = store.today
-        SectionHeader(title: "Körper-Wetter")
-        BodyWeatherCard(report: day?.bodyWeather)
         SectionHeader(title: "Prognose-Labor")
         ForecastLabCard(next: day?.nextForecast, outcome: day?.forecastOutcome, hitRate: store.forecastHitRate)
         if let pace = day?.bodyPace {
             BodyPaceCard(result: pace)
         }
-        SectionHeader(title: "Nachtschicht-Forscher")
-        ResearchCard(findings: store.findings)
     }
 
     @ViewBuilder
     private var footer: some View {
-        SectionHeader(title: "Expertenrunde")
-        NavigationLink {
-            ConferenceView(store: store)
-        } label: {
-            ConferenceEntryLabel()
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("companion.conference")
         NavigationLink {
             CompanionSettingsView(store: store)
         } label: {

@@ -95,9 +95,10 @@ struct CheckInMessageTests {
         #expect(!message.suggestion.isEmpty)
     }
 
-    @Test func noValuesSaysSoHonestly() {
-        let message = LocalCheckIn.compose(slot: .midday, context: context([]), name: "Nox")
-        #expect(message.headline == "Noch keine Werte")
+    @Test func noValuesGreetsInsteadOfReportingGaps() {
+        let message = LocalCheckIn.compose(slot: .midday, context: context([]), name: "ROOK")
+        #expect(message.headline == "Hallo")
+        #expect(RookTextGuard.isClean(message.text))
     }
 
     @Test func numbersUseGermanCommas() {
@@ -106,26 +107,4 @@ struct CheckInMessageTests {
     }
 }
 
-@Suite("Check-in validation")
-struct CheckInValidatorTests {
-    @Test func decodesClaudesAnswerAndKeepsAtMostFourMarkers() throws {
-        let markers = (0..<6).map { "{\"symbol\":\"insight\",\"metric\":\"\",\"text\":\"Satz \($0)\",\"evidence\":[\"F1\"]}" }
-        let json = "{\"headline\":\"Solide Nacht\",\"text\":\"Ruhepuls 54, vier unter normal.\",\"suggestion\":\"\",\"urgency\":\"none\","
-            + "\"markers\":[\(markers.joined(separator: ","))]}"
-        let message = try CheckInValidator.validate(json: json, mode: .clinical)
-        #expect(message.headline == "Solide Nacht")
-        #expect(message.markers.count == 4)
-        #expect(message.notificationBody == "Ruhepuls 54, vier unter normal.")
-    }
-
-    @Test func rejectsUnreadableAnswers() {
-        #expect(throws: CheckInValidator.Failure.unreadable) {
-            try CheckInValidator.validate(json: "kein json", mode: .clinical)
-        }
-    }
-
-    @Test func schemaRequiresAllFields() {
-        let required = CheckInPrompts.schemaV1["required"]?.arrayValue?.compactMap(\.stringValue) ?? []
-        #expect(Set(required) == ["headline", "text", "suggestion", "urgency", "markers"])
-    }
-}
+// The check-in answer check moved to RookValidator (RookTests.swift).
