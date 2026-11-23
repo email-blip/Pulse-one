@@ -28,6 +28,11 @@ struct ScoreModel {
         let hourlyToday: [Int: Double]?
     }
 
+    /// Nights with sleep data in the read window: gates the lab tools and Claude reports.
+    func nightsWithData() -> Int {
+        reader.daily(.sleepDuration, days: Self.readDays, profileID: profileID, calendar: calendar, now: now).count
+    }
+
     func inputs() -> Inputs {
         func days(_ kind: SampleKind) -> [DailyValue] {
             reader.daily(kind, days: Self.readDays, profileID: profileID, calendar: calendar, now: now)

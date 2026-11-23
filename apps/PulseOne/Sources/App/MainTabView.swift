@@ -2,7 +2,8 @@ import PulseCore
 import SwiftData
 import SwiftUI
 
-/// The four areas of PULSE ONE (DESIGN-SYSTEM-5.0 §2). Profile, devices and the ring live in the
+/// The four areas of PULSE ONE: Heute · Verlauf · Coach · Mehr (core rebuild 2026-11-23, like Oura).
+/// Claude, Sprechstunde and the lab tools live under "Mehr". Profile, devices and the ring live in the
 /// profile sheet that every tab opens from the top right. Module roots: see INTEGRATION.md.
 enum AppTab: Hashable {
     // Nutrition left the tab bar on 2026-11-22 (owner's decision); its code stays for now.
@@ -38,9 +39,9 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("Heute", systemImage: "sun.horizon", value: AppTab.today) { TodayScreen() }
-            Tab("Gesundheit", systemImage: "heart.text.square", value: AppTab.health) { HealthScreen() }
-            Tab("Analyse", systemImage: "sparkles", value: AppTab.intelligence) { IntelligenceHubView() }
+            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.health) { HealthScreen() }
             Tab("Coach", systemImage: "figure.run", value: AppTab.coach) { CoachScreen() }
+            Tab("Mehr", systemImage: "ellipsis.circle", value: AppTab.intelligence) { IntelligenceHubView() }
         }
         .tint(Palette.bioCyan)
         .environment(\.openProfile) { showProfile = true }
