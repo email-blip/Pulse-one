@@ -33,6 +33,8 @@ final class AccessibilityTests: XCTestCase {
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }
+    /// DesignKit component preview (team 02): tokens, tile, buttons, chips, orb states.
+    func testDesignKitAudit() throws { try audit(scenario: "designKit") }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
     private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {
