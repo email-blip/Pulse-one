@@ -297,6 +297,15 @@ struct RookWhySheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DKSpace.l) {
+                    // In the content, not the toolbar: a toolbar button shows up twice in the UI test tree
+                    // (bar item and its glass copy), so `why.close` would not be unique.
+                    HStack {
+                        Spacer()
+                        Button("Fertig") { dismiss() }
+                            .buttonStyle(DKTextButtonStyle())
+                            .frame(minHeight: DKSize.minTouch)
+                            .accessibilityIdentifier("why.close")
+                    }
                     Text(insight.observation)
                         .font(DKFont.body)
                         .foregroundStyle(DKColor.textPrimary)
@@ -334,12 +343,6 @@ struct RookWhySheet: View {
             .dkPageBackground()
             .navigationTitle("Warum?")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fertig") { dismiss() }
-                        .accessibilityIdentifier("why.close")
-                }
-            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen.why")

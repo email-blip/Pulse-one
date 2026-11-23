@@ -88,7 +88,11 @@ final class InteractionTests: XCTestCase {
         XCTAssertEqual(minute % 5, 0, "cursor time instead of the measurement's own time: \(pulse)")
 
         // 24-hour window ending at the test time: the gap sits at 0.894–0.942 of the width.
+        let before = selection.label
         chart.coordinate(withNormalizedOffset: CGVector(dx: 0.918, dy: 0.2)).tap()
+        // The tap resolves after the hold-to-scrub gesture gives up; wait for the readout to move.
+        let moved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", before), object: selection)
+        XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 5), .completed, "the cursor did not move: \(before)")
         let gap = firstRow(selection.label)
         XCTAssertTrue(gap.contains("keine Messung"), "the gap selected a value: \(gap)")
         XCTAssertFalse(gap.contains("gemessen"))
