@@ -46,7 +46,9 @@ struct RookCard: View {
             if let statement = store.current {
                 content(statement)
             } else {
-                Text("Einen Moment, ich schaue auf deine Werte.").font(Typography.body).foregroundStyle(Palette.inkMuted).wraps()
+                // Full ink, not muted: the audit flags muted body text on the card surface.
+                Text("Hallo, schön, dass du da bist. Wie fühlst du dich heute? Erzähl es mir, dann planen wir den Tag zusammen.")
+                    .font(Typography.body).foregroundStyle(Palette.ink).wraps()
             }
         }
         .task {
