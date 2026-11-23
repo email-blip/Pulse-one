@@ -79,6 +79,7 @@ Bildschirm-Wurzeln tragen die Kennung immer (nicht nur im Testszenario). Quelle 
 | `timeline.chart` | 03 | ziehbare Spurenfläche (ein Element über alle Spuren) |
 | `timeline.selection` | 03 | Cursor-Anzeige: Wert, Einheit, Original-Messzeit „HH:mm“ |
 | `timeline.track.sleep` | 03 | Hypnogramm-Spur |
+| `hypnogram.segment.<n>` | 03 | jeder Schlafabschnitt als eigenes Element (Phase + Uhrzeit); der Test tippt den ersten |
 | `hypnogram.selection` | 03 | gewählter Schlafabschnitt: Phase + „HH:mm–HH:mm“ |
 | `timeline.event.workout` | 03/05 | abgeschlossene Einheit im Verlauf |
 | `why.evidence.<n>`, `why.close` | 04 | Belege, Schließen |

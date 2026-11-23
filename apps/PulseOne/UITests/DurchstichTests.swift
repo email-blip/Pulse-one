@@ -117,9 +117,7 @@ final class DurchstichTests: XCTestCase {
         }
 
         try step("Hypnogramm-Abschnitt antippen") {
-            let sleep = try M1.require(app, M1.Timeline.sleepTrack, step: "Schlafspur")
-            M1.reveal(sleep, in: app)
-            sleep.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            try M1.tapFirstSleepSegment(app)
             let section = try M1.require(app, M1.Timeline.hypnogramSelection, step: "Schlafabschnitt", timeout: 5)
             XCTAssertTrue(containsClockTime(section.label), "Schlafabschnitt ohne Uhrzeit: \(section.label)")
             return section.label

@@ -45,6 +45,8 @@ enum M1 {
         /// Shared cursor read-out; label contains value, unit and the original measuring time "HH:mm".
         static let selection = "timeline.selection"
         static let sleepTrack = "timeline.track.sleep"
+        /// Each sleep section in the track is its own element `hypnogram.segment.<n>` (phase + time in the label).
+        static let segmentPrefix = "hypnogram.segment."
         /// Read-out of the tapped hypnogram section; label contains the phase and "HH:mm–HH:mm".
         static let hypnogramSelection = "hypnogram.selection"
         /// A finished workout in the timeline (training track or event marker).
@@ -164,9 +166,7 @@ enum M1 {
                 chart.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
                 try require(app, Timeline.selection, step: "Cursor-Anzeige", timeout: 5)
             } else {
-                let sleep = try require(app, Timeline.sleepTrack, step: "Schlafspur")
-                reveal(sleep, in: app)
-                sleep.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                try tapFirstSleepSegment(app)
                 try require(app, Timeline.hypnogramSelection, step: "Schlafabschnitt", timeout: 5)
             }
         case .why:
@@ -186,6 +186,22 @@ enum M1 {
         }
         // Let transitions and chart layout settle before a screenshot or an audit.
         Thread.sleep(forTimeInterval: 1)
+    }
+
+    /// Taps the first sleep section. The track's middle is "now − 12 h" and often not in the night, so the test
+    /// taps a section element instead of a position (agreed with team 03).
+    @MainActor
+    static func tapFirstSleepSegment(_ app: XCUIApplication) throws {
+        let sleep = try require(app, Timeline.sleepTrack, step: "Schlafspur")
+        reveal(sleep, in: app)
+        let segment = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", Timeline.segmentPrefix)).firstMatch
+        guard segment.waitForExistence(timeout: 5) else {
+            let message = "Schlafabschnitt: \(Timeline.segmentPrefix)* fehlt (Schlafsegmente im Szenario?)"
+            if strict { XCTFail(message) }
+            throw M1Missing(message: message)
+        }
+        segment.tap()
     }
 
     /// Screenshot attachment kept in the result bundle (exported to ci-screenshots/<branch>).
