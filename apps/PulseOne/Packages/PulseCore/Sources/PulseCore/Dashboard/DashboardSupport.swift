@@ -143,12 +143,16 @@ public struct SparkPoint: Equatable, Sendable, Identifiable {
 public enum TileSummary {
     static let german = Locale(identifier: "de_DE")
 
+    /// "06:55": two-digit hours always (`.shortened` gives "6:55" on some systems).
+    public static func clockStyle(_ calendar: Calendar) -> Date.FormatStyle {
+        Date.FormatStyle(locale: german, calendar: calendar, timeZone: calendar.timeZone)
+            .hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+    }
+
     /// Reference line for a value: "HEUTE · 14:05", "GESTERN · 22:10", "NACHT · 07:00", "18.11. · 09:30".
     public static func reference(for date: Date, now: Date, night: Bool = false, until: Bool = false,
                                  calendar: Calendar) -> String {
-        var time = Date.FormatStyle(date: .omitted, time: .shortened, locale: german)
-        time.timeZone = calendar.timeZone
-        let clock = date.formatted(time)
+        let clock = date.formatted(clockStyle(calendar))
         let today = calendar.startOfDay(for: now)
         let day: String
         if night, calendar.isDate(date, inSameDayAs: today) {
@@ -248,8 +252,7 @@ public enum Hypnogram {
 
     /// "Tief · 01:10–01:45 · 35 min"
     public static func describe(_ segment: SleepSegment, calendar: Calendar) -> String {
-        var time = Date.FormatStyle(date: .omitted, time: .shortened, locale: TileSummary.german)
-        time.timeZone = calendar.timeZone
+        let time = TileSummary.clockStyle(calendar)
         return "\(title(segment.phase)) · \(segment.start.formatted(time))–\(segment.end.formatted(time)) · \(TileSummary.duration(segment.duration))"
     }
 }

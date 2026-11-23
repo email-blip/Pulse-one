@@ -49,7 +49,7 @@ final class ScreenshotTests: XCTestCase {
             }
             capture(scenario: "timelineHypnogram", dynamicType: type, reduceMotion: false, name: "hypnogramSelection",
                     expectedScreen: "hypnogram.selection") { app in
-                let segment = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "hypnogram.segment.")).element(boundBy: 2)
+                let segment = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "hypnogram.segment.")).element(boundBy: 2)
                 if segment.waitForExistence(timeout: 10) { segment.tap() }
             }
         }

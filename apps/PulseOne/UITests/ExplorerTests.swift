@@ -29,7 +29,7 @@ final class ExplorerTests: XCTestCase {
                           "ausschalten", "poweroff", "findring", "ring finden", "disconnect", "trennen",
                           "teilen", "share", "export", "kamera", "nutrition.scan", "scan", "ring suchen", "suchen",
                           "apple health verbinden", "setup.health", "erlaub", "berechtigung", "wecker stellen",
-                          "openprofile", "testbanner", "moveup", "movedown", "tilesize", "tilevisible"]
+                          "openprofile", "ring.status", "testbanner", "moveup", "movedown", "tilesize", "tilevisible"]
     /// Buttons that only close the current screen: used to go back, not explored.
     static let closers = ["fertig", "schließen", "abbrechen", "zurück", "back", "done", "close", "cancel", "profile.done"]
 

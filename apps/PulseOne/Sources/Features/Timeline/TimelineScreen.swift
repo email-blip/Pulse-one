@@ -74,16 +74,16 @@ struct TimelineScreen: View {
     // MARK: Controls
 
     private var rangePicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DKSpace.s) {
-                ForEach(TimelineRange.allCases, id: \.self) { range in
-                    DKChip(title: Self.title(of: range), isSelected: model.range == range) {
-                        withAnimation(MotionEvent.rangeChange.resolvedAnimation(reduceMotion: reduceMotion, frozen: frozen)) {
-                            model.setRange(range)
-                        }
+        // Wraps instead of scrolling sideways: every range stays fully on screen (a half-visible chip failed
+        // the contrast audit) and nothing hides at large text sizes.
+        FlowLayout(spacing: DKSpace.s) {
+            ForEach(TimelineRange.allCases, id: \.self) { range in
+                DKChip(title: Self.title(of: range), isSelected: model.range == range) {
+                    withAnimation(MotionEvent.rangeChange.resolvedAnimation(reduceMotion: reduceMotion, frozen: frozen)) {
+                        model.setRange(range)
                     }
-                    .accessibilityIdentifier("timeline.range.\(range.rawValue)")
                 }
+                .accessibilityIdentifier("timeline.range.\(range.rawValue)")
             }
         }
         .sensoryFeedback(.selection, trigger: model.range)

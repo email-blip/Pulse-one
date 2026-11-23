@@ -103,7 +103,7 @@ final class InteractionTests: XCTestCase {
     func testHypnogramShowsPickedPhase() {
         let app = launch("timelineHypnogram")
         XCTAssertTrue(app.descendants(matching: .any)["screen.timeline"].waitForExistence(timeout: 15))
-        let segment = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "hypnogram.segment.")).element(boundBy: 1)
+        let segment = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "hypnogram.segment.")).element(boundBy: 1)
         XCTAssertTrue(segment.waitForExistence(timeout: 10))
         segment.tap()
         let picked = app.descendants(matching: .any)["hypnogram.selection"]

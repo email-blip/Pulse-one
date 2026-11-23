@@ -145,28 +145,48 @@ struct HypnogramTrack: View {
                 }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let frame = rect(for: segment, width: width)
-                    Button { onSelect(segment) } label: {
-                        SleepPhaseFill(phase: segment.phase, cornerRadius: 3)
-                            .overlay {
-                                if selected?.id == segment.id {
-                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                        .strokeBorder(DKColor.textPrimary, lineWidth: 2)
-                                }
+                    // Not a button: most intervals are a few points wide, below any usable hit area. The whole
+                    // track takes the tap (by time, below); each interval stays its own VoiceOver element with
+                    // an activate action, so it can be read and picked one by one.
+                    SleepPhaseFill(phase: segment.phase, cornerRadius: 3)
+                        .overlay {
+                            if selected?.id == segment.id {
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .strokeBorder(DKColor.textPrimary, lineWidth: 2)
                             }
-                            .frame(width: frame.width, height: frame.height)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: frame.minX, y: frame.minY)
-                    .accessibilityLabel(Hypnogram.describe(segment, calendar: calendar))
-                    .accessibilityIdentifier("hypnogram.segment.\(index)")
+                        }
+                        .frame(width: frame.width, height: frame.height)
+                        .offset(x: frame.minX, y: frame.minY)
+                        .accessibilityElement()
+                        .accessibilityLabel(Hypnogram.describe(segment, calendar: calendar))
+                        .accessibilityAddTraits(selected?.id == segment.id ? .isSelected : [])
+                        .accessibilityAction { onSelect(segment) }
+                        .accessibilityIdentifier("hypnogram.segment.\(index)")
                 }
+            }
+            .frame(width: width, height: proxy.size.height, alignment: .topLeading)
+            .contentShape(Rectangle())
+            .onTapGesture(coordinateSpace: .local) { location in
+                let time = window.start.addingTimeInterval(Double(location.x / max(width, 1)) * window.duration)
+                if let segment = Hypnogram.segment(at: time, in: segments) ?? nearest(to: time) { onSelect(segment) }
             }
         }
         .frame(height: rowHeight * CGFloat(lanes.count))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Schlafphasen")
         .accessibilityIdentifier("timeline.track.sleep")
+    }
+
+    /// A tap just beside a very short interval still picks it (within 10 minutes).
+    private func nearest(to time: Date) -> SleepSegment? {
+        guard let best = segments.min(by: { distance($0, time) < distance($1, time) }) else { return nil }
+        return distance(best, time) <= 600 ? best : nil
+    }
+
+    private func distance(_ segment: SleepSegment, _ time: Date) -> TimeInterval {
+        if time < segment.start { return segment.start.timeIntervalSince(time) }
+        if time > segment.end { return time.timeIntervalSince(segment.end) }
+        return 0
     }
 
     /// Segment rectangle, cut to the visible window, at least 2 pt wide so short intervals stay tappable.

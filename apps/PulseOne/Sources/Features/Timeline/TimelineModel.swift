@@ -335,8 +335,9 @@ final class TimelineModel {
     // MARK: Formatting
 
     static func clock(_ calendar: Calendar) -> Date.FormatStyle {
-        Date.FormatStyle(date: .omitted, time: .shortened, locale: Locale(identifier: "de_DE"), calendar: calendar,
-                         timeZone: calendar.timeZone)
+        // Explicit two-digit hours ("06:55"): `.shortened` gave "6:55" on the simulator.
+        Date.FormatStyle(locale: Locale(identifier: "de_DE"), calendar: calendar, timeZone: calendar.timeZone)
+            .hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
     }
 
     static func dayClock(_ calendar: Calendar) -> Date.FormatStyle {

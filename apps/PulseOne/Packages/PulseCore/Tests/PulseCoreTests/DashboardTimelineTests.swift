@@ -12,7 +12,12 @@ struct DashboardTimelineTests {
         return calendar
     }
 
-    func point(_ kind: SampleKind = .heartRate, _ value: Double, at offset: TimeInterval, duration: TimeInterval = 0,
+    /// A pulse point `offset` seconds after `t0`.
+    func pulse(_ value: Double, at offset: TimeInterval, received: TimeInterval? = nil) -> MeasurementPoint {
+        point(.heartRate, value, at: offset, received: received)
+    }
+
+    func point(_ kind: SampleKind, _ value: Double, at offset: TimeInterval, duration: TimeInterval = 0,
                received: TimeInterval? = nil) -> MeasurementPoint {
         let at = t0.addingTimeInterval(offset)
         return MeasurementPoint(id: UUID(), subjectID: nil, deviceID: "R03", source: .colmiRing, kind: kind, value: value,
@@ -36,8 +41,8 @@ struct DashboardTimelineTests {
 
     @Test func gapSplitsTheLineAndIsNeverZero() {
         // Pulse every 5 min, then two hours without values, then again.
-        let before = (0..<6).map { point(60 + Double($0), at: Double($0) * 300) }
-        let after = (0..<3).map { point(70, at: 9000 + Double($0) * 300) }
+        let before = (0..<6).map { pulse(60 + Double($0), at: Double($0) * 300) }
+        let after = (0..<3).map { pulse(70, at: 9000 + Double($0) * 300) }
         let window = DateInterval(start: t0, end: t0.addingTimeInterval(12_000))
         let values = TrackSeries.values(before + after, kind: .heartRate, in: window, resolution: .original, calendar: calendar)
         #expect(values.count == 9)
@@ -49,8 +54,8 @@ struct DashboardTimelineTests {
     }
 
     @Test func aggregationIsMarkedAndKeepsEmptyBucketsEmpty() {
-        let morning = (0..<4).map { point(60 + Double($0) * 2, at: Double($0) * 600) }   // 60, 62, 64, 66 within one hour
-        let later = [point(80, at: 3 * 3600 + 60)]
+        let morning = (0..<4).map { pulse(60 + Double($0) * 2, at: Double($0) * 600) }   // 60, 62, 64, 66 within one hour
+        let later = [pulse(80, at: 3 * 3600 + 60)]
         let window = DateInterval(start: t0.addingTimeInterval(-3600), end: t0.addingTimeInterval(5 * 3600))
         let values = TrackSeries.values(morning + later, kind: .heartRate, in: window, resolution: .hourly, calendar: calendar)
         #expect(values.allSatisfy(\.isAggregated))
@@ -70,7 +75,7 @@ struct DashboardTimelineTests {
     }
 
     @Test func cursorPicksOriginalPointWithItsOwnTimeAndNothingInAGap() {
-        let points = [point(61, at: 0), point(64, at: 300), point(70, at: 9000)]
+        let points = [pulse(61, at: 0), pulse(64, at: 300), pulse(70, at: 9000)]
         let picked = TrackSeries.pick(at: t0.addingTimeInterval(320), in: points, kind: .heartRate)
         #expect(picked?.value == 64)
         #expect(picked?.measuredAt == t0.addingTimeInterval(300))
@@ -83,14 +88,14 @@ struct DashboardTimelineTests {
     }
 
     @Test func stepMovesToTheNextOriginalPoint() {
-        let points = [point(61, at: 0), point(64, at: 300), point(70, at: 9000)]
+        let points = [pulse(61, at: 0), pulse(64, at: 300), pulse(70, at: 9000)]
         #expect(TrackSeries.step(from: t0.addingTimeInterval(10), in: points, forward: true)?.value == 64)
         #expect(TrackSeries.step(from: t0.addingTimeInterval(300), in: points, forward: false)?.value == 61)
         #expect(TrackSeries.step(from: t0.addingTimeInterval(9000), in: points, forward: true) == nil)
     }
 
     @Test func sliceFindsTheWindowInAYearOfPoints() {
-        let year = (0..<(365 * 48)).map { point(60, at: Double($0) * 1800) }
+        let year = (0..<(365 * 48)).map { pulse(60, at: Double($0) * 1800) }
         let window = DateInterval(start: t0.addingTimeInterval(100 * 86_400), end: t0.addingTimeInterval(101 * 86_400))
         let slice = TrackSeries.slice(year, in: window)
         #expect(slice.count == 49)
@@ -110,8 +115,8 @@ struct DashboardTimelineTests {
 
     @Test func onlyJustMeasuredValuesLandAsNew() {
         let now = t0.addingTimeInterval(3600)
-        let live = point(66, at: 3590, received: 3595)
-        let history = point(62, at: 600, received: 3595)   // synced just now, measured an hour ago
+        let live = pulse(66, at: 3590, received: 3595)
+        let history = pulse(62, at: 600, received: 3595)   // synced just now, measured an hour ago
         let arrivals = LiveArrival.arrivals(known: [], current: [live, history], now: now)
         #expect(arrivals.map(\.id) == [live.id])
         #expect(LiveArrival.arrivals(known: [live.id], current: [live], now: now).isEmpty)
@@ -166,7 +171,10 @@ struct DashboardTimelineTests {
     }
 
     @Test func tileShowsNewestValueWithItsTimeAndRealPointsOnly() throws {
-        let points = (0..<12).map { point(60 + Double($0), at: Double($0) * 300) } + [point(80, at: 3 * 3600)]
+        var points: [MeasurementPoint] = (0..<12).map { (index: Int) -> MeasurementPoint in
+            pulse(60 + Double(index), at: Double(index) * 300)
+        }
+        points.append(pulse(80, at: 3 * 3600))
         let now = t0.addingTimeInterval(3 * 3600 + 120)
         let reading = try #require(TileSummary.reading(kind: .heartRate, points: points, now: now, calendar: calendar))
         #expect(reading.value == 80)
