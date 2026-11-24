@@ -72,32 +72,4 @@ final class IntelligenceTests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Stress")).firstMatch.waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["Stressiger Tag"].exists)
     }
-
-    /// The consultation: preview before the first send, then possible diagnoses with their fit and
-    /// questions; a follow-up goes without a second preview and gets its own answer.
-    func testConsultationConversation() {
-        let app = launch()
-        let start = app.buttons["intelligence.consultation.new"]
-        XCTAssertTrue(start.waitForExistence(timeout: 15))
-        start.tap()
-        let input = app.textFields["consultation.input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 10))
-        input.tap()
-        input.typeText("Seit drei Tagen müde")
-        app.buttons["consultation.send"].tap()
-        let send = app.buttons["intelligence.send"]
-        XCTAssertTrue(send.waitForExistence(timeout: 10))
-        send.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["consultation.differentials"].waitForExistence(timeout: 15))
-        // No percentages (owner decision 2026-11-22): the fit is shown in words.
-        XCTAssertTrue(app.staticTexts["passt gut"].exists)
-        XCTAssertFalse(app.staticTexts["55 %"].exists)
-        let field = app.textFields["consultation.input"]
-        field.tap()
-        field.typeText("Kein Fieber")
-        app.buttons["consultation.send"].tap()
-        XCTAssertFalse(app.buttons["intelligence.send"].waitForExistence(timeout: 2))
-        let followUp = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Danke, das hilft")).firstMatch
-        XCTAssertTrue(followUp.waitForExistence(timeout: 15))
-    }
 }

@@ -13,7 +13,7 @@ enum AppTab: Hashable {
         switch scenario {
         case "health", "healthDetail": .health
         case "intelligence": .intelligence
-        case "coach": .coach
+        case "coach", "rookPositive", "rookClarify": .coach
         default: .today
         }
     }

@@ -445,37 +445,124 @@ final class IntelligenceEngine {
 
     // MARK: Automatic check-in (Aktiver Begleiter)
 
-    /// The companion's automatic check-in. The owner allowed on 2026-11-22 that these short summaries go
-    /// to Claude without a preview each time (standing permission, switchable, every send is in the
-    /// history with its cost). Uses Sonnet unless the person picked Haiku; Opus stays for reports.
-    /// Returns nil when the answer could not be used; the caller then falls back to the local text.
-    func runCheckIn(slot: CheckInSlot, context: HealthAnalysisContext, name: String,
-                    modelContext: ModelContext) async -> (message: CheckInMessage, record: StoredAnalysis)? {
+    /// ROOK's automatic check-in. The owner allowed on 2026-11-22 that these short summaries go to Claude
+    /// without a preview each time (standing permission, switchable, every send is in the history with its cost).
+    /// Uses Sonnet unless the person picked Haiku; Opus stays for reports. Returns nil when the answer could not
+    /// be used (provider error or failed checks); the caller then keeps ROOK's local reading.
+    func runCheckIn(slot: CheckInSlot, context: HealthAnalysisContext, subjectID: UUID?,
+                    modelContext: ModelContext) async -> (statement: RookStatement, record: StoredAnalysis)? {
+        await runRook(kind: Self.checkInKind, title: slot.title, system: RookPrompts.checkIn(slot: slot, mode: settings.safetyMode),
+                      user: context.compactJSON(), context: context, subjectID: subjectID, modelContext: modelContext)
+    }
+
+    /// One turn of the conversation with ROOK in the Coach tab. Same model, budget and checks as the check-ins.
+    func runRookConversation(message: String, history: [RookTurn], current: RookStatement?, context: HealthAnalysisContext,
+                             subjectID: UUID?, modelContext: ModelContext) async -> (statement: RookStatement, record: StoredAnalysis)? {
+        let user = RookPrompts.conversationMessage(context: context, current: current, history: history, message: message)
+        return await runRook(kind: Self.rookConversationKind, title: "Gespräch mit ROOK",
+                             system: RookPrompts.conversation(mode: settings.safetyMode), user: user, context: context,
+                             subjectID: subjectID, modelContext: modelContext)
+    }
+
+    private func runRook(kind: String, title: String, system: String, user: String, context: HealthAnalysisContext,
+                         subjectID: UUID?, modelContext: ModelContext) async -> (statement: RookStatement, record: StoredAnalysis)? {
         let model = settings.model == .haiku ? ClaudeModel.haiku : ClaudeModel.sonnet
-        let record = StoredAnalysis(kind: Self.checkInKind, title: slot.title, model: model, contextJSON: context.compactJSON())
-        record.promptVersion = CheckInPrompts.version
+        let record = StoredAnalysis(kind: kind, title: title, model: model, contextJSON: context.compactJSON())
+        record.promptVersion = RookPrompts.version
         modelContext.insert(record)
         beginRun(modelContext: modelContext)
         defer { endRun() }
         do {
-            let body = AnthropicAPI.body(model: model, system: CheckInPrompts.system(slot: slot, mode: settings.safetyMode, name: name),
-                                         messages: [AnthropicAPI.userText(context.compactJSON())],
-                                         schema: CheckInPrompts.schemaV1, effort: "low")
+            let body = AnthropicAPI.body(model: model, system: system, messages: [AnthropicAPI.userText(user)],
+                                         schema: RookPrompts.schema, effort: "low")
             let reply = try await call(body)
             record.apply(reply.response.usage, responder: reply.response.model, model: model)
-            let message = try CheckInValidator.validate(json: reply.response.text, mode: settings.safetyMode)
-            record.resultJSON = Self.json(message)
+            let statement = try RookValidator.statement(json: reply.response.text, context: context, mode: settings.safetyMode,
+                                                        now: .now, subjectID: subjectID, calendar: .current)
+            record.resultJSON = Self.json(statement)
             try? modelContext.save()
-            return (message, record)
+            return (statement, record)
         } catch {
             record.apply(billed, responder: billedResponder ?? model.id, model: model)
             record.statusRaw = "failed"
-            record.errorMessage = error is CheckInValidator.Failure
-                ? "Die Antwort war nicht verwendbar; der Begleiter hat lokal formuliert." : Self.message(for: error)
+            record.errorMessage = error is RookValidator.Failure
+                ? "Die Antwort hat die Prüfung nicht bestanden; ROOK hat lokal formuliert." : Self.message(for: error)
             try? modelContext.save()
             return nil
         }
     }
+
+    /// Free conversation with ROOK, spoken or typed. Streams plain text; each finished, checked sentence goes to
+    /// `onSentence` at once, so speech output starts after the first sentence. Same standing permission, model
+    /// choice and budget as the check-ins; every turn is in the history with its cost. Returns what ROOK said, or nil
+    /// when nothing usable came back.
+    func streamRookSpeech(message: String, history: [RookTurn], current: RookStatement?, context: HealthAnalysisContext,
+                          modelContext: ModelContext, onSentence: (String) -> Void) async -> String? {
+        let model = settings.model == .haiku ? ClaudeModel.haiku : ClaudeModel.sonnet
+        let mode = settings.safetyMode
+        let record = StoredAnalysis(kind: Self.rookConversationKind, title: "Gespräch mit ROOK", model: model,
+                                    contextJSON: context.compactJSON(), question: message)
+        record.promptVersion = RookSpeech.promptVersion
+        modelContext.insert(record)
+        var usage = TokenUsage()
+        var responder = model.id
+        var spoken: [String] = []
+        var buffer = RookSentenceBuffer()
+        do {
+            guard let key = services.secrets.read(), !key.isEmpty else { throw AnthropicError.missingKey }
+            let request = AnthropicAPI.body(model: model, system: RookSpeech.system(mode: mode, context: context, current: current),
+                                            messages: RookSpeech.messages(history: history, message: message),
+                                            schema: nil, effort: "low")
+            let body = AnthropicAPI.streaming(request, maxTokens: RookSpeech.maxOutputTokens)
+            var stopReason: String?
+            for try await event in services.transport.stream(body, apiKey: key) {
+                switch event {
+                case .started(let id, let start):
+                    if !id.isEmpty { responder = id }
+                    usage = usage + start
+                case .text(let delta):
+                    for sentence in buffer.append(delta) {
+                        guard let line = RookSpeech.speakable(sentence, mode: mode) else { continue }
+                        spoken.append(line)
+                        onSentence(line)
+                    }
+                case .finished(let reason, let outputTokens):
+                    stopReason = reason
+                    if outputTokens > 0 { usage.outputTokens = outputTokens }
+                case .failed(let text):
+                    throw SpeechError.failed(text)
+                }
+            }
+            if let rest = buffer.finish(), let line = RookSpeech.speakable(rest, mode: mode) {
+                spoken.append(line)
+                onSentence(line)
+            }
+            if stopReason == "refusal" { throw AnthropicError.refusal }
+            guard !spoken.isEmpty else { throw SpeechError.failed("Leere Antwort") }
+            let text = spoken.joined(separator: " ")
+            record.apply(usage, responder: responder, model: model)
+            record.resultJSON = Self.json(["reply": text])
+            try? modelContext.save()
+            return text
+        } catch {
+            record.apply(usage, responder: responder, model: model)
+            record.statusRaw = "failed"
+            if let speech = error as? SpeechError, case .failed(let text) = speech {
+                record.errorMessage = text
+            } else {
+                record.errorMessage = Self.message(for: error)
+            }
+            try? modelContext.save()
+            return spoken.isEmpty ? nil : spoken.joined(separator: " ")
+        }
+    }
+
+    enum SpeechError: Error {
+        case failed(String)
+    }
+
+    /// `StoredAnalysis.kindRaw` of conversation turns with ROOK.
+    nonisolated static let rookConversationKind = "rook"
 
     /// `StoredAnalysis.kindRaw` of automatic check-ins.
     nonisolated static let checkInKind = "checkin"
@@ -483,7 +570,7 @@ final class IntelligenceEngine {
     /// Reason an automatic check-in may not go to Claude, or nil. Same limits as every other send.
     func checkInBlocker(modelContext: ModelContext) -> String? {
         if !services.hasKey { return "kein Claude-Schlüssel" }
-        let estimate = CostEstimator.estimate(inputCharacters: 18_000, expectedOutputTokens: CheckInPrompts.expectedOutputTokens, model: .sonnet)
+        let estimate = CostEstimator.estimate(inputCharacters: 18_000, expectedOutputTokens: RookPrompts.expectedOutputTokens, model: .sonnet)
         if !spendingBudget(in: modelContext).allows(estimate) { return "Monatsbudget aufgebraucht" }
         return nil
     }

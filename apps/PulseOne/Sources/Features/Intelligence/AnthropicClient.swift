@@ -13,6 +13,32 @@ protocol ClaudeTransport: Sendable {
     func send(_ body: JSONValue, apiKey: String) async throws -> ClaudeReply
     /// Whether the key may use this model (`GET /v1/models/{id}`), also the connection test.
     func hasModel(_ id: String, apiKey: String) async throws -> Bool
+    /// The same request as server-sent events (`"stream": true`), for ROOK's spoken answers.
+    func stream(_ body: JSONValue, apiKey: String) -> AsyncThrowingStream<AnthropicStreamEvent, Error>
+}
+
+extension ClaudeTransport {
+    /// Fallback for transports without streaming (test replies): the whole answer as one piece.
+    func stream(_ body: JSONValue, apiKey: String) -> AsyncThrowingStream<AnthropicStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let response = try await send(body, apiKey: apiKey).response
+                    let usage = response.usage
+                    continuation.yield(.started(model: response.model,
+                                                usage: TokenUsage(inputTokens: usage.inputTokens,
+                                                                  cacheCreationInputTokens: usage.cacheCreationInputTokens,
+                                                                  cacheReadInputTokens: usage.cacheReadInputTokens)))
+                    continuation.yield(.text(response.text))
+                    continuation.yield(.finished(stopReason: response.stopReason, outputTokens: usage.outputTokens))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
 }
 
 struct URLSessionTransport: ClaudeTransport {
@@ -57,6 +83,39 @@ struct URLSessionTransport: ClaudeTransport {
         if status == 200 { return true }
         if status == 404 { return false }
         throw AnthropicError.from(status: status, body: data, retryAfter: retryAfter)
+    }
+
+    func stream(_ body: JSONValue, apiKey: String) -> AsyncThrowingStream<AnthropicStreamEvent, Error> {
+        let urlSession = self.session
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard !apiKey.isEmpty else { throw AnthropicError.missingKey }
+                    var request = URLRequest(url: AnthropicAPI.messagesURL)
+                    request.httpMethod = "POST"
+                    for (field, value) in AnthropicAPI.headers(apiKey: apiKey) { request.setValue(value, forHTTPHeaderField: field) }
+                    request.httpBody = try AnthropicAPI.streaming(body).encoded()
+                    let (bytes, response) = try await urlSession.bytes(for: request)
+                    let http = response as? HTTPURLResponse
+                    let status = http?.statusCode ?? 0
+                    guard status == 200 else {
+                        var data = Data()
+                        for try await byte in bytes { data.append(byte) }
+                        throw AnthropicError.from(status: status, body: data, retryAfter: http?.value(forHTTPHeaderField: "retry-after"))
+                    }
+                    for try await line in bytes.lines {
+                        if let event = AnthropicStreamParser.event(fromLine: line) { continuation.yield(event) }
+                    }
+                    continuation.finish()
+                } catch let error as URLError where [.notConnectedToInternet, .networkConnectionLost, .timedOut,
+                                                      .cannotFindHost, .cannotConnectToHost, .dataNotAllowed].contains(error.code) {
+                    continuation.finish(throwing: AnthropicError.offline)
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, Int, String?) {

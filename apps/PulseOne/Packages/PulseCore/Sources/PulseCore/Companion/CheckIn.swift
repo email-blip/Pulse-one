@@ -282,8 +282,9 @@ public enum LocalCheckIn {
         let text: String
         var urgency = CheckInUrgency.none
         if context.facts.isEmpty {
-            headline = "Noch keine Werte"
-            text = "Ich habe für heute noch keine Messwerte. Sobald dein Ring oder Apple Health liefert, schaue ich wieder rein."
+            // ROOK (plan §9): without values a normal greeting and an offer, never a report about missing data.
+            headline = "Hallo"
+            text = "Wie fühlst du dich heute? Sag es mir kurz, dann planen wir den Tag zusammen."
         } else if strain >= 2 || strong != nil {
             headline = "Dein Körper arbeitet"
             let what = strain >= 2 ? "\(strain) Werte weichen gleichzeitig ab" : "\(strong?.title ?? "Ein Wert") weicht deutlich ab"
@@ -292,11 +293,11 @@ public enum LocalCheckIn {
             markers.insert(CheckInMarker(symbol: .warning, metric: "", text: what), at: 0)
         } else if let first = deviations.first {
             headline = first.direction == .above ? "\(first.title) erhöht" : "\(first.title) niedrig"
-            text = "\(first.title) liegt bei \(number(first.value)) \(first.unit), üblich sind etwa \(number(first.median)). "
-                + "Der Rest bewegt sich in deinem normalen Bereich."
+            text = "\(first.title) liegt heute klar \(first.direction == .above ? "über" : "unter") deinem Üblichen, der Rest passt. "
+                + "Kein Drama, aber ich behalte es im Blick."
         } else {
             headline = slot == .evening ? "Ruhiger Tag" : "Alles im Rahmen"
-            text = "Deine Werte liegen in deinem üblichen Bereich."
+            text = "Alles in deinem Rahmen, nichts zieht gerade an dir."
         }
         return CheckInMessage(headline: headline, text: text, suggestion: suggestion(for: slot, strain: urgency == .watch ? 1 : 0),
                               urgency: urgency, markers: markers)
@@ -320,77 +321,8 @@ public enum LocalCheckIn {
 
 // MARK: - Claude
 
-public enum CheckInPrompts {
-    public static let version = 2
-    /// The short answer keeps the daily cost low (concept §9: about 600 output tokens).
-    public static let expectedOutputTokens = 600
-
-    public static func system(slot: CheckInSlot, mode: SafetyMode, name: String) -> String {
-        let moment: String = switch slot {
-        case .morning: "Es ist Morgen, die Person ist gerade aufgewacht. Erzähle, wie die Nacht war (Schlaf, Ruhepuls, HRV) und was das für den Tag heißt."
-        case .midday: "Es ist Mittag. Ordne den bisherigen Tag ein (Bewegung, Puls, Stress) und sag, was für den Nachmittag sinnvoll ist."
-        case .evening: "Es ist Abend. Ziehe Bilanz über den Tag und gib einen Ausblick auf die Nacht."
-        }
-        return """
-        Du bist \(name), der persönliche Begleiter in der privaten Gesundheits-App PULSE ONE. Du meldest dich von selbst, \
-        ohne dass die Person fragt. \(moment)
-        Ton: locker, direkt, mit trockenem Humor, Du-Form, kurze Sätze. Kein Schleimen, kein Belehren, keine Ausrufezeichen-Ketten, \
-        keine Emojis. Die Person entscheidet selbst; du schlägst vor.
-        Antworte ausschließlich im vorgegebenen JSON-Schema:
-        - headline: höchstens 5 Wörter, wie eine Schlagzeile („Solide Nacht“, „Puls zu hoch“).
-        - text: höchstens 3 Sätze. Zuerst das Wichtigste mit einer konkreten Zahl und dem Vergleich zu ihrem Üblichen, dann \
-        die Deutung. Was wirklich interessant ist, nicht alles aufzählen.
-        - suggestion: genau ein konkreter nächster Schritt mit Zeit oder Dauer, oder leer.
-        - urgency: none, watch (im Blick behalten), clarify (ärztlich abklären), urgent (sofort, Notruf 112).
-        - markers: höchstens 4 Symbole für die Zeitleiste und die Diagramme. symbol: insight (deine Deutung), above/below \
-        (deutlich über/unter dem Üblichen), training, sleep, pattern (wiederkehrendes Muster), note (eigene Notiz), \
-        warning (Warnzeichen), record (Bestwert). metric: der kind-Wert des Fakts oder leer. text: ein kurzer Satz.
-        Sprich zwei oder mehr gleichzeitige Abweichungen (z. B. Ruhepuls hoch und HRV niedrig) ausdrücklich an und nenne \
-        mögliche Ursachen. Bei dünner Datenlage: sag ehrlich, was fehlt, und bleib kurz.
-        Vorrang vor den folgenden Regeln: Nenne in diesen kurzen Meldungen keine Prozent-Wahrscheinlichkeiten für Diagnosen         (es gibt kein kalibriertes Modell dafür); ordne Möglichkeiten nur als „passt gut“, „passt teilweise“ oder „passt kaum“ ein.         Trenne Messung und Deutung sprachlich („gemessen: …“, „das spricht für …“). Sag nie, die Person sei faul gewesen.
-
-        """ + IntelligencePrompts.rules(mode)
-    }
-
-    public static var schemaV1: JSONValue {
-        let marker: [String: JSONValue] = [
-            "symbol": AnalysisSchema.enumeration(MarkerSymbol.allCases.map(\.rawValue)),
-            "metric": AnalysisSchema.string(),
-            "text": AnalysisSchema.string(),
-            "evidence": AnalysisSchema.strings(),
-        ]
-        return AnalysisSchema.object([
-            "headline": AnalysisSchema.string(),
-            "text": AnalysisSchema.string(),
-            "suggestion": AnalysisSchema.string(),
-            "urgency": AnalysisSchema.enumeration(CheckInUrgency.allCases.map(\.rawValue)),
-            "markers": AnalysisSchema.array(AnalysisSchema.object(marker)),
-        ])
-    }
-}
-
-public enum CheckInValidator {
-    public enum Failure: Error, Equatable {
-        case unreadable
-        case unsafe(String)
-    }
-
-    /// Decodes Claude's answer and runs the shared safety rules on every visible sentence. Unknown extra
-    /// fields (the markers' evidence) are ignored; empty markers are dropped; at most four are kept.
-    public static func validate(json: String, mode: SafetyMode) throws -> CheckInMessage {
-        guard let data = json.data(using: .utf8),
-              var message = try? JSONDecoder().decode(CheckInMessage.self, from: data),
-              !message.headline.isEmpty, !message.text.isEmpty
-        else { throw Failure.unreadable }
-        message.text = SafetyRules.removingBoilerplate(message.text)
-        message.markers = Array(message.markers.filter { !$0.text.isEmpty }.prefix(4))
-        let visible = [message.headline, message.text, message.suggestion] + message.markers.map(\.text)
-        for line in visible where !line.isEmpty {
-            if case .reject(_, let reason) = SafetyRules.check(line, mode: mode) { throw Failure.unsafe(reason) }
-        }
-        return message
-    }
-}
+// The prompts and the answer check live in `RookPrompts` and `RookValidator` (ROOK, prompt version 3). The
+// companion prompts v2 (asking to list what is missing, "measured: …" lists) were removed with the rebuild (Auftrag 04).
 
 // MARK: - When to ask Claude and when to notify (P1-005)
 
@@ -414,14 +346,12 @@ public enum CheckInPolicy {
         return now.timeIntervalSince(newestSample) > staleAfter
     }
 
-    /// The local text when the data are stale: says so and interprets nothing.
-    public static func staleMessage(newestSample: Date?, now: Date) -> CheckInMessage {
-        let hours = newestSample.map { Int(now.timeIntervalSince($0) / 3_600) }
-        let text = hours.map { "Die neuesten Werte sind \($0) Stunden alt. Ich deute sie nicht als aktuellen Stand." }
-            ?? "Es liegen noch keine Werte vor."
-        return CheckInMessage(headline: "Noch nicht abgeglichen", text: text,
-                              suggestion: "Ring verbinden, dann gleiche ich ab.", urgency: .none,
-                              markers: [CheckInMarker(symbol: .note, metric: "", text: "Datenlücke")])
+    /// The local text when the data are stale: a normal greeting and an offer (ROOK, plan §9). Old values are
+    /// never interpreted as the current day, and ROOK does not report about syncing.
+    public static func staleMessage(newestSample: Date?, now: Date, calendar: Calendar = .current) -> CheckInMessage {
+        let hello = RookLocal.salutation(at: now, slot: nil, calendar: calendar)
+        return CheckInMessage(headline: hello, text: "Wie fühlst du dich heute? Sag es mir kurz, dann planen wir den Tag zusammen.",
+                              suggestion: "", urgency: .none, markers: [])
     }
 
     public static func shouldCallClaude(fingerprint: String, lastFingerprint: String?, stale: Bool, hasFacts: Bool) -> Bool {

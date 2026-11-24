@@ -339,7 +339,7 @@ public enum InsightEngine {
             interpretation: "Ich deute nichts als aktuelle Nacht, solange die Daten fehlen. Ältere Werte zeige ich nicht als heute.",
             evidence: evidence,
             hypotheses: [
-                InsightHypothesis(id: "H-sync", title: "Ring noch nicht abgeglichen",
+                InsightHypothesis(id: "H-sync", title: "Nacht noch auf dem Ring",
                                   explanation: "Der Ring speichert die Nacht selbst; sie kommt erst beim nächsten Verbinden aufs iPhone.",
                                   supporting: [], against: [], fit: .open),
                 InsightHypothesis(id: "H-worn", title: "Ring nachts nicht getragen oder Akku leer",
@@ -360,7 +360,7 @@ public enum InsightEngine {
         let missing = max(minimumNights - history.count, 1)
         return Insight(
             id: UUID(), profileID: input.profileID, createdAt: input.now, dataThrough: input.newestSample, insightCase: .learning,
-            headline: "Ich lerne dein Normal", observation: "\(history.count) Nächte mit Werten gespeichert.",
+            headline: "Erste Nächte", observation: "\(history.count) Nächte mit Werten gespeichert.",
             interpretation: "Noch \(missing) Nächte, dann kenne ich deinen üblichen Bereich und kann Veränderungen einordnen.",
             evidence: [], hypotheses: [], questions: [], answers: [:],
             action: InsightAction(kind: .observe, text: "Ring nachts tragen.", reason: "Jede Nacht macht den Vergleich genauer."),

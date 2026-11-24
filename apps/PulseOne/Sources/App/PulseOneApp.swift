@@ -118,10 +118,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            // The heart scenario renders the chamber directly so the screenshot needs no tap.
-            if options.usesTestScenario, options.scenario == "heart" {
-                HeartChamberView()
-            } else if options.usesTestScenario, options.scenario == DesignKitReferenceScreen.scenario {
+            if options.usesTestScenario, options.scenario == DesignKitReferenceScreen.scenario {
                 // DesignKit component preview (team 02), the reference for teams 03–05.
                 DesignKitReferenceScreen()
             } else if options.usesTestScenario, options.scenario == "devices" {
