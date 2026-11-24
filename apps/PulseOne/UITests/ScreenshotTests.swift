@@ -4,10 +4,10 @@ import XCTest
 /// PULSE ONE is dark-only until the design profiles land, so the matrix is dark × Dynamic Type.
 @MainActor
 final class ScreenshotTests: XCTestCase {
-    static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices",
+    static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "devices",
                             "onboarding", "dashboard", "dashboardEdit", "timeline", "timelineHypnogram", "profile", "intelligence", "coach",
-                            "companion", "companionWake", "companionConference", "companionActivation",
-                            "insightNormal", "insightNights", "insightGap", "designKit"]
+                            "companion", "companionWake", "companionActivation",
+                            "insightNormal", "insightNights", "insightGap", "rookPositive", "rookClarify", "designKit"]
 
     /// Scenarios that start on a shared screen (its identifier does not carry the scenario name).
     static let screens = ["dashboardEdit": "screen.dashboard", "timelineHypnogram": "screen.timeline"]
@@ -23,7 +23,7 @@ final class ScreenshotTests: XCTestCase {
             }
         }
         capture(scenario: "live", dynamicType: "default", reduceMotion: true)
-        capture(scenario: "heart", dynamicType: "default", reduceMotion: true)
+        capture(scenario: "rookPositive", dynamicType: "default", reduceMotion: true)
         for scenario in ["insightNormal", "insightNights", "insightGap", "designKit", "dashboard", "timeline"] {
             capture(scenario: scenario, dynamicType: "default", reduceMotion: true)
         }
@@ -38,12 +38,21 @@ final class ScreenshotTests: XCTestCase {
             }
         }
         for type in ["default", "xxxl"] {
-            capture(scenario: "intelligence", dynamicType: type, reduceMotion: false, name: "consultation") { app in
-                let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
-                if row.waitForExistence(timeout: 10) { row.tap() }
+            // ROOK: "Warum?" with measurements, comparison and other explanations, and a correction.
+            capture(scenario: "rookClarify", dynamicType: type, reduceMotion: false, name: "why") { app in
+                let why = app.buttons["rook.why"]
+                if why.waitForExistence(timeout: 10) { why.tap() }
             }
-            // Team 03: "Warum?" under ROOK's statement, and a picked sleep phase in the hypnogram.
-            capture(scenario: "dashboard", dynamicType: type, reduceMotion: false, name: "why") { app in
+            capture(scenario: "rookPositive", dynamicType: type, reduceMotion: false, name: "rookCorrected",
+                    expectedScreen: "rook.insight") { app in
+                let correct = app.buttons["rook.correct"]
+                if correct.waitForExistence(timeout: 10) { correct.tap() }
+                let sick = app.buttons["correction.sick"]
+                if sick.waitForExistence(timeout: 10) { sick.tap() }
+            }
+            // Team 03: "Warum?" from the dashboard, and a picked sleep phase in the hypnogram.
+            capture(scenario: "dashboard", dynamicType: type, reduceMotion: false, name: "dashboardWhy",
+                    expectedScreen: "screen.why") { app in
                 let why = app.buttons["rook.why"]
                 if why.waitForExistence(timeout: 10) { why.tap() }
             }

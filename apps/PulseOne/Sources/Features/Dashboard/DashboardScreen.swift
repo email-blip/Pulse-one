@@ -16,7 +16,6 @@ struct DashboardScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
     @Environment(RingStore.self) private var ring
-    @Environment(ProfileStore.self) private var profile
     @Environment(AppNavigator.self) private var navigator
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -28,7 +27,6 @@ struct DashboardScreen: View {
     @State private var editing = LaunchOptions.current.usesTestScenario && LaunchOptions.current.scenario == "dashboardEdit"
     @State private var dropTarget: String?
     @State private var path: [DashboardRoute] = DashboardScreen.initialPath
-    @State private var why: CoachInsight?
     @State private var speaker = BriefingSpeaker()
     @Namespace private var zoom
 
@@ -46,8 +44,7 @@ struct DashboardScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DKSpace.xl) {
                     if showsOwnBanner { TestBanner() }
-                    RookPanel(content: rookContent, isSpeaking: speaker.isSpeaking,
-                              onSpeak: toggleSpeech, onAction: perform, onWhy: { why = model.insight })
+                    rook
                     cockpit
                     if let night = model.lastNight, let bed = night.inBed {
                         SleepPreview(night: night, calendar: model.calendar) {
@@ -76,15 +73,6 @@ struct DashboardScreen: View {
             }
             .navigationDestination(for: DashboardRoute.self) { route in destination(route) }
             .task(id: refreshToken) { reload() }
-            .sheet(item: $why) { insight in
-                RookWhySheet(insight: insight) { evidence in
-                    why = nil
-                    let track = evidence.kind.map { DashboardTile.metric($0).track } ?? .heartRate
-                    navigator.openTimeline(TimelineFocus(track: track, cursor: evidence.window.start.addingTimeInterval(evidence.window.duration / 2),
-                                                         window: evidence.window.padded(by: 2 * 3600)))
-                }
-                .preferredColorScheme(.dark)
-            }
             .onDisappear { speaker.stop() }
         }
     }
@@ -115,39 +103,26 @@ struct DashboardScreen: View {
 
     // MARK: ROOK
 
-    private var rookContent: RookContent {
-        if let insight = model.insight {
-            return RookContent(insight: insight)
+    /// Team 04's ROOK card (statement, action, "Warum?", corrections); actions and evidence reach the other tabs
+    /// through the handlers MainTabView sets. "Vorlesen" reads the statement aloud.
+    private var rook: some View {
+        VStack(alignment: .trailing, spacing: DKSpace.s) {
+            RookCard()
+            Button(action: toggleSpeech) {
+                Label(speaker.isSpeaking ? "Stopp" : "Vorlesen", systemImage: speaker.isSpeaking ? "stop.fill" : "speaker.wave.2")
+            }
+            .buttonStyle(DKPillButtonStyle())
+            .accessibilityIdentifier("rook.speak")
         }
-        let greeting = profile.profile.greeting(at: now, calendar: .current)
-        if !model.hasAnyValue, model.loaded {
-            return RookContent(headline: greeting,
-                               body: "Noch keine Werte. Verbinde deinen Ring, dann zeige ich dir hier deine Nacht und deinen Tag.",
-                               action: CoachAction(kind: .none, title: "Ring verbinden"), actionID: "openRing", hasWhy: false)
-        }
-        return RookContent(headline: greeting, body: "Schau dir an, wie deine Nacht und dein Tag bisher gelaufen sind.",
-                           action: CoachAction(kind: .openTimeline, title: "Verlauf öffnen"), actionID: "rook.action", hasWhy: false)
     }
 
     private func toggleSpeech() {
         if speaker.isSpeaking {
             speaker.stop()
+        } else if let statement = RookStore.shared.current {
+            speaker.speak("\(statement.headline) \(statement.insight.interpretation)")
         } else {
-            let content = rookContent
-            speaker.speak([content.headline, content.body].joined(separator: " "))
-        }
-    }
-
-    private func perform(_ action: CoachAction) {
-        switch action.kind {
-        case .startWorkout, .moveNow:
-            navigator.tab = .coach
-        case .openTimeline:
-            navigator.openTimeline(TimelineFocus(track: .heartRate, cursor: nil, window: nil))
-        case .none:
-            path.append(.connect)
-        case .rest, .goToBed, .askUser, .seeDoctor:
-            why = model.insight
+            speaker.speak("Hallo, schön, dass du da bist. Wie fühlst du dich heute?")
         }
     }
 
@@ -255,7 +230,7 @@ struct DashboardScreen: View {
     private var moreMenu: some View {
         Menu {
             Button { path.append(.companion) } label: { Label("Begleiter", systemImage: "sun.horizon") }
-            Button { navigator.showMore = true } label: { Label("Analysen und Sprechstunde", systemImage: "sparkles") }
+            Button { navigator.showMore = true } label: { Label("Analysen", systemImage: "sparkles") }
             Button { path.append(.connect) } label: { Label("Ring und Messung", systemImage: "circle.circle") }
         } label: {
             Image(systemName: "ellipsis.circle")

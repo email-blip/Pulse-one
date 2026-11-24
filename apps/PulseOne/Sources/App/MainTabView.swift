@@ -46,6 +46,8 @@ struct MainTabView: View {
         }
         .tint(DKColor.accent)
         .environment(navigator)
+        // ROOK's evidence ("Warum?", team 04) opens the Verlauf here; its action handler belongs to 05 (#61).
+        .environment(\.openTimeline, RookTimelineHandler { [nav = self.navigator] state in nav.openTimeline(state: state) })
         .environment(\.openProfile) { showProfile = true }
         .sheet(isPresented: $showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.

@@ -6,14 +6,13 @@ final class AccessibilityTests: XCTestCase {
     func testStartAudit() throws { try audit(scenario: "start") }
     func testScanningAudit() throws { try audit(scenario: "scanning") }
     func testLiveAudit() throws { try audit(scenario: "live") }
-    func testHeartAudit() throws { try audit(scenario: "heart") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
     func testDashboardAudit() throws { try audit(scenario: "dashboard") }
     /// The tile editor (team 03): arrows, size menu and on/off switch per tile.
     func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard") }
     func testTimelineAudit() throws { try audit(scenario: "timeline") }
-    /// ROOK's "Warum?" with the numbers behind the statement.
+    /// ROOK's "Warum?" from the dashboard, with the numbers behind the statement.
     func testWhyAudit() throws {
         try audit(scenario: "dashboard", screen: "why") { app in
             let why = app.buttons["rook.why"]
@@ -22,15 +21,17 @@ final class AccessibilityTests: XCTestCase {
         }
     }
     func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
-    /// The stored consultation of the test scenario, opened from the Analyse tab.
-    func testConsultationAudit() throws {
-        try audit(scenario: "intelligence", screen: "consultation") { app in
-            let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Seit ein paar Tagen müde")).firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 15))
-            row.tap()
+    func testCoachAudit() throws { try audit(scenario: "coach") }
+    /// ROOK's two demonstration cases (team 04) and the "Warum?" sheet.
+    func testRookPositiveAudit() throws { try audit(scenario: "rookPositive") }
+    func testRookClarifyAudit() throws { try audit(scenario: "rookClarify") }
+    func testRookWhyAudit() throws {
+        try audit(scenario: "rookClarify", screen: "why") { app in
+            let why = app.buttons["rook.why"]
+            XCTAssertTrue(why.waitForExistence(timeout: 15))
+            why.tap()
         }
     }
-    func testCoachAudit() throws { try audit(scenario: "coach") }
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }

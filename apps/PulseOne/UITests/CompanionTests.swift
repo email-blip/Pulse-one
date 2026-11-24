@@ -49,27 +49,6 @@ final class CompanionTests: XCTestCase {
         XCTAssertTrue(app.buttons["wake.done"].waitForExistence(timeout: 10))
     }
 
-    /// The expert round opens with the stored sample round; asking again runs offline through the test
-    /// transport after the preview was confirmed.
-    func testConferenceShowsStoredRoundAndRunsOffline() throws {
-        let app = launch("companionConference")
-        XCTAssertTrue(app.descendants(matching: .any)["screen.companionConference"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.descendants(matching: .any)["testBanner"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["conference.disclaimer"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["conference.synthesis"].waitForExistence(timeout: 10),
-                      "stored sample round did not appear")
-
-        let ask = app.buttons["conference.ask"]
-        XCTAssertTrue(ask.waitForExistence(timeout: 10))
-        ask.tap()
-        let send = app.buttons["conference.send"]
-        XCTAssertTrue(send.waitForExistence(timeout: 10), "send preview did not appear")
-        XCTAssertTrue(app.descendants(matching: .any)["conference.facts"].exists)
-        send.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["conference.synthesis"].waitForExistence(timeout: 20))
-        XCTAssertFalse(app.descendants(matching: .any)["conference.error"].exists)
-    }
-
     func testCompanionAccessibilityAudit() throws {
         let app = launch("companion")
         XCTAssertTrue(app.descendants(matching: .any)["screen.companion"].waitForExistence(timeout: 15))

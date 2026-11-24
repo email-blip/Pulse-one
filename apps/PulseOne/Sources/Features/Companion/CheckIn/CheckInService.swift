@@ -115,7 +115,7 @@ struct CheckInSettings {
         nonmutating set { UserDefaults.standard.set(newValue, forKey: Self.nameKey) }
     }
 
-    static let defaultName = "Nox"
+    static let defaultName = RookLocal.name
 }
 
 /// The active companion: looks at the values in the morning, at midday and in the evening without being
@@ -192,8 +192,11 @@ final class CheckInService {
             log.info("Check-in \(slot.rawValue, privacy: .public) skipped: nothing new")
             return
         }
-        let local = stale ? CheckInPolicy.staleMessage(newestSample: newest, now: now)
-            : LocalCheckIn.compose(slot: slot, context: analysisContext, name: name)
+        // ROOK's own reading from the stored nights; Claude may replace it below after the local checks.
+        let input = InsightInputBuilder.make(context: context, owner: owner, now: now, calendar: calendar)
+        let reading = RookLocal.statement(from: InsightEngine.build(input, calendar: calendar), slot: slot, subjectID: owner,
+                                          calendar: calendar)
+        let local = stale ? CheckInPolicy.staleMessage(newestSample: newest, now: now, calendar: calendar) : reading.checkInMessage
         var message = local
         var source = "local"
         var cost = 0.0
@@ -206,12 +209,13 @@ final class CheckInService {
             hasFacts: !analysisContext.facts.isEmpty))
         if route == .claude {
             // A provider error returns nil and keeps the local message.
-            let answer = await engine.runCheckIn(slot: slot, context: analysisContext, name: name, modelContext: context)
-            let merged = CheckInGate.merge(local: local, claude: answer?.message)
+            let answer = await engine.runCheckIn(slot: slot, context: analysisContext, subjectID: owner, modelContext: context)
+            let merged = CheckInGate.merge(local: local, claude: answer?.statement.checkInMessage)
             message = merged.message
-            if merged.fromClaude {
+            if merged.fromClaude, let answer {
                 source = "claude"
-                cost = answer?.record.costUSD ?? 0
+                cost = answer.record.costUSD
+                RookMemory.record(answer.statement)
             }
         } else if case .local(let reason) = route {
             log.info("Check-in stays local: \(reason.rawValue, privacy: .public)")
@@ -248,7 +252,7 @@ final class CheckInService {
             cadence: "bis zu 3 Prüfungen am Tag, nur bei neuen Werten",
             modelID: intelligence.model == .haiku ? ClaudeModel.haiku.id : ClaudeModel.sonnet.id,
             monthlyBudgetUSD: intelligence.monthlyBudgetUSD, maxSendsPerMonth: intelligence.maxSendsPerMonth,
-            promptVersion: CheckInPrompts.version)
+            promptVersion: RookPrompts.version)
         var descriptor = FetchDescriptor<StoredConsentLog>(sortBy: [SortDescriptor(\.date, order: .reverse)])
         descriptor.fetchLimit = 1
         let last = (try? context.fetch(descriptor))?.first
