@@ -105,7 +105,7 @@ struct CoachScreen: View {
 
     private func lead(_ s: CoachSnapshot) -> some View {
         let primary = WorkoutBuilder.primaryBlock(of: s.plan)
-        let lead = CoachHeadline.make(plan: s.plan, doneToday: s.doneToday, canStart: primary != nil)
+        let lead = CoachLead.make(plan: s.plan, doneToday: s.doneToday, canStart: primary != nil)
         return VStack(alignment: .leading, spacing: Spacing.m) {
             HStack(spacing: Spacing.s) {
                 Circle()

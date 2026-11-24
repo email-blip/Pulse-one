@@ -289,13 +289,13 @@ struct TrainingTests {
 
     @Test func headlineTone() {
         let rest = DailyPlan(day: t0, decision: .rest, signals: [], planned: .rest, suggested: .rest, blocks: [], notes: [])
-        let lead = CoachHeadline.make(plan: rest, doneToday: [], canStart: false)
+        let lead = CoachLead.make(plan: rest, doneToday: [], canStart: false)
         #expect(lead.actionTitle == nil)
         let banned = ["lernt noch", "Basislinie", "kein Arzt", "fehlt", "unbekannt"]
         let session = PlannedSession(kind: .main, sport: .strength, minutes: 30, intensity: .moderate)
         for decision in [ReadinessDecision.asPlanned, .offerLighter, .easyOrRecovery, .rest, .seekHelp] {
             let plan = DailyPlan(day: t0, decision: decision, signals: [], planned: session, suggested: session, blocks: [], notes: [])
-            let text = CoachHeadline.make(plan: plan, doneToday: [], canStart: true)
+            let text = CoachLead.make(plan: plan, doneToday: [], canStart: true)
             #expect(!banned.contains { text.headline.contains($0) || text.line.contains($0) })
         }
     }
