@@ -175,12 +175,23 @@ struct TimelineScreen: View {
                 model.select(segment)
             }
             .overlay { CursorLine(model: model) }
-            if let segment = model.selectedSegment {
-                Text(hypnogramText(segment))
-                    .font(DKFont.label)
-                    .foregroundStyle(DKColor.textPrimary)
-                    .wraps()
-                    .accessibilityIdentifier("hypnogram.selection")
+            // The longest interval text is reserved (hidden), so picking or clearing a phase never moves the
+            // tracks below.
+            ZStack(alignment: .topLeading) {
+                if let longest = model.visibleSegments.map { hypnogramText($0) }.max(by: { $0.count < $1.count }) {
+                    Text(longest)
+                        .font(DKFont.label)
+                        .wraps()
+                        .hidden()
+                        .accessibilityHidden(true)
+                }
+                if let segment = model.selectedSegment {
+                    Text(hypnogramText(segment))
+                        .font(DKFont.label)
+                        .foregroundStyle(DKColor.textPrimary)
+                        .wraps()
+                        .accessibilityIdentifier("hypnogram.selection")
+                }
             }
             HypnogramLegendColumn(hasUnknown: model.visibleSegments.contains { $0.phase == .unknown })
         }
@@ -371,62 +382,86 @@ struct CursorReadout: View {
     var body: some View {
         let rows = model.cursorRows
         DKCard {
-            if rows.isEmpty, model.selectedSegment == nil {
-                Text("Tippe auf die Spuren oder halte und ziehe, um jeden Messpunkt mit Uhrzeit zu sehen.")
-                    .font(DKFont.body)
-                    .foregroundStyle(DKColor.textSecondary)
-                    .wraps()
-            } else {
-                VStack(alignment: .leading, spacing: DKSpace.s) {
-                    ForEach(rows) { row in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
-                                Text(row.title)
-                                    .font(DKFont.label)
-                                    .foregroundStyle(DKColor.textSecondary)
-                                Spacer(minLength: DKSpace.xs)
-                                Text(row.value)
-                                    .font(DKFont.bodyEmphasis)
-                                    .foregroundStyle(DKColor.textPrimary)
-                                    .monospacedDigit()
-                                Text(row.time)
-                                    .font(DKFont.label)
-                                    .foregroundStyle(DKColor.textSecondary)
-                                    .monospacedDigit()
-                            }
-                            if let note = row.note {
-                                Text(note).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                            }
-                            if showsSource, let source = row.source {
-                                Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                            }
-                        }
-                    }
-                    if let event = model.cursorEvent {
-                        Text("Training · \(event.detail)")
-                            .font(DKFont.label)
-                            .foregroundStyle(DKColor.textPrimary)
-                    }
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(label(rows))
-                .accessibilityIdentifier("timeline.selection")
-                FlowLayout(spacing: DKSpace.s) {
-                    Button("Voriger Punkt") { model.stepCursor(forward: false) }
-                        .buttonStyle(DKPillButtonStyle())
-                        .accessibilityIdentifier("timeline.previousPoint")
-                    Button("Nächster Punkt") { model.stepCursor(forward: true) }
-                        .buttonStyle(DKPillButtonStyle())
-                        .accessibilityIdentifier("timeline.nextPoint")
-                    if rows.contains(where: { $0.source != nil }) {
-                        Button(showsSource ? "Quelle aus" : "Quelle") { showsSource.toggle() }
-                            .buttonStyle(DKTextButtonStyle())
-                            .accessibilityIdentifier("timeline.source")
-                    }
+            // A hidden copy with a row (and note) for every track holds the card at its tallest, so the tracks
+            // below never move when a tap fills the read-out (it grew from 2 to 5 rows and pushed the chart
+            // about 120 pt down). Only "Quelle", asked for by the person, may still make it taller.
+            ZStack(alignment: .topLeading) {
+                reading(placeholderRows, event: "Training", sources: false)
+                    .hidden()
+                    .accessibilityHidden(true)
+                if rows.isEmpty, model.selectedSegment == nil {
+                    Text("Tippe auf die Spuren oder halte und ziehe, um jeden Messpunkt mit Uhrzeit zu sehen.")
+                        .font(DKFont.body)
+                        .foregroundStyle(DKColor.textSecondary)
+                        .wraps()
+                } else {
+                    reading(rows, event: model.cursorEvent.map { "Training · \($0.detail)" }, sources: showsSource)
                 }
             }
         }
         .dkMotion(.pointSelect, value: model.cursor)
+    }
+
+    /// Rows, the training line and the point buttons; the same layout for the reading and its placeholder.
+    private func reading(_ rows: [CursorRow], event: String?, sources: Bool) -> some View {
+        VStack(alignment: .leading, spacing: DKSpace.m) {
+            VStack(alignment: .leading, spacing: DKSpace.s) {
+                ForEach(rows) { row in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
+                            Text(row.title)
+                                .font(DKFont.label)
+                                .foregroundStyle(DKColor.textSecondary)
+                            Spacer(minLength: DKSpace.xs)
+                            Text(row.value)
+                                .font(DKFont.bodyEmphasis)
+                                .foregroundStyle(DKColor.textPrimary)
+                                .monospacedDigit()
+                            Text(row.time)
+                                .font(DKFont.label)
+                                .foregroundStyle(DKColor.textSecondary)
+                                .monospacedDigit()
+                        }
+                        if let note = row.note {
+                            Text(note).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
+                        }
+                        if sources, let source = row.source {
+                            Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
+                        }
+                    }
+                }
+                if let event {
+                    Text(event)
+                        .font(DKFont.label)
+                        .foregroundStyle(DKColor.textPrimary)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(label(rows))
+            .accessibilityIdentifier("timeline.selection")
+            FlowLayout(spacing: DKSpace.s) {
+                Button("Voriger Punkt") { model.stepCursor(forward: false) }
+                    .buttonStyle(DKPillButtonStyle())
+                    .accessibilityIdentifier("timeline.previousPoint")
+                Button("Nächster Punkt") { model.stepCursor(forward: true) }
+                    .buttonStyle(DKPillButtonStyle())
+                    .accessibilityIdentifier("timeline.nextPoint")
+                if rows.contains(where: { $0.source != nil }) {
+                    Button(showsSource ? "Quelle aus" : "Quelle") { showsSource.toggle() }
+                        .buttonStyle(DKTextButtonStyle())
+                        .accessibilityIdentifier("timeline.source")
+                }
+            }
+        }
+    }
+
+    /// The tallest reading this window can show: every track it draws, each with a note line.
+    private var placeholderRows: [CursorRow] {
+        TimelineModel.valueTracks.compactMap { track in
+            guard let kind = model.kinds[track] else { return nil }
+            return CursorRow(track: track, title: MetricStyleName.name(kind), value: "000 \(kind.displayUnit)",
+                             time: "00:00–00:00", note: "keine Messung an dieser Stelle", source: "Quelle")
+        }
     }
 
     private func label(_ rows: [CursorRow]) -> String {
