@@ -12,10 +12,17 @@ final class AppNavigator {
     private(set) var timelineRequest = 0
     /// The "Mehr" area (Begleiter, analyses, Sprechstunde) shown as a sheet from the dashboard.
     var showMore: Bool
+    /// The profile sheet (profile, ring, devices), opened from the top right of every tab.
+    var showProfile: Bool
 
-    init(tab: AppTab, showMore: Bool = false) {
+    /// True while a sheet covers the tabs: their own content then stays out of the accessibility tree (the
+    /// profile sheet's ring orb and ROOK's orb below it both carry the identifier "orb").
+    var coveredBySheet: Bool { showProfile || showMore }
+
+    init(tab: AppTab, showMore: Bool = false, showProfile: Bool = false) {
         self.tab = tab
         self.showMore = showMore
+        self.showProfile = showProfile
     }
 
     func openTimeline(_ focus: TimelineFocus?) {

@@ -19,7 +19,6 @@ enum AppTab: Hashable {
 struct MainTabView: View {
     let options: LaunchOptions
     @State private var navigator: AppNavigator
-    @State private var showProfile: Bool
     @Environment(RingStore.self) private var ring
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
@@ -33,26 +32,16 @@ struct MainTabView: View {
         self.options = options
         let scenario = options.usesTestScenario ? options.scenario : nil
         _navigator = State(initialValue: AppNavigator(tab: AppTab.forScenario(scenario),
-                                                      showMore: scenario == "intelligence"))
-        _showProfile = State(initialValue: options.usesTestScenario && options.scenario == "profile")
+                                                      showMore: scenario == "intelligence",
+                                                      showProfile: scenario == "profile"))
     }
-
-    private var coveredBySheet: Bool { showProfile || navigator.showMore }
 
     var body: some View {
         @Bindable var navigator = navigator
         TabView(selection: $navigator.tab) {
-            // While a sheet covers the tabs, their content is hidden from accessibility: the profile sheet has
-            // its own ring orb, and two "orb" elements at once made the walkthrough audit ambiguous.
-            Tab("Dashboard", systemImage: "square.grid.2x2", value: AppTab.dashboard) {
-                DashboardScreen().accessibilityHidden(coveredBySheet)
-            }
-            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.timeline) {
-                TimelineTab().accessibilityHidden(coveredBySheet)
-            }
-            Tab("Coach", systemImage: "figure.run", value: AppTab.coach) {
-                CoachScreen().accessibilityHidden(coveredBySheet)
-            }
+            Tab("Dashboard", systemImage: "square.grid.2x2", value: AppTab.dashboard) { DashboardScreen() }
+            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.timeline) { TimelineTab() }
+            Tab("Coach", systemImage: "figure.run", value: AppTab.coach) { CoachScreen() }
         }
         .tint(DKColor.accent)
         .environment(navigator)
@@ -65,8 +54,8 @@ struct MainTabView: View {
             guard action.kind == .startWorkout, let context = sources.modelContext else { return }
             TrainingController.shared.openToday(context: context, profileID: sources.ownerProfileID, now: .now)
         })
-        .environment(\.openProfile) { showProfile = true }
-        .sheet(isPresented: $showProfile) {
+        .environment(\.openProfile) { [nav = self.navigator] in nav.showProfile = true }
+        .sheet(isPresented: $navigator.showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.
             ProfileSheet(options: options)
                 .environment(ring)
@@ -103,6 +92,7 @@ private struct TimelineTab: View {
         NavigationStack {
             TimelineScreen(focus: navigator.timelineFocus)
                 .id(navigator.timelineRequest)
+                .accessibilityHidden(navigator.coveredBySheet)
                 .profileToolbar()
         }
     }
