@@ -115,10 +115,14 @@ struct TrainingRunView: View {
 
     private var header: some View {
         HStack {
-            Button("Beenden") { training.finish() }
-                .font(Typography.label)
-                .foregroundStyle(Palette.ink)
-                .frame(minHeight: 44)
+            Button { training.finish() } label: {
+                // Frame inside the label: the whole 44 pt area is the hit area (audit).
+                Text("Beenden")
+                    .font(Typography.label)
+                    .foregroundStyle(Palette.ink)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
                 .accessibilityIdentifier("workout.finish")
             Spacer()
             Text("Abschnitt \(min(session.stepIndex + 1, session.steps.count)) von \(session.steps.count)")

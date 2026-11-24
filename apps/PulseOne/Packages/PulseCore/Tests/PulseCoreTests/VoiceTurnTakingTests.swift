@@ -40,7 +40,8 @@ struct VoiceTurnTakingTests {
             Issue.record("no utterance")
             return
         }
-        #expect(voice.answerStarted(for: utterance.turn))
+        let started = voice.answerStarted(for: utterance.turn)
+        #expect(started)
         #expect(voice.phase == .speaking)
         #expect(voice.phase.presence == .speaking)
         voice.answerFinished(at: at(8))
@@ -56,7 +57,8 @@ struct VoiceTurnTakingTests {
             Issue.record("no utterance")
             return
         }
-        #expect(voice.answerStarted(for: utterance.turn))
+        let started = voice.answerStarted(for: utterance.turn)
+        #expect(started)
         // Echo or a short sound does not interrupt.
         #expect(voice.heard("ja", at: at(4)) == nil)
         #expect(voice.phase == .speaking)
@@ -64,7 +66,8 @@ struct VoiceTurnTakingTests {
         #expect(voice.phase == .listening)
         #expect(voice.partial == "Warte mal, anders gefragt")
         // The answer to the old turn may not start any more.
-        #expect(!voice.answerStarted(for: utterance.turn))
+        let lateStart = voice.answerStarted(for: utterance.turn)
+        #expect(!lateStart)
     }
 
     @Test func talkingOnWhileRookThinksDropsTheOldAnswer() {
@@ -77,7 +80,8 @@ struct VoiceTurnTakingTests {
         }
         _ = voice.heard("und der Puls", at: at(3.5))
         #expect(voice.phase == .listening)
-        #expect(!voice.answerStarted(for: first.turn))
+        let started = voice.answerStarted(for: first.turn)
+        #expect(!started)
         guard case .utterance(let second) = voice.tick(at: at(5)) else {
             Issue.record("no second utterance")
             return
