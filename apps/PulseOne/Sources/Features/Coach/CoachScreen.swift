@@ -51,6 +51,8 @@ struct CoachScreen: View {
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.xl)
                 }
+                // Ends above the tab bar (03, EndsAboveTabBar): text resting under the glass failed the audit.
+                .modifier(EndsAboveTabBar(pageBackground: false))
             }
             .navigationTitle("Coach")
             .profileToolbar()

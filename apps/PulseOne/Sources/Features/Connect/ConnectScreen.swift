@@ -51,6 +51,8 @@ struct ConnectScreen: View {
                 .padding(.bottom, Spacing.xl)
             }
             .scrollBounceBehavior(.basedOnSize)
+            // Ends above the tab bar (03, EndsAboveTabBar): text resting under the glass failed the audit.
+            .modifier(EndsAboveTabBar(pageBackground: false))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("screen.\(options.scenario ?? "start")")

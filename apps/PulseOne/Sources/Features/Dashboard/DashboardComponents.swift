@@ -195,13 +195,23 @@ struct MiniHypnogram: View {
 /// text without an element (runs 204, 213). Ending the scroll view one point above the safe-area edge stops it
 /// from extending under the bar, so content there is simply scrolled out of view, as with an opaque bar.
 /// The page background still fills the whole screen behind the glass.
+/// Screens that draw their own full-screen background behind the scroll view (Coach, Profil) pass
+/// `pageBackground: false`.
 struct EndsAboveTabBar: ViewModifier {
+    var pageBackground = true
+
     func body(content: Content) -> some View {
-        VStack(spacing: 0) {
+        let wrapped = VStack(spacing: 0) {
             content
             Color.clear
                 .frame(height: 1)
                 .accessibilityHidden(true)
+        }
+        // The wrapper still touches every edge, so the page background fills the screen behind the bars.
+        if pageBackground {
+            wrapped.dkPageBackground()
+        } else {
+            wrapped
         }
     }
 }

@@ -57,7 +57,6 @@ struct DashboardScreen: View {
                 .padding(.horizontal, DKSpace.page)
                 .padding(.bottom, DKSpace.xxl)
             }
-            .dkPageBackground()
             .modifier(EndsAboveTabBar())
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen.dashboard")
