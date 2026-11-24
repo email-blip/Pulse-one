@@ -8,9 +8,10 @@ final class AccessibilityTests: XCTestCase {
     func testLiveAudit() throws { try audit(scenario: "live") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
-    func testDashboardAudit() throws { try audit(scenario: "dashboard") }
+    /// Dashboards are longer than the screen: audited at every scroll position (AuditPolicy.runScrolled).
+    func testDashboardAudit() throws { try audit(scenario: "dashboard", scrolled: true) }
     /// The tile editor (team 03): arrows, size menu and on/off switch per tile.
-    func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard") }
+    func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard", scrolled: true) }
     func testTimelineAudit() throws { try audit(scenario: "timeline") }
     /// ROOK's "Warum?" from the dashboard, with the numbers behind the statement.
     func testWhyAudit() throws {
@@ -55,11 +56,16 @@ final class AccessibilityTests: XCTestCase {
         try M1.skipIfMissing { try M1.open(place, in: app) }
         // Same settle time as the other screens: text must not be measured mid-fade.
         Thread.sleep(forTimeInterval: 2)
-        try AuditPolicy.run(app, name: "m1-\(place.rawValue)")
+        if place == .dashboard || place == .dashboardEdit {
+            try AuditPolicy.runScrolled(app, name: "m1-\(place.rawValue)")
+        } else {
+            try AuditPolicy.run(app, name: "m1-\(place.rawValue)")
+        }
     }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
-    private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {
+    private func audit(scenario: String, screen: String? = nil, scrolled: Bool = false,
+                       prepare: ((XCUIApplication) -> Void)? = nil) throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
@@ -72,10 +78,15 @@ final class AccessibilityTests: XCTestCase {
         // Let the launch transition finish: run 4 reported contrast on text that is still fading in.
         // Tab screens load SwiftData queries and charts first; 1.5 s still caught text mid-fade on them (run 36).
         Thread.sleep(forTimeInterval: 3)
-        try AuditPolicy.run(app, name: scenario) { issue, barFrames in
+        let extra: (XCUIAccessibilityAuditIssue, [CGRect]) -> Bool = { issue, barFrames in
             // Only on the nutrition screen: a contrast finding without element (frame 0×0) seen once on a slow
             // runner (PR #32). Scoped to this screen so element-less findings elsewhere still fail.
             scenario == "nutrition" && issue.auditType == .contrast && issue.element == nil && !barFrames.isEmpty
+        }
+        if scrolled {
+            try AuditPolicy.runScrolled(app, name: scenario, extra: extra)
+        } else {
+            try AuditPolicy.run(app, name: scenario, extra: extra)
         }
     }
 }

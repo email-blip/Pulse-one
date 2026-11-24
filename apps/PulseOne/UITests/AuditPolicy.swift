@@ -19,6 +19,10 @@ enum AuditPolicy {
         let navFrames = app.navigationBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -56) }
         let tabFrames = app.tabBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -72) }
         let barFrames = navFrames + tabFrames
+        // Content text lying under the floating tab bar (outside the bar's own items). SwiftUI keeps these covered
+        // nodes in the tree, and the audit reports some of them a second time without an element (frame 0, run 213).
+        let coveredTexts = tabFrames.isEmpty ? 0 : coveredTextCount(app, in: tabFrames)
+        var toleratedWithoutElement = 0
 
         let handler: (XCUIAccessibilityAuditIssue) throws -> Bool = { issue in
             let element = issue.element
@@ -36,6 +40,14 @@ enum AuditPolicy {
             // Large Content Viewer instead of scaling (run on PR #26). Content buttons still must scale.
             if issue.auditType == .dynamicType, element?.elementType == .button, let frame = element?.frame,
                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.exists && $0.frame.intersects(frame) }) {
+                return true
+            }
+            // A contrast finding without element is tolerated only while text is provably covered by the tab bar,
+            // and at most once per covered text; any further one fails. Each is reported (DECISIONS.md, run 213).
+            if issue.auditType == .contrast, element == nil, toleratedWithoutElement < coveredTexts {
+                toleratedWithoutElement += 1
+                print("::warning title=Audit geduldet (\(name))::Kontrast ohne Element, verdeckt unter der Tab-Leiste: "
+                      + "\(toleratedWithoutElement) von \(coveredTexts) verdeckten Texten")
                 return true
             }
             // Text the audit finds only in the pixels (no element) is the content seen through the bar glass.
@@ -56,5 +68,49 @@ enum AuditPolicy {
         } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
             try app.performAccessibilityAudit(for: .all, handler)
         }
+    }
+
+    /// Audits a scrolling screen at every scroll position from the top to the end (at most `maxPositions`), so each
+    /// tile is checked at least once where it is visible and not under a bar. Stops when a swipe no longer
+    /// changes the visible texts.
+    static func runScrolled(_ app: XCUIApplication, name: String, maxPositions: Int = 4,
+                            extra: ((XCUIAccessibilityAuditIssue, _ barFrames: [CGRect]) -> Bool)? = nil) throws {
+        var previous: [String] = []
+        for position in 1...maxPositions {
+            let visible = visibleTexts(app)
+            if position > 1, visible == previous { break }
+            try run(app, name: position == 1 ? name : "\(name)@\(position)", extra: extra)
+            previous = visible
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 1.5)   // let scrolling and fades settle before the next audit
+        }
+    }
+
+    /// Static texts of the content (not of the tab bar itself) whose frame lies in the tab bar region.
+    private static func coveredTextCount(_ app: XCUIApplication, in tabFrames: [CGRect]) -> Int {
+        guard let root = try? app.snapshot() else { return 0 }
+        var count = 0
+        var stack: [any XCUIElementSnapshot] = [root]
+        while let node = stack.popLast() {
+            if node.elementType == .tabBar { continue }
+            if node.elementType == .staticText, !node.frame.isEmpty,
+               tabFrames.contains(where: { $0.intersects(node.frame) }) {
+                count += 1
+            }
+            stack.append(contentsOf: node.children)
+        }
+        return count
+    }
+
+    /// Labels and positions of the static texts, to tell whether a swipe still scrolled.
+    private static func visibleTexts(_ app: XCUIApplication) -> [String] {
+        guard let root = try? app.snapshot() else { return [] }
+        var texts: [String] = []
+        var stack: [any XCUIElementSnapshot] = [root]
+        while let node = stack.popLast() {
+            if node.elementType == .staticText { texts.append("\(node.label)@\(Int(node.frame.minY))") }
+            stack.append(contentsOf: node.children)
+        }
+        return texts
     }
 }
