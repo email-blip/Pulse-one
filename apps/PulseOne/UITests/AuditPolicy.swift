@@ -66,6 +66,10 @@ enum AuditPolicy {
         do {
             try app.performAccessibilityAudit(for: .all, handler)
         } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
+            // The aborted first audit leaves the screen unsettled: the retry right after it reported 10:1+ text
+            // as low contrast (runs 186, 213, 217). Let the app settle before measuring again.
+            Thread.sleep(forTimeInterval: 3)
+            toleratedWithoutElement = 0
             try app.performAccessibilityAudit(for: .all, handler)
         }
     }
