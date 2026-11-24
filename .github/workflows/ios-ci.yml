@@ -31,9 +31,9 @@ env:
   APP: ${{ inputs.app || 'PulseOne' }}
   XCODE_VERSION: "26.6"      # newest on GitHub macos-26 image (2026-11-20); Xcode 27 not offered yet
   XCODEGEN_VERSION: "2.48.0" # pinned
-  # Rebuild M1 (team 06): "0" = M1 tests skip screens that are not integrated yet; 00 sets "1" for the M1
-  # integration so a missing screen fails. xcodebuild hands TEST_RUNNER_* to the test runner without the prefix.
-  TEST_RUNNER_PULSE_M1_STRICT: "0"
+  # Rebuild M1 (team 06): "1" since the M1 integration (00, 2026-11-24): a missing M1 screen fails the run.
+  # "0" would skip screens that are not integrated yet. xcodebuild hands TEST_RUNNER_* to the runner without the prefix.
+  TEST_RUNNER_PULSE_M1_STRICT: "1"
 
 jobs:
   # Cheap Linux job first: a failing guard stops the run before any macOS minute is spent.

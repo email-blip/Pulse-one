@@ -34,7 +34,7 @@ final class DurchstichTests: XCTestCase {
     }
 
     func testWalkthrough() throws {
-        app = M1.launch(liveMotion: true)
+        app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments)
 
         try step("App öffnen, ROOK-Beitrag sichtbar") {
             try M1.require(app, M1.Screen.dashboard, step: "Dashboard")
@@ -76,7 +76,7 @@ final class DurchstichTests: XCTestCase {
 
         try step("Neustart, Reihenfolge bleibt") {
             app.terminate()
-            app = M1.launch(liveMotion: true)
+            app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments)
             try M1.require(app, M1.Screen.dashboard, step: "Dashboard nach Neustart")
             let firstTile = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier BEGINSWITH %@", M1.Dashboard.tilePrefix)).firstMatch
@@ -197,6 +197,56 @@ final class DurchstichTests: XCTestCase {
             let entry = try M1.require(app, M1.Timeline.workoutEntry, step: "Trainingseintrag")
             return entry.label
         }
+
+        // Talking with ROOK (team 05, owner's explicit wish for the video). The simulator has no microphone:
+        // -uiTestVoice speaks the first sentence word by word after the tap and the second one into ROOK's answer.
+        try step("Sprachgespräch mit ROOK") {
+            app.tabBars.buttons[M1.tabCoach].tap()
+            let mic = try M1.require(app, M1.Voice.button, step: "Mit ROOK sprechen")
+            M1.reveal(mic, in: app)
+            XCTAssertEqual(mic.label, "Mit ROOK sprechen")
+            mic.tap()
+
+            // Listening → thinking → speaking, read from the status line while it happens.
+            let status = try M1.require(app, M1.Voice.status, step: "Gesprächsstatus", timeout: 5)
+            let seen = observePhases(status, until: M1.Voice.speaking, timeout: 25)
+            let order = [M1.Voice.listening, M1.Voice.thinking, M1.Voice.speaking]
+            let positions = order.map { phase in seen.firstIndex { $0.hasPrefix(phase) } }
+            for (phase, position) in zip(order, positions) {
+                XCTAssertNotNil(position, "Status „\(phase)“ nicht gesehen, gesehen: \(seen)")
+            }
+            let found = positions.compactMap { $0 }
+            XCTAssertEqual(found, found.sorted(), "Status in falscher Reihenfolge: \(seen)")
+
+            // The person's words in the transcript, ROOK's answer to them.
+            let firstPerson = app.descendants(matching: .any).matching(identifier: M1.Voice.personTurn)
+                .matching(NSPredicate(format: "label CONTAINS %@", M1.Voice.first)).firstMatch
+            XCTAssertTrue(firstPerson.waitForExistence(timeout: 5), "Erste Äußerung nicht im Transkript")
+            let rookTurns = app.descendants(matching: .any).matching(identifier: M1.Voice.rookTurn)
+            XCTAssertTrue(rookTurns.firstMatch.waitForExistence(timeout: 10), "ROOK antwortet nicht")
+            let firstAnswer = rookTurns.firstMatch.label
+
+            // Barge-in: the second sentence cuts into the answer. Its live line exists only while ROOK listens,
+            // so seeing it with the status "Ich höre zu" means ROOK stopped talking.
+            let secondPerson = app.descendants(matching: .any).matching(identifier: M1.Voice.personTurn)
+                .matching(NSPredicate(format: "label CONTAINS %@", "Warte mal")).firstMatch
+            XCTAssertTrue(secondPerson.waitForExistence(timeout: 15), "Zweite Äußerung (Unterbrechung) nicht im Transkript")
+            XCTAssertTrue(M1.element(app, M1.Voice.status).label.hasPrefix(M1.Voice.listening) ||
+                          M1.element(app, M1.Voice.status).label.hasPrefix(M1.Voice.thinking),
+                          "ROOK hört bei der Unterbrechung nicht zu: \(M1.element(app, M1.Voice.status).label)")
+            M1.attachScreenshot(self, name: String(format: "durchstich__%02d-unterbrechung", stepNumber))
+            // ROOK answers the new question with its own turn.
+            let second = expectation(for: NSPredicate(format: "count >= 2"), evaluatedWith: rookTurns)
+            wait(for: [second], timeout: 20)
+            Thread.sleep(forTimeInterval: 1.5)   // let the answer be seen in the video
+
+            let end = M1.element(app, M1.Voice.button)
+            XCTAssertEqual(end.label, "Gespräch beenden")
+            end.tap()
+            let idle = expectation(for: NSPredicate(format: "label == %@", "Mit ROOK sprechen"), evaluatedWith: end)
+            wait(for: [idle], timeout: 5)
+            return "Status: \(seen.joined(separator: " → ")) · erste Antwort: \(firstAnswer.prefix(60))"
+        }
     }
 
     // MARK: - Helpers
@@ -222,6 +272,19 @@ final class DurchstichTests: XCTestCase {
         M1.attachScreenshot(self, name: String(format: "durchstich__%02d", stepNumber))
         // Short pause so each state is visible in the video.
         Thread.sleep(forTimeInterval: 0.8)
+    }
+
+    /// Distinct status lines in the order they appeared, sampled until one starts with `target`.
+    private func observePhases(_ status: XCUIElement, until target: String, timeout: TimeInterval) -> [String] {
+        var seen: [String] = []
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let label = status.label
+            if seen.last != label { seen.append(label) }
+            if label.hasPrefix(target) { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        return seen
     }
 
     private func expectState(_ state: String) throws {

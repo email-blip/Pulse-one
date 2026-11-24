@@ -25,6 +25,7 @@ Test: `UITests/DurchstichTests.testWalkthrough`, Video `durchstich.mp4` (Artefak
 | 12 | Pause (Timer steht, keine Ansage) → Fortsetzen (Timer läuft) | 05 | Schritte 12–13 | Konzept |
 | 13 | Abschluss mit Anstrengung 1–10 | 05 | Schritt 14 | Konzept |
 | 14 | Einheit erscheint im Tagesverlauf | 03/05 | Schritt 15 | Konzept |
+| 15 | Sprachgespräch mit ROOK: Zuhören → Denken → Sprechen, Transkript, Antwort, Unterbrechung (Barge-in), Ende | 05/04 | Schritt 16 (`-uiTestVoice`, kein Mikrofon im Simulator; echte Spracherkennung nur iPhone) | implementiert |
 
 ## B. Zusatzprüfungen (Vorgaben M)
 

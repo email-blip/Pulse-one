@@ -195,7 +195,12 @@ final class VoiceConversation {
             self.speak(self.fallbackAnswer(to: utterance), for: utterance)
         }
         guard let responder else { return }
+        let holdThinking = isUITesting
         answerTask = Task { [weak self] in
+            // UI tests answer locally within milliseconds; "Ich denke nach …" stays up a moment so the M1 video
+            // and DurchstichTests can see the phase (team 06).
+            if holdThinking { try? await Task.sleep(for: .milliseconds(1500)) }
+            guard !Task.isCancelled else { return }
             let full = await responder(utterance.text) { sentence in self?.deliver(sentence, for: utterance) }
             guard !Task.isCancelled, let self else { return }
             // Nothing streamed (e.g. a short local answer): speak the whole text.

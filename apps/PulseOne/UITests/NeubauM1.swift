@@ -75,6 +75,24 @@ enum M1 {
         static let save = "workout.save"
     }
 
+    /// Team 05: talking with ROOK in the Coach tab. Without a microphone in the simulator, `-uiTestVoice "A|B"`
+    /// speaks A after the tap and B into ROOK's answer (barge-in).
+    enum Voice {
+        static let button = "rook.voice"
+        static let status = "rook.voice.status"
+        static let transcript = "rook.voice.transcript"
+        static let personTurn = "rook.voice.turn.person"
+        static let rookTurn = "rook.voice.turn.rook"
+        static let first = "Wie war meine Nacht"
+        static let second = "Warte mal, wie ist mein Puls gerade"
+        static var launchArguments: [String] { ["-uiTestVoice", "\(first)|\(second)"] }
+        // Status lines of RookVoicePanel.statusLine.
+        static let listening = "Ich höre zu"
+        static let thinking = "Ich denke nach"
+        static let speaking = "ROOK spricht"
+    }
+
+    static let tabCoach = "Coach"
     static let tabTimeline = "Verlauf"
     static let tabDashboard = "Dashboard"
 
@@ -84,11 +102,11 @@ enum M1 {
 
     @MainActor
     static func launch(_ scenario: String = "neubauM1", dynamicType: String = "default", reduceMotion: Bool = false,
-                       liveMotion: Bool = false) -> XCUIApplication {
+                       liveMotion: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-scenario", scenario, "-AppleLanguages", "(de)", "-AppleLocale", "de_DE",
                                "-dynamicType", dynamicType, "-reduceMotion", reduceMotion ? "YES" : "NO",
-                               "-liveMotion", liveMotion ? "YES" : "NO"]
+                               "-liveMotion", liveMotion ? "YES" : "NO"] + extraArguments
         app.launch()
         return app
     }
