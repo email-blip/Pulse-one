@@ -137,7 +137,6 @@ enum TestScenario {
         if NeubauScenario.all.contains(name) { NeubauScenario.insert(name, into: context) }
         if name == "intelligence" { IntelligenceTestData.insert(into: context) }
         if name == "coach" { CoachScenario.insert(into: context) }
-        if name == "nutrition" { NutritionTestData.insert(into: context) }
         if name == "companion" || name == "companionWake" || name == "companionConference" || name == "companionActivation" {
             CompanionTestData.insert(into: context)
         }

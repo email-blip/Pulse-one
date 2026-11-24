@@ -67,13 +67,15 @@ final class VoiceConversation {
     @ObservationIgnored private let isUITesting = LaunchOptions.current.isUITesting
     @ObservationIgnored private let log = Logger(subsystem: "de.sommerlabs.pulseone", category: "voice")
 
-    /// No answer within this time: ROOK says so briefly and listens again.
+    /// Safety net only: no first sentence within this time (network stuck), ROOK says so briefly and listens again.
     static let answerTimeoutSeconds: Double = 20
 
     init(audio: AudioCoordinator = .shared) {
         self.audio = audio
         (utterances, continuation) = AsyncStream.makeStream(of: VoiceUtterance.self, bufferingPolicy: .bufferingNewest(4))
         audio.onFinished = { [weak self] item in self?.audioFinished(item) }
+        // ROOK's brain (team 04): streams sentence by sentence, shares the typed conversation's memory.
+        responder = { text, onSentence in await RookStore.shared.talk(text, onSentence: onSentence) }
         // A call or pulled headphones ends the conversation; the microphone does not stay open behind it.
         audio.addInterruptionHandler { [weak self] in self?.stop() }
     }
@@ -185,7 +187,7 @@ final class VoiceConversation {
     private func answer(_ utterance: VoiceUtterance) {
         dropAnswer()
         answerTurn = utterance.turn
-        let delay = isUITesting ? 1.2 : Self.answerTimeoutSeconds
+        let delay = isUITesting ? 5 : Self.answerTimeoutSeconds
         answerTimeout = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled, let self, self.answerTurn == utterance.turn, self.turnTaking.phase == .thinking else { return }

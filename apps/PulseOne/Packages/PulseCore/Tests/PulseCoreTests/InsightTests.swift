@@ -145,7 +145,10 @@ struct CheckInPolicyTests {
         #expect(CheckInPolicy.isStale(newestSample: nil, now: day(0)))
         #expect(CheckInPolicy.isStale(newestSample: day(-1), now: day(0, hour: 12)))
         #expect(!CheckInPolicy.isStale(newestSample: day(0, hour: 6), now: day(0, hour: 12)))
-        #expect(CheckInPolicy.staleMessage(newestSample: day(-1), now: day(0, hour: 12)).headline == "Noch nicht abgeglichen")
+        // Stale data: a greeting, no report about syncing, nothing marked on the timeline.
+        let stale = CheckInPolicy.staleMessage(newestSample: day(-1), now: day(0, hour: 12), calendar: insightCalendar)
+        #expect(stale.headline == "Hallo")
+        #expect(stale.markers.isEmpty)
     }
 
     @Test func calmRepeatDoesNotNotify() {

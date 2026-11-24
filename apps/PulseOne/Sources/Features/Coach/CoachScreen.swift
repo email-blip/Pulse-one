@@ -37,8 +37,8 @@ struct CoachScreen: View {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
                         if training.hasOpenSession { resumeCard }
-                        // 05's voice channel: talk with ROOK hands-free (04's conversation section sits next to it).
-                        RookVoicePanel()
+                        // ROOK first: interpretation, action, "Warum?" and the conversation (team 04).
+                        RookConversationSection()
                         if let snapshot {
                             content(snapshot)
                         } else if loaded {

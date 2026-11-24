@@ -91,7 +91,8 @@ struct TodayScreen: View {
                     .accessibilityIdentifier("today.\(metric.kind.rawValue)")
             }
         case .nutrition:
-            NutritionTodayCard()
+            // Nutrition left the app (owner 2026-11-22, removed by team 04); the tile is filtered out above.
+            EmptyView()
         case .eveningNote:
             DayCloseoutCard()
         }

@@ -74,7 +74,7 @@ public enum MorningForecaster {
         guard let actual = night.nightRestingHeartRate else {
             return ForecastOutcome(forecast: forecast, actualRestingHeartRate: nil, actualHRVTendency: actualTendency,
                                    restingHeartRateHit: nil, hrvHit: hrvHit,
-                                   sentence: "\(tip). Heute Nacht fehlen mir Pulswerte, ich kann den Tipp nicht prüfen.")
+                                   sentence: "\(tip).")
         }
         let measured = Int(actual.rounded())
         let hit = measured >= low && measured <= high

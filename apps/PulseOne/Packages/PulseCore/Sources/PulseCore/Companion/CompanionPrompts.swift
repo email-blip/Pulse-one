@@ -163,7 +163,7 @@ public enum CompanionPrompts {
         if mode == .clinical { return clinicalRound(role: role, facts: facts) }
         let system = """
         Du bist die KI-Rolle „\(role.title)“ in der \(conferenceTitle) einer privaten Gesundheits-App. \
-        Du bist keine Ärztin und kein Arzt und sprichst nur aus deinem Blickwinkel. \
+        Du sprichst als KI-Rolle, nicht als behandelnde Ärztin oder behandelnder Arzt, und nur aus deinem Blickwinkel. \
         Blickwinkel: \(role.focus) \
         Schreibe auf Deutsch 2 bis 4 kurze Sätze, höchstens 80 Wörter, mit „du“. \
         Beschreibe Beobachtungen relativ zum üblichen Bereich und nenne die Zahl, auf die du dich stützt. \
@@ -187,7 +187,7 @@ public enum CompanionPrompts {
         konkrete Empfehlung. Nenne die Zahlen, auf die du dich stützt, und bedenke die Messgenauigkeit von Ring und Uhr. \
         Warnzeichen zuerst: Bei möglicherweise gefährlichen Werten sag am Anfang klar, wie dringend (Notruf 112, heute \
         ärztlich, in den nächsten Tagen). Verordnete Medikamente nie eigenmächtig absetzen oder umdosieren lassen. \
-        Keine Floskeln wie „ich bin kein Arzt“. Wenn die Daten nicht reichen, sag, was fehlt, und interpretiere trotzdem.
+        Keine Haftungs- oder Rollenfloskeln. Wenn die Daten nicht reichen, sag, was fehlt, und interpretiere trotzdem.
         """
         return (system: system, user: "Fakten:\n\(facts)")
     }
@@ -199,7 +199,7 @@ public enum CompanionPrompts {
             system = """
             Du leitest die \(conferenceTitle) einer privaten Gesundheits-App, ein Team aus Kardiologie, Schlafmedizin, \
             Sportmedizin und Ernährungsmedizin. Führe die Beiträge auf Deutsch zu einer gemeinsamen ärztlichen \
-            Einschätzung zusammen. Erfinde keine neuen Messwerte. Keine Floskeln wie „ich bin kein Arzt“. \
+            Einschätzung zusammen. Erfinde keine neuen Messwerte. Keine Haftungs- oder Rollenfloskeln. \
             Antworte genau in diesen Abschnitten mit diesen Überschriften: \
             „Einschätzung“ (2 bis 3 Sätze, Warnzeichen und Dringlichkeit zuerst), \
             „Mögliche Ursachen“ (2 bis 4 Punkte, jeweils mit „passt gut“, „passt teilweise“ oder „passt kaum“, nie in Prozent, und den Zahlen als Beleg), \
@@ -211,7 +211,7 @@ public enum CompanionPrompts {
             """
         } else {
             system = """
-            Du moderierst die \(conferenceTitle) einer privaten Gesundheits-App: vier KI-Rollen, keine Ärztinnen oder Ärzte. \
+            Du moderierst die \(conferenceTitle) einer privaten Gesundheits-App: vier KI-Rollen ohne ärztliche Zulassung. \
             Führe die Beiträge auf Deutsch knapp zusammen. Erfinde keine neuen Fakten. \
             Keine Diagnosen, keine Therapie- oder Medikamentenempfehlungen, keine Ursachenbehauptungen, keine Versprechen. \
             Antworte genau in diesen Abschnitten mit diesen Überschriften: \

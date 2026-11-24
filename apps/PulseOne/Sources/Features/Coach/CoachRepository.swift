@@ -22,7 +22,15 @@ struct CoachRepository {
     var calendar: Calendar = .current
 
     /// ROOK's corrections of the day ("Ich bin krank", "nur 15 Minuten"); team 04 sets this to its store.
-    static var correctionsProvider: @MainActor (Date) -> [UserCorrection] = { _ in [] }
+    static var correctionsProvider: @MainActor (Date) -> [UserCorrection] = { day in
+        // ROOK's quick corrections of that day (team 04); "Das passt nicht" and "Warum?" do not change the plan.
+        RookMemory.corrections(on: day).compactMap { entry -> UserCorrection? in
+            switch entry.feedback {
+            case .sick, .onlyTenMinutes, .lighter: return UserCorrection(at: entry.at, text: entry.feedback.title)
+            case .doesNotFit, .why: return nil
+            }
+        }
+    }
 
     // MARK: Storage
 
