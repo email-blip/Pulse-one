@@ -37,12 +37,22 @@ struct MainTabView: View {
         _showProfile = State(initialValue: options.usesTestScenario && options.scenario == "profile")
     }
 
+    private var coveredBySheet: Bool { showProfile || navigator.showMore }
+
     var body: some View {
         @Bindable var navigator = navigator
         TabView(selection: $navigator.tab) {
-            Tab("Dashboard", systemImage: "square.grid.2x2", value: AppTab.dashboard) { DashboardScreen() }
-            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.timeline) { TimelineTab() }
-            Tab("Coach", systemImage: "figure.run", value: AppTab.coach) { CoachScreen() }
+            // While a sheet covers the tabs, their content is hidden from accessibility: the profile sheet has
+            // its own ring orb, and two "orb" elements at once made the walkthrough audit ambiguous.
+            Tab("Dashboard", systemImage: "square.grid.2x2", value: AppTab.dashboard) {
+                DashboardScreen().accessibilityHidden(coveredBySheet)
+            }
+            Tab("Verlauf", systemImage: "chart.xyaxis.line", value: AppTab.timeline) {
+                TimelineTab().accessibilityHidden(coveredBySheet)
+            }
+            Tab("Coach", systemImage: "figure.run", value: AppTab.coach) {
+                CoachScreen().accessibilityHidden(coveredBySheet)
+            }
         }
         .tint(DKColor.accent)
         .environment(navigator)
