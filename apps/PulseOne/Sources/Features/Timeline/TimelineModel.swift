@@ -68,8 +68,13 @@ final class TimelineModel {
     private(set) var dataVersion = 0
 
     private var loaded: DateInterval?
-    private var known: Set<UUID> = []
-    private var bucketCache: [String: [TrackValue]] = [:]
+    @ObservationIgnored private var known: Set<UUID> = []
+    /// Buckets over the whole loaded data per track and resolution (fast pinch and pan). Not observed:
+    /// filling it while a view draws must not invalidate the views that read it.
+    @ObservationIgnored private var bucketCache: [String: [TrackValue]] = [:]
+    /// What each track draws for the current window, computed once per window and data version. Scrubbing
+    /// only moves the cursor, so every step reuses this instead of touching the year of points again.
+    @ObservationIgnored private var drawnCache: [TimelineTrack: DrawnTrack] = [:]
     let calendar: Calendar
 
     init(now: Date = TimelineClock.now, calendar: Calendar = .current) {
@@ -117,7 +122,14 @@ final class TimelineModel {
 
     /// Reads the window (plus a margin for panning) from the store. Later calls only stage values that were
     /// received and measured just now as "landing"; synced history appears in place.
-    func reload(context: ModelContext, profileID: UUID?, coachInsights: [CoachInsight]) {
+    func reload(context: ModelContext, profileID: UUID?, coachInsights: [CoachInsight],
+                trainings: (DateInterval) -> [TrainingTimelineEntry] = { _ in [] }) {
+        let signpost = TimelineProbe.signposter.beginInterval("reload")
+        let started = Date.now
+        defer {
+            TimelineProbe.signposter.endInterval("reload", signpost)
+            TimelineProbe.reloaded(milliseconds: Int(Date.now.timeIntervalSince(started) * 1000))
+        }
         let margin = max(visible.duration, 86_400)
         let wanted = DateInterval(start: max(bounds.start, visible.start.addingTimeInterval(-margin)),
                                   end: min(bounds.end, visible.end.addingTimeInterval(margin)))
@@ -138,11 +150,18 @@ final class TimelineModel {
         kinds = chosen
         known = Set(byTrack.values.flatMap { $0.map(\.id) })
         segments = (try? SleepSegmentStore(context: context).segments(in: wanted, subjectID: profileID)) ?? []
-        let workouts = mine.filter { $0.kind == .trainingDuration && $0.quality.usableForAnalysis }.map { point in
+        // Workouts from Apple Health arrive as training-duration points; sessions done in the app are
+        // team 05's saved WorkoutRecords (read through WorkoutLog.entries(in:)).
+        let imported = mine.filter { $0.kind == .trainingDuration && $0.quality.usableForAnalysis }.map { point in
             TimelineEvent(id: "workout-\(point.id.uuidString)", kind: .workout,
                           interval: DateInterval(start: point.measuredAt, end: max(point.measuredUntil, point.measuredAt)),
                           title: "Training", detail: TileSummary.duration(point.value))
         }
+        let sessions = trainings(wanted).map { entry in
+            TimelineEvent(id: "session-\(entry.id.uuidString)", kind: .workout, interval: entry.interval,
+                          title: entry.title, detail: entry.detail)
+        }
+        let workouts = imported + sessions
         let marks = coachInsights.filter { wanted.contains($0.createdAt) }.map { insight in
             TimelineEvent(id: "coach-\(insight.id.uuidString)", kind: .coach,
                           interval: DateInterval(start: insight.createdAt, duration: 0),
@@ -151,9 +170,25 @@ final class TimelineModel {
         events = (workouts + marks).sorted { $0.interval.start < $1.interval.start }
         loaded = wanted
         bucketCache = [:]
+        drawnCache = [:]
         hasLoaded = true
         dataVersion += 1
         landing = Set(fresh.map { $0.id.uuidString })
+    }
+
+    /// Moves the clock on. A window that showed the live edge keeps showing it, so a value or a session
+    /// that ended after the Verlauf was opened is in view when the user comes back; a window the user
+    /// moved into the past stays where it is.
+    func followLive(now newNow: Date = TimelineClock.now) {
+        guard newNow > now else { return }
+        let atLiveEdge = visible.end >= now.addingTimeInterval(-60)
+        let shift = newNow.timeIntervalSince(now)
+        now = newNow
+        bounds = DateInterval(start: newNow.addingTimeInterval(-367 * 86_400), end: newNow.addingTimeInterval(30 * 60))
+        if atLiveEdge, visible.end < newNow {
+            visible = clamp(DateInterval(start: visible.start.addingTimeInterval(shift),
+                                         end: visible.end.addingTimeInterval(shift)))
+        }
     }
 
     /// True when the visible window left the loaded data (after panning or zooming out).
@@ -165,6 +200,19 @@ final class TimelineModel {
     func clearLanding() { landing = [] }
 
     // MARK: Drawable values
+
+    /// Values, gaps and y range of one track for the visible window; cached per window and data version.
+    func drawn(_ track: TimelineTrack) -> DrawnTrack? {
+        guard let kind = kinds[track] else { return nil }
+        let window = visible
+        let version = dataVersion
+        if let cached = drawnCache[track], cached.window == window, cached.version == version { return cached }
+        let values = self.values(for: track)
+        let result = DrawnTrack(kind: kind, window: window, version: version, resolution: resolution, values: values,
+                                gaps: TrackSeries.gaps(in: values), yDomain: TrackSeries.yDomain(for: values, kind: kind))
+        drawnCache[track] = result
+        return result
+    }
 
     func values(for track: TimelineTrack) -> [TrackValue] {
         guard let kind = kinds[track], let all = points[track], !all.isEmpty else { return [] }
@@ -216,14 +264,17 @@ final class TimelineModel {
     }
 
     func setCursor(_ time: Date?) {
+        TimelineProbe.signposter.emitEvent("cursorStep")
         guard let time else {
             cursor = nil
             selectedSegment = nil
             return
         }
         let clamped = min(max(time, visible.start), visible.end)
-        cursor = clamped
-        selectedSegment = Hypnogram.segment(at: clamped, in: segments)
+        // Only real changes are written: every write wakes the views that read it, and a drag sends dozens.
+        if cursor != clamped { cursor = clamped }
+        let segment = Hypnogram.segment(at: clamped, in: segments)
+        if segment?.id != selectedSegment?.id { selectedSegment = segment }
     }
 
     func select(_ segment: SleepSegment) {
@@ -262,8 +313,7 @@ final class TimelineModel {
                 return CursorRow(track: track, title: title, value: "\(kind.display(point.value)) \(kind.displayUnit)",
                                  time: time, note: nil, source: source)
             }
-            let drawn = values(for: track)
-            guard let bucket = TrackSeries.bucket(at: cursor, in: drawn) else {
+            guard let bucket = Self.bucket(at: cursor, in: drawn(track)?.values ?? []) else {
                 return CursorRow(track: track, title: title, value: "–", time: cursor.formatted(Self.dayClock(calendar)),
                                  note: "keine Messung in diesem Abschnitt", source: nil)
             }
@@ -275,6 +325,19 @@ final class TimelineModel {
             return CursorRow(track: track, title: title, value: "\(kind.display(bucket.value)) \(kind.displayUnit)",
                              time: span, note: what, source: nil)
         }
+    }
+
+    /// The aggregated bucket under the cursor; binary search over the sorted, non-overlapping buckets.
+    static func bucket(at time: Date, in values: [TrackValue]) -> TrackValue? {
+        var low = 0
+        var high = values.count
+        while low < high {
+            let mid = (low + high) / 2
+            if values[mid].end <= time { low = mid + 1 } else { high = mid }
+        }
+        guard low < values.count else { return nil }
+        let value = values[low]
+        return value.isAggregated && value.start <= time && time < value.end ? value : nil
     }
 
     var cursorEvent: TimelineEvent? {
@@ -363,6 +426,17 @@ final class TimelineModel {
         case .unknown: "Weg unbekannt"
         }
     }
+}
+
+/// What one value track draws for one window (see `TimelineModel.drawn(_:)`).
+struct DrawnTrack: Equatable {
+    let kind: SampleKind
+    let window: DateInterval
+    let version: Int
+    let resolution: TimelineResolution
+    let values: [TrackValue]
+    let gaps: [DateInterval]
+    let yDomain: ClosedRange<Double>
 }
 
 /// Short track names (same as the DesignKit tile names).
