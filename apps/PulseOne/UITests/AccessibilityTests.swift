@@ -8,10 +8,10 @@ final class AccessibilityTests: XCTestCase {
     func testLiveAudit() throws { try audit(scenario: "live") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
-    /// Dashboards are longer than the screen: audited at every scroll position (AuditPolicy.runScrolled).
-    func testDashboardAudit() throws { try audit(scenario: "dashboard", scrolled: true) }
+    /// Dashboards are longer than the screen: audited once per tile row, each row at the top (`auditTileRows`).
+    func testDashboardAudit() throws { try auditTileRows(scenario: "dashboard") }
     /// The tile editor (team 03): arrows, size menu and on/off switch per tile.
-    func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard", scrolled: true) }
+    func testDashboardEditAudit() throws { try auditTileRows(scenario: "dashboardEdit", screen: "dashboard") }
     func testTimelineAudit() throws { try audit(scenario: "timeline") }
     /// ROOK's "Warum?" from the dashboard, with the numbers behind the statement.
     func testWhyAudit() throws {
@@ -56,18 +56,15 @@ final class AccessibilityTests: XCTestCase {
         try M1.skipIfMissing { try M1.open(place, in: app) }
         // Same settle time as the other screens: text must not be measured mid-fade.
         Thread.sleep(forTimeInterval: 2)
-        if place == .dashboard || place == .dashboardEdit {
-            try AuditPolicy.runScrolled(app, name: "m1-\(place.rawValue)")
-        } else {
-            try AuditPolicy.run(app, name: "m1-\(place.rawValue)")
-        }
+        try AuditPolicy.run(app, name: "m1-\(place.rawValue)")
     }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
-    private func audit(scenario: String, screen: String? = nil, scrolled: Bool = false,
-                       prepare: ((XCUIApplication) -> Void)? = nil) throws {
+    @discardableResult
+    private func audit(scenario: String, screen: String? = nil, name: String? = nil, extraArguments: [String] = [],
+                       prepare: ((XCUIApplication) -> Void)? = nil) throws -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
+        app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario] + extraArguments
         app.launch()
         let start = prepare == nil ? (screen ?? scenario) : (Self.startScreens[scenario] ?? scenario)
         XCTAssertTrue(app.descendants(matching: .any)["screen.\(start)"].waitForExistence(timeout: 15))
@@ -83,10 +80,53 @@ final class AccessibilityTests: XCTestCase {
             // runner (PR #32). Scoped to this screen so element-less findings elsewhere still fail.
             scenario == "nutrition" && issue.auditType == .contrast && issue.element == nil && !barFrames.isEmpty
         }
-        if scrolled {
-            try AuditPolicy.runScrolled(app, name: scenario, extra: extra)
-        } else {
-            try AuditPolicy.run(app, name: scenario, extra: extra)
+        try AuditPolicy.run(app, name: name ?? scenario, extra: extra)
+        return app
+    }
+
+    /// Audits a dashboard without scrolling: scrolled positions always cut content at the top edge (run 217), and
+    /// below the ROOK card no tile fits above the tab bar region the policy leaves out. So the first launch audits
+    /// the screen as it is (ROOK card, header, first tiles); further launches leave out the ROOK card
+    /// (`-dashboardTilesOnly YES`) and start the tile list at the first tile not yet audited fully visible
+    /// (`-dashboardStartIndex N`). Both switches work only in test scenarios and are never saved.
+    private func auditTileRows(scenario: String, screen: String? = nil) throws {
+        var covered: Set<String> = []
+        var startIndex = 0
+        var all: [String] = []
+        for launch in 1...6 {
+            let extra = launch == 1 ? [] : ["-dashboardTilesOnly", "YES", "-dashboardStartIndex", "\(startIndex)"]
+            let app = try audit(scenario: scenario, screen: screen, name: launch == 1 ? scenario : "\(scenario)#\(startIndex)",
+                                extraArguments: extra)
+            let tiles = tileFrames(app)
+            if all.isEmpty { all = tiles.map(\.id) }
+            // Fully visible: below the top edge and above the tab bar region the audit policy leaves out.
+            let tabTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY - 72 : app.frame.maxY
+            covered.formUnion(tiles.filter { $0.frame.minY >= 0 && $0.frame.maxY <= tabTop }.map(\.id))
+            app.terminate()
+            // On screen the tiles follow the list rotated by `startIndex`: the first uncovered one opens the next launch.
+            guard let next = tiles.first(where: { !covered.contains($0.id) }) else { break }
+            if launch > 1, next.index == 0 {
+                XCTFail("Kachel \(next.id) passt nicht über die Tab-Leiste, nie voll sichtbar geprüft")
+                break
+            }
+            startIndex = (startIndex + next.index) % tiles.count
         }
+        let missing = all.filter { !covered.contains($0) }
+        XCTAssertTrue(missing.isEmpty, "Kacheln nie voll sichtbar geprüft: \(missing)")
+        print("AUDIT[\(scenario)] Kacheln voll sichtbar geprüft: \(covered.count) von \(all.count)")
+    }
+
+    /// Tile roots (`tile.<id>`, without the move buttons) with their frame and their position in reading order.
+    private func tileFrames(_ app: XCUIApplication) -> [(id: String, frame: CGRect, index: Int)] {
+        var placed: [(id: String, frame: CGRect)] = []
+        let tiles = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "tile.")).allElementsBoundByIndex
+        for tile in tiles {
+            let id = tile.identifier
+            if id.hasSuffix(".moveDown") || id.hasSuffix(".moveUp") || placed.contains(where: { $0.id == id }) { continue }
+            placed.append((id: id, frame: tile.frame))
+        }
+        placed.sort { abs($0.frame.minY - $1.frame.minY) <= 4 ? $0.frame.minX < $1.frame.minX : $0.frame.minY < $1.frame.minY }
+        return placed.enumerated().map { (id: $0.element.id, frame: $0.element.frame, index: $0.offset) }
     }
 }

@@ -44,7 +44,7 @@ struct DashboardScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DKSpace.xl) {
                     if showsOwnBanner { TestBanner() }
-                    rook
+                    if !auditTilesOnly { rook }
                     if model.loaded, !model.hasAnyValue { connectRing }
                     cockpit
                     if let night = model.lastNight, let bed = night.inBed {
@@ -97,11 +97,25 @@ struct DashboardScreen: View {
                 UserDefaults.standard.removeObject(forKey: layoutKey)
             }
             layout = DashboardLayout.restore(UserDefaults.standard.data(forKey: layoutKey), subjectID: sources.ownerProfileID)
+            // Accessibility audit (team 06): `-dashboardStartIndex N` shows the tile list rotated so tile N comes first,
+            // so each row is audited at the top without scrolling. Test scenarios only, never saved.
+            let startIndex = UserDefaults.standard.integer(forKey: "dashboardStartIndex")
+            if LaunchOptions.current.usesTestScenario, startIndex > 0, startIndex < layout.tiles.count {
+                let tiles = layout.tiles
+                layout = DashboardLayout(subjectID: sources.ownerProfileID,
+                                         tiles: Array(tiles[startIndex...]) + Array(tiles[..<startIndex]))
+            }
             layoutLoaded = true
         }
         withAnimation(MotionEvent.measurementLands.resolvedAnimation(reduceMotion: reduceMotion, frozen: frozen)) {
             model.reload(context: modelContext, profileID: sources.ownerProfileID, now: now)
         }
+    }
+
+    /// Accessibility audit (team 06): `-dashboardTilesOnly YES` leaves out the ROOK card so the tile rows sit high enough
+    /// to be audited outside the tab bar region. The card is audited in the first launch. Only with `-uiTesting YES`.
+    private var auditTilesOnly: Bool {
+        LaunchOptions.current.usesTestScenario && UserDefaults.standard.bool(forKey: "dashboardTilesOnly")
     }
 
     // MARK: ROOK
