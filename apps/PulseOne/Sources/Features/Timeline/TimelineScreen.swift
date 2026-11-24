@@ -23,6 +23,7 @@ struct TimelineScreen: View {
     @Query(sort: \WorkoutRecord.endedAt) private var savedWorkouts: [WorkoutRecord]
 
     var body: some View {
+        let _ = TimelineProbe.body("Verlauf")
         ScrollView {
             VStack(alignment: .leading, spacing: DKSpace.l) {
                 if showsOwnBanner { TestBanner() }
@@ -299,6 +300,7 @@ struct ScrubSurface: View {
     private static let moveSlop: CGFloat = 12
 
     var body: some View {
+        let _ = TimelineProbe.body("Fläche")
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             Color.clear
@@ -366,6 +368,8 @@ struct ScrubSurface: View {
 
     /// Sets the cursor at a fraction of the width and notes the input for UI tests.
     private func record(_ kind: String, _ fraction: CGFloat) {
+        let started = Date.now
+        defer { TimelineProbe.step(milliseconds: Date.now.timeIntervalSince(started) * 1000) }
         let time = model.time(atFraction: Double(fraction))
         model.setCursor(time)
         // The note is for UI tests only; in normal use it would wake the surface on every drag step.
@@ -395,6 +399,7 @@ struct CursorReadout: View {
     @Binding var showsSource: Bool
 
     var body: some View {
+        let _ = TimelineProbe.body("Anzeige")
         let rows = model.cursorRows
         DKCard {
             // A hidden copy with a row (and note) for every track holds the card at its tallest, so the tracks
@@ -414,7 +419,9 @@ struct CursorReadout: View {
                 }
             }
         }
-        .dkMotion(.pointSelect, value: model.cursor)
+        // No spring and no selection haptic per cursor step: a drag sends dozens of steps (suspected in the
+        // long busy time after a scrub, see TimelineProbe). The haptic for a newly picked original point
+        // stays on the scrub surface.
     }
 
     /// Rows, the training line and the point buttons; the same layout for the reading and its placeholder.

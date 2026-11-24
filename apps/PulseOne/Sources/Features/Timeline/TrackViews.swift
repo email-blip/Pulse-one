@@ -354,5 +354,20 @@ enum TimelineProbe {
 
     static func reloaded(milliseconds: Int) { lastReloadMilliseconds = milliseconds }
 
-    static var summary: String { "Charts \(chartBodies)× (\(marks) Marks), Laden \(lastReloadMilliseconds) ms" }
+    /// Body evaluations per view ("Verlauf", "Anzeige", "Fläche") and cursor steps, to see what a drag rebuilds.
+    private(set) static var bodies: [String: Int] = [:]
+    private(set) static var steps = 0
+    private(set) static var stepMilliseconds = 0.0
+
+    static func body(_ name: String) { bodies[name, default: 0] += 1 }
+
+    static func step(milliseconds: Double) {
+        steps += 1
+        stepMilliseconds += milliseconds
+    }
+
+    static var summary: String {
+        let views = bodies.keys.sorted().map { "\($0) \(bodies[$0] ?? 0)" }.joined(separator: ", ")
+        return "Charts \(chartBodies)× (\(marks) Marks), \(views), Schritte \(steps) (\(Int(stepMilliseconds)) ms), Laden \(lastReloadMilliseconds) ms"
+    }
 }
