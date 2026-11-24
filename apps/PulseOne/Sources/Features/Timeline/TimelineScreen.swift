@@ -299,7 +299,7 @@ struct ScrubSurface: View {
         .sensoryFeedback(.selection, trigger: model.selectedPoint?.id)
         .accessibilityElement()
         .accessibilityLabel("Zeitspuren")
-        .accessibilityValue(model.cursorRows.first.map { "\($0.title) \($0.value), \($0.time)" } ?? "Kein Zeitpunkt gewählt")
+        .accessibilityValue(chartValue)
         .accessibilityHint("Nach oben oder unten wischen springt zum nächsten oder vorigen Messpunkt.")
         .accessibilityAdjustableAction { direction in
             switch direction {
@@ -309,6 +309,12 @@ struct ScrubSurface: View {
             }
         }
         .accessibilityIdentifier("timeline.chart")
+    }
+
+    private var chartValue: String {
+        let value = model.cursorRows.first.map { "\($0.title) \($0.value), \($0.time)" } ?? "Kein Zeitpunkt gewählt"
+        // UI tests read the last touch from here; VoiceOver in normal use only hears the value.
+        return LaunchOptions.current.usesTestScenario ? "\(value); Eingabe: \(model.lastInput)" : value
     }
 
     private func changed(_ value: DragGesture.Value, width: CGFloat) {
@@ -325,7 +331,7 @@ struct ScrubSurface: View {
         }
         switch current.mode {
         case .scrub:
-            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+            record("Halten", value.location.x / width)
         case .pan:
             model.pan(from: current.window, by: -Double(dx / width) * current.window.duration)
         case .undecided, .scroll:
@@ -334,16 +340,25 @@ struct ScrubSurface: View {
         touch = current
     }
 
+    /// Sets the cursor at a fraction of the width and notes the input for UI tests.
+    private func record(_ kind: String, _ fraction: CGFloat) {
+        let time = model.time(atFraction: Double(fraction))
+        model.setCursor(time)
+        model.lastInput = "\(kind) \(String(format: "%.2f", Double(fraction))) → \(time.formatted(TimelineModel.clock(model.calendar)))"
+    }
+
     private func ended(_ value: DragGesture.Value, width: CGFloat) {
         defer { touch = nil }
         guard let current = touch else {
             // Down and up in one event: a tap.
-            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+            record("Tippen", value.location.x / width)
             return
         }
         let still = max(abs(value.translation.width), abs(value.translation.height)) < Self.moveSlop
         if current.mode == .undecided, still {
-            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+            record("Tippen", value.location.x / width)
+        } else {
+            model.lastInput = "\(current.mode)"
         }
     }
 }

@@ -50,6 +50,9 @@ final class TimelineModel {
     private(set) var range: TimelineRange = .day
     private(set) var visible: DateInterval
     private(set) var cursor: Date?
+    /// Last touch on the scrub surface ("Tippen 0.92 → 13:31"); shown to UI tests only, so a failed tap
+    /// says whether the surface saw it at all.
+    var lastInput = "keine"
     private(set) var selectedSegment: SleepSegment?
     private(set) var bounds: DateInterval
     private(set) var now: Date

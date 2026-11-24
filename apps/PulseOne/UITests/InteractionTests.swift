@@ -79,8 +79,8 @@ final class InteractionTests: XCTestCase {
         XCTAssertTrue(chart.waitForExistence(timeout: 10))
         let selection = app.descendants(matching: .any)["timeline.selection"]
 
-        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
-        XCTAssertTrue(selection.waitForExistence(timeout: 5))
+        tapPulseTrack(chart, at: 0.5, in: app)
+        XCTAssertTrue(selection.waitForExistence(timeout: 5), "no read-out; chart: \(chart.value as? String ?? "-")")
         let pulse = firstRow(selection.label)
         let match = try XCTUnwrap(pulse.range(of: #"gemessen \d{2}:\d{2}"#, options: .regularExpression),
                                   "no original time in: \(pulse)")
@@ -89,13 +89,34 @@ final class InteractionTests: XCTestCase {
 
         // 24-hour window ending at the test time: the gap sits at 0.894–0.942 of the width.
         let before = selection.label
-        chart.coordinate(withNormalizedOffset: CGVector(dx: 0.918, dy: 0.2)).tap()
-        // The tap resolves after the hold-to-scrub gesture gives up; wait for the readout to move.
+        tapPulseTrack(chart, at: 0.918, in: app)
         let moved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", before), object: selection)
-        XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 5), .completed, "the cursor did not move: \(before)")
+        XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 5), .completed,
+                       "the cursor did not move: \(before); chart: \(chart.value as? String ?? "-")")
         let gap = firstRow(selection.label)
         XCTAssertTrue(gap.contains("keine Messung"), "the gap selected a value: \(gap)")
         XCTAssertFalse(gap.contains("gemessen"))
+    }
+
+    /// Taps the pulse track (first row of the chart) at a fraction of its width. The read-out above the chart
+    /// grows after the first tap and pushes the chart down; a fixed point inside the chart then sat under the
+    /// floating tab bar and the tap went to the bar. Scrolls the row clear of the bar first, by dragging the
+    /// screen title area (never the chart, where a drag would pan or scrub).
+    private func tapPulseTrack(_ chart: XCUIElement, at fraction: CGFloat, in app: XCUIApplication) {
+        let row = CGVector(dx: 0, dy: 70)
+        let point = chart.coordinate(withNormalizedOffset: CGVector(dx: fraction, dy: 0)).withOffset(row)
+        let bar = app.tabBars.firstMatch
+        let limit = (bar.exists ? bar.frame.minY : app.frame.maxY) - 60
+        if point.screenPoint.y > limit {
+            let readout = app.descendants(matching: .any)["timeline.selection"]
+            let handle = readout.exists ? readout : app.descendants(matching: .any)["testBanner"]
+            let start = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let distance = point.screenPoint.y - limit + 120
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)),
+                        withVelocity: .slow, thenHoldForDuration: 0.3)
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        chart.coordinate(withNormalizedOffset: CGVector(dx: fraction, dy: 0)).withOffset(row).tap()
     }
 
     /// The pulse track comes first in the readout.
