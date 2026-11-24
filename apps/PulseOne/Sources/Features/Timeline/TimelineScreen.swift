@@ -254,39 +254,36 @@ struct CursorLine: View {
 
 /// One surface over the value tracks: tap sets the cursor, hold and drag scrubs, horizontal drag moves the
 /// window, pinch zooms. VoiceOver: swipe up/down moves to the next/previous original point.
+///
+/// Tap, hold-to-scrub and pan are read from one drag recogniser (simultaneous with the scroll view) instead of
+/// three competing gestures: with a tap, a sequenced long press and a pan on the same view, a second tap shortly
+/// after the first sometimes never reached the tap handler (UI test: the cursor stayed on the first point).
 struct ScrubSurface: View {
     let model: TimelineModel
-    @State private var panStart: DateInterval?
+    @State private var touch: Touch?
     @State private var zoomStart: DateInterval?
-    @State private var scrubbing = false
+
+    /// One finger on the surface: when it went down, the window then, and what the touch turned into.
+    private struct Touch {
+        enum Mode { case undecided, scrub, pan, scroll }
+        let began: Date
+        let window: DateInterval
+        var mode: Mode = .undecided
+    }
+
+    /// Holding this long before moving scrubs; moving earlier pans (horizontal) or scrolls (vertical).
+    private static let holdToScrub: TimeInterval = 0.25
+    private static let moveSlop: CGFloat = 12
 
     var body: some View {
         GeometryReader { proxy in
             let width = max(proxy.size.width, 1)
             Color.clear
                 .contentShape(Rectangle())
-                .onTapGesture(coordinateSpace: .local) { location in
-                    model.setCursor(model.time(atFraction: Double(location.x / width)))
-                }
-                .gesture(
-                    LongPressGesture(minimumDuration: 0.25)
-                        .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
-                        .onChanged { value in
-                            guard case .second(true, let drag) = value else { return }
-                            scrubbing = true
-                            if let drag { model.setCursor(model.time(atFraction: Double(drag.location.x / width))) }
-                        }
-                        .onEnded { _ in scrubbing = false }
-                )
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 16, coordinateSpace: .local)
-                        .onChanged { value in
-                            guard !scrubbing, abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-                            let start = panStart ?? model.visible
-                            panStart = start
-                            model.pan(from: start, by: -Double(value.translation.width / width) * start.duration)
-                        }
-                        .onEnded { _ in panStart = nil }
+                    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                        .onChanged { value in changed(value, width: width) }
+                        .onEnded { value in ended(value, width: width) }
                 )
                 .simultaneousGesture(
                     MagnifyGesture()
@@ -312,6 +309,42 @@ struct ScrubSurface: View {
             }
         }
         .accessibilityIdentifier("timeline.chart")
+    }
+
+    private func changed(_ value: DragGesture.Value, width: CGFloat) {
+        var current = touch ?? Touch(began: value.time, window: model.visible)
+        let dx = value.translation.width, dy = value.translation.height
+        if current.mode == .undecided {
+            let moved = max(abs(dx), abs(dy)) >= Self.moveSlop
+            let held = value.time.timeIntervalSince(current.began) >= Self.holdToScrub
+            if held, !moved || abs(dx) >= abs(dy) {
+                current.mode = .scrub
+            } else if moved {
+                current.mode = abs(dx) > abs(dy) * 1.5 ? .pan : .scroll
+            }
+        }
+        switch current.mode {
+        case .scrub:
+            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+        case .pan:
+            model.pan(from: current.window, by: -Double(dx / width) * current.window.duration)
+        case .undecided, .scroll:
+            break
+        }
+        touch = current
+    }
+
+    private func ended(_ value: DragGesture.Value, width: CGFloat) {
+        defer { touch = nil }
+        guard let current = touch else {
+            // Down and up in one event: a tap.
+            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+            return
+        }
+        let still = max(abs(value.translation.width), abs(value.translation.height)) < Self.moveSlop
+        if current.mode == .undecided, still {
+            model.setCursor(model.time(atFraction: Double(value.location.x / width)))
+        }
     }
 }
 

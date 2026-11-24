@@ -45,6 +45,7 @@ struct DashboardScreen: View {
                 VStack(alignment: .leading, spacing: DKSpace.xl) {
                     if showsOwnBanner { TestBanner() }
                     rook
+                    if model.loaded, !model.hasAnyValue { connectRing }
                     cockpit
                     if let night = model.lastNight, let bed = night.inBed {
                         SleepPreview(night: night, calendar: model.calendar) {
@@ -113,6 +114,21 @@ struct DashboardScreen: View {
             }
             .buttonStyle(DKPillButtonStyle())
             .accessibilityIdentifier("rook.speak")
+        }
+    }
+
+    /// Without any stored value (real mode before the first sync) the ring is one tap away.
+    private var connectRing: some View {
+        DKCard {
+            Text("Noch keine Werte. Verbinde deinen Ring, dann zeige ich dir hier deine Nacht und deinen Tag.")
+                .font(DKFont.body)
+                .foregroundStyle(DKColor.textPrimary)
+                .wraps()
+            Button { path.append(.connect) } label: {
+                Label("Ring verbinden", systemImage: "circle.circle")
+            }
+            .buttonStyle(DKPrimaryButtonStyle())
+            .accessibilityIdentifier("openRing")
         }
     }
 

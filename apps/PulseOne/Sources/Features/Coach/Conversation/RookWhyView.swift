@@ -16,6 +16,11 @@ struct RookWhyView: View {
                 ScreenBackground()
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.l) {
+                        // In the content, not the toolbar: iOS 26 lists a toolbar button twice in the UI test tree,
+                        // so `why.close` was ambiguous (team 03 patch).
+                        Button("Schließen", action: onClose)
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier("why.close")
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
                         Card {
                             Text(statement.headline).font(Typography.title).foregroundStyle(Palette.ink).wraps()
@@ -90,11 +95,6 @@ struct RookWhyView: View {
             .accessibilityIdentifier("screen.why")
             .navigationTitle("Warum?")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Schließen", action: onClose).accessibilityIdentifier("why.close")
-                }
-            }
         }
     }
 

@@ -21,7 +21,9 @@ final class RookStore {
     @ObservationIgnored private let engine = IntelligenceEngine()
     @ObservationIgnored private let calendar = Calendar.current
 
-    var now: Date { LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : .now }
+    /// The app clock (team 03 patch): fixed in test scenarios, real in the M1 walkthrough, whose night is
+    /// stored on the real day; with the fixed time ROOK found no last night there and showed no evidence.
+    var now: Date { TimelineClock.now }
 
     /// Builds today's statement: a demo case in its test scenario, otherwise the newest valid stored statement
     /// (Claude's check-in or a corrected one) or ROOK's local reading of the stored nights.
