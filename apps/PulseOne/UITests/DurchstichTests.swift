@@ -251,7 +251,8 @@ final class DurchstichTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Runs one step, attaches a screenshot and records the result. A skip marks the rest as not reached.
+    /// Runs one step, attaches a screenshot and records the result. Strict: a missing screen fails the step and
+    /// the walkthrough continues. Lenient: a missing screen skips the rest.
     private func step(_ name: String, _ body: () throws -> String) throws {
         stepNumber += 1
         let failuresBefore = testRun?.failureCount ?? 0
@@ -262,7 +263,9 @@ final class DurchstichTests: XCTestCase {
         } catch let missing as M1Missing {
             report.append((name, M1.strict ? "✗ fehlt" : "nicht integriert", missing.message))
             M1.attachScreenshot(self, name: String(format: "durchstich__%02d-fehlt", stepNumber))
-            if M1.strict { throw missing }
+            // Strict: `require` already recorded the failure; the walkthrough goes on so the later steps
+            // (e.g. the voice conversation) still run and appear in the video. Lenient: skip as before.
+            if M1.strict { return }
             throw XCTSkip("Noch nicht integriert – \(missing.message)")
         } catch {
             report.append((name, "✗", "\(error)"))
