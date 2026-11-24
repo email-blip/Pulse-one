@@ -226,14 +226,17 @@ final class DurchstichTests: XCTestCase {
             XCTAssertTrue(rookTurns.firstMatch.waitForExistence(timeout: 10), "ROOK antwortet nicht")
             let firstAnswer = rookTurns.firstMatch.label
 
-            // Barge-in: the second sentence cuts into the answer. Its live line exists only while ROOK listens,
-            // so seeing it with the status "Ich höre zu" means ROOK stopped talking.
+            // Barge-in: the second sentence cuts into the answer. The status carries a sticky counter
+            // ("Unterbrochen: N", counted when ROOK's answer is actually cut), so the check does not depend on
+            // catching the short listening window between the cut and the next answer.
             let secondPerson = app.descendants(matching: .any).matching(identifier: M1.Voice.personTurn)
                 .matching(NSPredicate(format: "label CONTAINS %@", "Warte mal")).firstMatch
             XCTAssertTrue(secondPerson.waitForExistence(timeout: 15), "Zweite Äußerung (Unterbrechung) nicht im Transkript")
-            XCTAssertTrue(M1.element(app, M1.Voice.status).label.hasPrefix(M1.Voice.listening) ||
-                          M1.element(app, M1.Voice.status).label.hasPrefix(M1.Voice.thinking),
-                          "ROOK hört bei der Unterbrechung nicht zu: \(M1.element(app, M1.Voice.status).label)")
+            let statusElement = M1.element(app, M1.Voice.status)
+            let interrupted = expectation(for: NSPredicate(format: "value CONTAINS %@", "Unterbrochen: 1"),
+                                          evaluatedWith: statusElement)
+            wait(for: [interrupted], timeout: 10)
+            let statusAtBargeIn = statusElement.label
             M1.attachScreenshot(self, name: String(format: "durchstich__%02d-unterbrechung", stepNumber))
             // ROOK answers the new question with its own turn.
             let second = expectation(for: NSPredicate(format: "count >= 2"), evaluatedWith: rookTurns)
@@ -245,7 +248,8 @@ final class DurchstichTests: XCTestCase {
             end.tap()
             let idle = expectation(for: NSPredicate(format: "label == %@", "Mit ROOK sprechen"), evaluatedWith: end)
             wait(for: [idle], timeout: 5)
-            return "Status: \(seen.joined(separator: " → ")) · erste Antwort: \(firstAnswer.prefix(60))"
+            return "Status: \(seen.joined(separator: " → ")) · erste Antwort: \(firstAnswer.prefix(60)) · " +
+                "Unterbrechung gezählt, Status danach: \(statusAtBargeIn)"
         }
     }
 

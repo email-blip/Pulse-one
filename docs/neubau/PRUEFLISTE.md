@@ -88,6 +88,7 @@ Bildschirm-Wurzeln tragen die Kennung immer (nicht nur im Testszenario). Quelle 
 | `workout.state` | 05 | `accessibilityValue` = `WorkoutRunState.rawValue` |
 | `workout.remaining` | 05 | Restzeit der Phase als Text |
 | `workout.exertion.1` … `.10` | 05 | Anstrengung |
+| `rook.voice.status` | 05 | Status „Ich höre zu / Ich denke nach / ROOK spricht“; `accessibilityValue` „Unterbrochen: N“ nach jedem echten Abbruch einer Antwort |
 | Tableiste „Dashboard“, „Verlauf“, „Coach“ | 03 | Tab-Beschriftungen |
 | Signpost `de.sommerlabs.pulseone` / `timeline` / `scrub` (optional) | 03 | eigene Messung des Cursor-Updates, wenn gewünscht |
 
