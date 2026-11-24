@@ -29,8 +29,9 @@ final class TimelinePerformanceTests: XCTestCase {
 
     /// Panning the timeline: frame rate and hitch time ratio from the system scroll signposts
     /// (Swift Charts' scrollable axis pans in a scroll view). Apple's guide: hitch ratio under 5 ms/s is good.
+    /// Panned in the day view: Vorgaben G asks for pan and pinch in the day, the year view is an overview.
     func testPanningHitches() throws {
-        let app = try openYearTimeline()
+        let app = try openYearTimeline(range: nil)
         let chart = M1.element(app, M1.Timeline.chart)
         let options = XCTMeasureOptions()
         options.iterationCount = 5
@@ -50,7 +51,7 @@ final class TimelinePerformanceTests: XCTestCase {
         }
     }
 
-    private func openYearTimeline() throws -> XCUIApplication {
+    private func openYearTimeline(range: String? = "Jahr") throws -> XCUIApplication {
         let app = M1.launch("neubauM1Year")
         // Inserting a year of points takes a while on a CI simulator.
         try M1.skipIfMissing {
@@ -61,9 +62,11 @@ final class TimelinePerformanceTests: XCTestCase {
             try M1.require(app, M1.Screen.timeline, step: "Verlauf")
             try M1.require(app, M1.Timeline.chart, step: "Spuren")
         }
-        // Zoom out to the widest range the timeline offers (Jahr), if it shows the range picker.
-        let year = app.buttons["Jahr"]
-        if year.waitForExistence(timeout: 3) { year.tap() }
+        // Zoom out to the requested range (default: Jahr), if the timeline shows the range picker.
+        if let range {
+            let button = app.buttons[range]
+            if button.waitForExistence(timeout: 3) { button.tap() }
+        }
         Thread.sleep(forTimeInterval: 1)
         return app
     }
