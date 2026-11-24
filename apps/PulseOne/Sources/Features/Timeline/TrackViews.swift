@@ -1,4 +1,5 @@
 import Charts
+import os
 import PulseCore
 import SwiftUI
 
@@ -23,6 +24,7 @@ struct ValueTrackChart: View, Equatable {
 
     var body: some View {
         let tint = MetricStyle.of(kind).color
+        let _ = TimelineProbe.chartBody(kind: kind, marks: values.count)
         Chart {
             // Gaps: a faint band, never a line to zero and never a bridged line.
             ForEach(gaps, id: \.start) { gap in
@@ -331,5 +333,41 @@ enum TimeTicks {
             cursor = next
         }
         return ticks
+    }
+}
+
+/// Measuring points for the Verlauf (signposts in Instruments, subsystem de.sommerlabs.pulseone, category
+/// Timeline). In test scenarios the counts also appear in the chart's accessibility value, so a UI test can
+/// see whether a cursor step redraws the charts.
+@MainActor
+enum TimelineProbe {
+    static let signposter = OSSignposter(subsystem: "de.sommerlabs.pulseone", category: "Timeline")
+    private(set) static var chartBodies = 0
+    private(set) static var marks = 0
+    private(set) static var lastReloadMilliseconds = 0
+
+    static func chartBody(kind: SampleKind, marks count: Int) {
+        chartBodies += 1
+        marks = count
+        signposter.emitEvent("chartBody", "\(kind.rawValue, privacy: .public) \(count) marks")
+    }
+
+    static func reloaded(milliseconds: Int) { lastReloadMilliseconds = milliseconds }
+
+    /// Body evaluations per view ("Verlauf", "Anzeige", "Fläche") and cursor steps, to see what a drag rebuilds.
+    private(set) static var bodies: [String: Int] = [:]
+    private(set) static var steps = 0
+    private(set) static var stepMilliseconds = 0.0
+
+    static func body(_ name: String) { bodies[name, default: 0] += 1 }
+
+    static func step(milliseconds: Double) {
+        steps += 1
+        stepMilliseconds += milliseconds
+    }
+
+    static var summary: String {
+        let views = bodies.keys.sorted().map { "\($0) \(bodies[$0] ?? 0)" }.joined(separator: ", ")
+        return "Charts \(chartBodies)× (\(marks) Marks), \(views), Schritte \(steps) (\(Int(stepMilliseconds)) ms), Laden \(lastReloadMilliseconds) ms"
     }
 }
