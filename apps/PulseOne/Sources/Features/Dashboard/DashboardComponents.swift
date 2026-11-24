@@ -188,25 +188,20 @@ struct MiniHypnogram: View {
     }
 }
 
-/// iOS 26: the tab bar floats as glass over the content, and text scrolled under it shows through, bent by
-/// the lens (tile numbers as broken-up "55" and "43 ms" in the screenshots; the contrast audit reads them as
-/// text without an element, and a hard scroll edge did not stop it). An opaque page-coloured strip behind
-/// the bar hides the content there; the bar itself stays glass. Earlier systems draw a solid bar anyway.
-/// The strip reaches a little above the bar: the lens also samples content just outside its edge, and with
-/// only a few points of margin the HRV tile's "43 ms" sometimes still showed up bent (flaky dashboard audits).
-struct OpaqueUnderTabBar: ViewModifier {
+/// iOS 26: the tab bar floats as glass over the content, and a scroll view that touches the bottom safe-area
+/// edge keeps drawing its content beneath it. Text resting there at the bottom of the dashboard (Ruhepuls, HRV,
+/// sleep at y ≥ 808 on a 17 Pro) was on screen for the accessibility audit but hidden behind the bar: first
+/// bent by the glass, then covered by an opaque strip; either way the contrast audit sometimes reported it as
+/// text without an element (runs 204, 213). Ending the scroll view one point above the safe-area edge stops it
+/// from extending under the bar, so content there is simply scrolled out of view, as with an opaque bar.
+/// The page background still fills the whole screen behind the glass.
+struct EndsAboveTabBar: ViewModifier {
     func body(content: Content) -> some View {
-        content.overlay {
-            GeometryReader { proxy in
-                let inset = proxy.safeAreaInsets.bottom
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    DKColor.background.frame(height: inset > 0 ? inset + DKSpace.xxl : 0)
-                }
-                .ignoresSafeArea(edges: .bottom)
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        VStack(spacing: 0) {
+            content
+            Color.clear
+                .frame(height: 1)
+                .accessibilityHidden(true)
         }
     }
 }

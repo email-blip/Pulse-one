@@ -58,7 +58,7 @@ struct DashboardScreen: View {
                 .padding(.bottom, DKSpace.xxl)
             }
             .dkPageBackground()
-            .modifier(OpaqueUnderTabBar())
+            .modifier(EndsAboveTabBar())
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen.dashboard")
             // Out of the accessibility tree while the profile or "Mehr" sheet covers it (one "orb" per screen).
