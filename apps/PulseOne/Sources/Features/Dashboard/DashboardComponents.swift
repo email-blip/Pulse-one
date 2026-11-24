@@ -331,8 +331,8 @@ struct RookWhySheet: View {
                         .accessibilityHint("Öffnet diesen Zeitraum im Verlauf")
                         .accessibilityIdentifier("why.evidence.\(index)")
                     }
-                    if let recheck = insight.recheckAt {
-                        Text("Ich schaue \(recheck.formatted(.relative(presentation: .named).locale(Locale(identifier: "de_DE")))) wieder drauf.")
+                    if let recheck = insight.recheckAt, recheck > TimelineClock.now {
+                        Text("Ich schaue \(Self.relative(recheck)) wieder drauf.")
                             .font(DKFont.caption)
                             .foregroundStyle(DKColor.textSecondary)
                             .wraps()
@@ -348,8 +348,36 @@ struct RookWhySheet: View {
         .accessibilityIdentifier("screen.why")
     }
 
+    /// When ROOK looks again, said from the app's clock (test scenarios run on a fixed time):
+    /// "heute um 18:00", "morgen", "übermorgen" or "am Do 27.11.".
+    static func relative(_ date: Date, now: Date = TimelineClock.now, calendar: Calendar = .current) -> String {
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? 0
+        switch days {
+        case ...0: return "heute um \(date.formatted(TimelineModel.clock(calendar)))"
+        case 1: return "morgen"
+        case 2: return "übermorgen"
+        default:
+            let style = Date.FormatStyle(locale: Locale(identifier: "de_DE"), calendar: calendar)
+                .weekday(.abbreviated).day(.twoDigits).month(.twoDigits)
+            return "am \(date.formatted(style))"
+        }
+    }
+
     private func windowText(_ window: DateInterval) -> String {
         let style = TimelineModel.dayClock(.current)
         return "\(window.start.formatted(style)) – \(window.end.formatted(style))"
+    }
+}
+
+/// iOS 26: content scrolled under the floating tab bar shows through its glass, bent by the lens (tile numbers
+/// came out as broken-up "55" and "43 ms" in the screenshots, and the audit read them as text without an
+/// element). A hard edge puts an opaque backing under the bar. Earlier systems draw a solid bar anyway.
+struct HardBottomScrollEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectStyle(.hard, for: .bottom)
+        } else {
+            content
+        }
     }
 }

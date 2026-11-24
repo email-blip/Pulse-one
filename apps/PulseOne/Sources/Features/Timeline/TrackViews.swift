@@ -117,8 +117,8 @@ struct TintedIconLabel: LabelStyle {
 }
 
 /// Hypnogram on the shared time axis: four phase rows plus a separate row for codes we cannot map.
-/// Every interval keeps its real start and end; gaps stay empty. Each interval is its own button
-/// (`hypnogram.segment.<n>`), so it can be tapped and read by VoiceOver.
+/// Every interval keeps its real start and end; gaps stay empty. Each interval is its own VoiceOver element
+/// (`hypnogram.segment.<n>`); a tap anywhere on the track picks the interval at that time.
 struct HypnogramTrack: View {
     let segments: [SleepSegment]
     let window: DateInterval
@@ -145,9 +145,10 @@ struct HypnogramTrack: View {
                 }
                 ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
                     let frame = rect(for: segment, width: width)
-                    // Not a button: most intervals are a few points wide, below any usable hit area. The whole
-                    // track takes the tap (by time, below); each interval stays its own VoiceOver element with
-                    // an activate action, so it can be read and picked one by one.
+                    // Not a button and no activate action (either makes it one for the audit): most intervals
+                    // are a few points wide, below any usable hit area. The whole track takes the tap (by time,
+                    // below); each interval stays its own VoiceOver element whose label already names phase,
+                    // start, end and length.
                     SleepPhaseFill(phase: segment.phase, cornerRadius: 3)
                         .overlay {
                             if selected?.id == segment.id {
@@ -159,8 +160,7 @@ struct HypnogramTrack: View {
                         .offset(x: frame.minX, y: frame.minY)
                         .accessibilityElement()
                         .accessibilityLabel(Hypnogram.describe(segment, calendar: calendar))
-                        .accessibilityAddTraits(selected?.id == segment.id ? .isSelected : [])
-                        .accessibilityAction { onSelect(segment) }
+                        .accessibilityAddTraits(selected?.id == segment.id ? [.isStaticText, .isSelected] : .isStaticText)
                         .accessibilityIdentifier("hypnogram.segment.\(index)")
                 }
             }

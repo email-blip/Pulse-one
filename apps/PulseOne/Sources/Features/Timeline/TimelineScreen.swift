@@ -34,6 +34,7 @@ struct TimelineScreen: View {
             .padding(.bottom, DKSpace.xxl)
         }
         .dkPageBackground()
+        .modifier(HardBottomScrollEdge())
         .navigationTitle("Verlauf")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: refreshToken) { load() }

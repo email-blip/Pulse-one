@@ -60,6 +60,7 @@ struct DashboardScreen: View {
                 .padding(.bottom, DKSpace.xxl)
             }
             .dkPageBackground()
+            .modifier(HardBottomScrollEdge())
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen.dashboard")
             .navigationTitle("Dashboard")
