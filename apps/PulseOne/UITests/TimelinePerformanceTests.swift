@@ -25,6 +25,8 @@ final class TimelinePerformanceTests: XCTestCase {
                        withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         XCTAssertTrue(M1.element(app, M1.Timeline.selection).exists, "Cursor-Anzeige nach dem Ziehen fehlt")
+        // Team 03's counter in test scenarios: "Charts N× (M Marks), Laden X ms" – shows whether charts rebuild per step.
+        print("M1 scrub chart counter: \(chart.value as? String ?? "-")")
     }
 
     /// Panning the timeline: frame rate and hitch time ratio from the system scroll signposts
@@ -35,9 +37,14 @@ final class TimelinePerformanceTests: XCTestCase {
         let chart = M1.element(app, M1.Timeline.chart)
         let options = XCTMeasureOptions()
         options.iterationCount = 5
+        // Swipe in the visible upper part of the tracks: the element's middle can lie under the floating tab bar,
+        // where iOS 26 switches tabs by swiping (team 03).
         measure(metrics: [XCTOSSignpostMetric.scrollingAndDecelerationMetric], options: options) {
-            chart.swipeRight(velocity: .fast)
+            chart.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.15))
+                .press(forDuration: 0, thenDragTo: chart.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.15)),
+                       withVelocity: .fast, thenHoldForDuration: 0)
         }
+        XCTAssertTrue(M1.element(app, M1.Screen.timeline).exists, "Pannen hat den Verlauf verlassen")
     }
 
     /// Nothing may keep animating once a screen is hidden: CPU of the app idling on the timeline after the
@@ -67,6 +74,7 @@ final class TimelinePerformanceTests: XCTestCase {
             let button = app.buttons[range]
             if button.waitForExistence(timeout: 3) { button.tap() }
         }
+        M1.reveal(M1.element(app, M1.Timeline.chart), in: app)
         Thread.sleep(forTimeInterval: 1)
         return app
     }
