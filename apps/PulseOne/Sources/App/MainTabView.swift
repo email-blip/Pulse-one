@@ -46,8 +46,15 @@ struct MainTabView: View {
         }
         .tint(DKColor.accent)
         .environment(navigator)
-        // ROOK's evidence ("Warum?", team 04) opens the Verlauf here; its action handler belongs to 05 (#61).
+        // Team 03: ROOK's evidence ("Warum?") opens the Verlauf at its window.
         .environment(\.openTimeline, RookTimelineHandler { [nav = self.navigator] state in nav.openTimeline(state: state) })
+        // Team 05: the guided training session opens full screen from any tab (Coach, ROOK's action).
+        .trainingSessionCover()
+        // Team 05: ROOK's "Einheit starten" (dashboard and Coach) opens today's guided session.
+        .environment(\.rookActionHandler, RookActionHandler { [sources] action in
+            guard action.kind == .startWorkout, let context = sources.modelContext else { return }
+            TrainingController.shared.openToday(context: context, profileID: sources.ownerProfileID, now: .now)
+        })
         .environment(\.openProfile) { showProfile = true }
         .sheet(isPresented: $showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.

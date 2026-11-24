@@ -11,8 +11,9 @@ struct CoachProposal: Identifiable {
     let reason: String
 }
 
-/// Root of the Coach tab (Welle 3): today's plan from load and recovery, adjustments, evening review,
-/// the 4-week program and the training load. Rule based and fully local; no Claude call here.
+/// Root of the Coach tab (rebuild 2026-11-23, team 05): ROOK's lead for today (interpretation → direction →
+/// action), "Einheit starten" into the guided session, "Warum?" for the signals, then the day's blocks, the
+/// program and the load. Plan logic is the rule-based coach engine; no Claude call here.
 struct CoachScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
@@ -20,11 +21,13 @@ struct CoachScreen: View {
     @State private var loaded = false
     @State private var showSetup = false
     @State private var showReview = false
+    @State private var showWhy = false
     @State private var proposal: CoachProposal?
     @State private var refresh = 0
 
     private var now: Date { LaunchOptions.current.usesTestScenario ? TestScenario.fixedTime : .now }
     private var repository: CoachRepository { CoachRepository(context: modelContext) }
+    private var training: TrainingController { .shared }
 
     var body: some View {
         NavigationStack {
@@ -33,13 +36,14 @@ struct CoachScreen: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                         if LaunchOptions.current.usesTestScenario { TestBanner() }
+                        if training.hasOpenSession { resumeCard }
                         // ROOK first: interpretation, action, "Warum?" and the conversation (team 04).
                         RookConversationSection()
                         if let snapshot {
                             content(snapshot)
                         } else if loaded {
                             EmptyState(title: "Coach einrichten",
-                                       message: "Sag dem Coach, was du gern machst und wie viel Zeit du hast. Ohne Sportart plant er Alltagsbewegung, Beweglichkeit und Erholung.",
+                                       message: "Sag mir, was du gern machst und wie viel Zeit du hast. Ohne Sportart plane ich Alltagsbewegung, Beweglichkeit und Erholung.",
                                        systemImage: "figure.run", actionTitle: "Jetzt einrichten") { showSetup = true }
                                 .accessibilityIdentifier("coach.setup")
                         }
@@ -50,7 +54,7 @@ struct CoachScreen: View {
             }
             .navigationTitle("Coach")
             .profileToolbar()
-            .task(id: "\(refresh)|\(sources.syncing.count)") { reload() }
+            .task(id: "\(refresh)|\(sources.syncing.count)|\(training.isPresented)") { reload() }
             .sheet(isPresented: $showSetup) {
                 CoachSetupView(initial: snapshot?.preferences ?? CoachPreferences()) { preferences in
                     repository.save(preferences: preferences, now: now)
@@ -82,18 +86,13 @@ struct CoachScreen: View {
 
     @ViewBuilder
     private func content(_ s: CoachSnapshot) -> some View {
-        decisionCard(s.plan)
+        lead(s)
+        if showWhy { why(s) }
         SectionHeader(title: "Dein Tag")
         ForEach(s.plan.blocks) { block in
-            CoachBlockCard(block: block)
-        }
-        // On rest days set by the rules (feeling sick, alarm signs) changes are not applied, so none are offered.
-        if s.plan.decision != .rest, s.plan.decision != .seekHelp {
-            adjustCard(s)
+            CoachBlockCard(block: block) { start(block) }
         }
         reviewCard(s)
-        SectionHeader(title: "Erholungssignale")
-        signalsCard(s.plan.signals)
         SectionHeader(title: "Dein Programm")
         CoachWeekCard(program: s.program, position: s.position, now: now)
         loadCard(s.load)
@@ -102,71 +101,149 @@ struct CoachScreen: View {
             .accessibilityIdentifier("coach.settings")
     }
 
-    private func decisionCard(_ plan: DailyPlan) -> some View {
+    // MARK: Lead
+
+    private func lead(_ s: CoachSnapshot) -> some View {
+        let primary = WorkoutBuilder.primaryBlock(of: s.plan)
+        let lead = CoachLead.make(plan: s.plan, doneToday: s.doneToday, canStart: primary != nil)
+        return VStack(alignment: .leading, spacing: Spacing.m) {
+            HStack(spacing: Spacing.s) {
+                Circle()
+                    .fill(RadialGradient(colors: [Palette.bioCyan, Palette.neuralViolet.opacity(0.6)],
+                                         center: .center, startRadius: 1, endRadius: 14))
+                    .frame(width: 22, height: 22)
+                    .accessibilityHidden(true)
+                Text("ROOK")
+                    .font(Typography.motto)
+                    .tracking(1.5)
+                    .foregroundStyle(Palette.ink)
+                Spacer()
+                if s.plan.decision == .seekHelp { StatementBadge(kind: .medicalCheck) }
+            }
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                Text(lead.headline)
+                    .font(.system(.title, design: .rounded).weight(.bold))
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+                Text(lead.line)
+                    .font(Typography.body)
+                    .foregroundStyle(Palette.inkMuted)
+                    .wraps()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("coach.decision")
+            if let title = lead.actionTitle, let primary {
+                Button { start(primary) } label: {
+                    Label(title, systemImage: "play.fill")
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("coach.start")
+            }
+            HStack(spacing: Spacing.m) {
+                Button(showWhy ? "Weniger" : "Warum?") { showWhy.toggle() }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("coach.why")
+                if s.plan.decision != .rest, s.plan.decision != .seekHelp, s.plan.suggested.kind != .rest {
+                    adjustMenu(s)
+                }
+            }
+        }
+        .padding(Spacing.l)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
+                .fill(LinearGradient(colors: [Palette.surfaceRaised, Palette.neuralViolet.opacity(0.18)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
+                    .strokeBorder(Palette.hairline, lineWidth: 1))
+        )
+    }
+
+    private var resumeCard: some View {
+        Card {
+            Label(training.summary == nil ? "Deine Einheit läuft noch" : "Deine Einheit wartet auf den Abschluss",
+                  systemImage: "figure.strengthtraining.functional")
+                .font(Typography.label)
+                .foregroundStyle(Palette.pulseCoral)
+                .wraps()
+            Button(training.summary == nil ? "Fortsetzen" : "Abschließen") { training.reopen() }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("coach.resume")
+        }
+    }
+
+    /// "Warum?": what the plan rests on, measured signals only; unknown ones stay out of the way.
+    private func why(_ s: CoachSnapshot) -> some View {
         Card {
             HStack {
-                StatementBadge(kind: plan.decision == .seekHelp ? .medicalCheck : .suggestion)
+                Text("WARUM")
+                    .font(Typography.motto)
+                    .tracking(1)
+                    .foregroundStyle(Palette.inkMuted)
                 Spacer()
+                StatementBadge(kind: .computed)
             }
-            Text(plan.decision.title)
-                .font(Typography.title)
+            Text(s.plan.decision.explanation)
+                .font(Typography.caption)
                 .foregroundStyle(Palette.ink)
                 .wraps()
-            Text(plan.decision.explanation)
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
-            ForEach(plan.notes, id: \.self) { note in
+            ForEach(s.plan.signals.filter { $0.state != .unknown }) { signal in
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Label(signal.kind.title, systemImage: signal.state == .notable ? "arrow.up.and.down.circle" : "circle")
+                        .font(Typography.label)
+                        .foregroundStyle(signal.state == .notable ? Palette.neuralViolet : Palette.ink)
+                        .wraps()
+                    Text(signal.text)
+                        .font(Typography.caption)
+                        .foregroundStyle(Palette.inkMuted)
+                        .wraps()
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if let reason = s.plan.blocks.first(where: { $0.id == "main" })?.reason {
+                Label(reason, systemImage: "info.circle")
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.ink)
+                    .wraps()
+            }
+            ForEach(s.plan.notes, id: \.self) { note in
                 Label(note, systemImage: "info.circle")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.ink)
                     .wraps()
             }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("coach.decision")
-    }
-
-    private func adjustCard(_ s: CoachSnapshot) -> some View {
-        let session = s.plan.suggested
-        let others = Sport.allCases.filter { $0 != session.sport && (!$0.isOptionalModule || s.preferences.sports.contains($0)) }
-        return Card {
-            Label("Plan anpassen", systemImage: "arrow.triangle.2.circlepath")
-                .font(Typography.label)
-                .foregroundStyle(Palette.bioCyan)
-                .wraps()
-            Text("Jede Änderung siehst du vorher und nachher. Gespeichert wird erst, wenn du sie übernimmst. Deine Grenzen gelten immer.")
+            Text("Ich vergleiche mit deinen eigenen Werten der letzten 30 Tage und passe nur an, wenn ein Wert deutlich außerhalb deines üblichen Bereichs liegt.")
                 .font(Typography.caption)
                 .foregroundStyle(Palette.inkMuted)
                 .wraps()
+        }
+        .accessibilityIdentifier("coach.signals")
+    }
+
+    private func adjustMenu(_ s: CoachSnapshot) -> some View {
+        let session = s.plan.suggested
+        let others = Sport.allCases.filter { $0 != session.sport && (!$0.isOptionalModule || s.preferences.sports.contains($0)) }
+        return Menu {
             Button("Heute nur 15 Minuten") { propose(.timeLimit(minutes: 15), s) }
-                .buttonStyle(SecondaryButtonStyle())
             Button("Leichter") { propose(.easier, s) }
-                .buttonStyle(SecondaryButtonStyle())
             Button("Etwas mehr") { propose(.harder, s) }
-                .buttonStyle(SecondaryButtonStyle())
-            Menu {
+            Menu("Lieber etwas anderes") {
                 ForEach(others) { sport in
                     Button(sport.title) { propose(.swapActivity(sport), s) }
                 }
-            } label: {
-                Text("Lieber etwas anderes").frame(maxWidth: .infinity)
             }
-            .buttonStyle(SecondaryButtonStyle())
-            Menu {
+            Menu("Ich habe Muskelkater") {
                 ForEach(BodyRegion.allCases) { region in
                     Menu(region.title) {
                         Button("leicht bis mittel") { propose(.soreness(region: region, level: 4), s) }
                         Button("stark") { propose(.soreness(region: region, level: 8), s) }
                     }
                 }
-            } label: {
-                Text("Ich habe Muskelkater").frame(maxWidth: .infinity)
             }
-            .buttonStyle(SecondaryButtonStyle())
-            Button("Heute aussetzen") { propose(.skipToday, s) }
-                .buttonStyle(SecondaryButtonStyle())
+            Button("Heute aussetzen", role: .destructive) { propose(.skipToday, s) }
+        } label: {
+            Text("Anpassen").frame(maxWidth: .infinity)
         }
+        .buttonStyle(SecondaryButtonStyle())
         .accessibilityIdentifier("coach.adjust")
     }
 
@@ -175,6 +252,14 @@ struct CoachScreen: View {
                                                  neighbourIsHard: s.program.neighbourIsHard(of: s.plan.day, calendar: .current))
         proposal = CoachProposal(intent: intent, before: s.plan.suggested, after: after, reason: reason)
     }
+
+    /// Opens the guided session for a block (main session or any block with exercises).
+    private func start(_ block: DayBlock) {
+        guard let session = WorkoutBuilder.session(for: block) else { return }
+        training.open(session, title: block.title)
+    }
+
+    // MARK: Review and load
 
     private func reviewCard(_ s: CoachSnapshot) -> some View {
         Card {
@@ -188,57 +273,14 @@ struct CoachScreen: View {
                     .foregroundStyle(Palette.ink)
                     .wraps()
             } else {
-                Text("Noch kein Tagesabschluss für heute. Zwei Minuten am Abend reichen; daraus plant der Coach morgen. Du findest ihn auch auf „Heute“.")
+                Text("Zwei Minuten am Abend reichen: Daraus plane ich morgen.")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .wraps()
             }
             Button(s.todayReview == nil ? "Tag abschließen" : "Tagesabschluss ändern") { showReview = true }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(SecondaryButtonStyle())
                 .accessibilityIdentifier("coach.review")
-        }
-    }
-
-    private func signalsCard(_ signals: [RecoverySignal]) -> some View {
-        Card {
-            HStack {
-                StatementBadge(kind: .computed)
-                Spacer()
-            }
-            ForEach(signals) { signal in
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Label(signal.kind.title + " · " + stateText(signal.state), systemImage: stateSymbol(signal.state))
-                        .font(Typography.label)
-                        .foregroundStyle(signal.state == .notable ? Palette.neuralViolet : Palette.ink)
-                        .wraps()
-                    Text(signal.text)
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.inkMuted)
-                        .wraps()
-                }
-                .accessibilityElement(children: .combine)
-            }
-            Text("Der Coach vergleicht mit deinen eigenen Werten der 30 Tage davor (mindestens 15 Tage) und passt nur an, wenn ein Wert deutlich außerhalb deines üblichen Bereichs liegt. Kein Gesamtwert.")
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
-        }
-        .accessibilityIdentifier("coach.signals")
-    }
-
-    private func stateText(_ state: SignalState) -> String {
-        switch state {
-        case .notable: "deutlich außerhalb des üblichen Bereichs"
-        case .usual: "unauffällig"
-        case .unknown: "noch unbekannt"
-        }
-    }
-
-    private func stateSymbol(_ state: SignalState) -> String {
-        switch state {
-        case .notable: "arrow.up.and.down.circle"
-        case .usual: "circle"
-        case .unknown: "questionmark.circle"
         }
     }
 
@@ -255,12 +297,8 @@ struct CoachScreen: View {
                 .font(Typography.body)
                 .foregroundStyle(Palette.ink)
                 .wraps()
-            Text(load.fourWeekMean.map { "Mittel der 4 Wochen davor: \(Int($0))" } ?? "Noch kein Vergleich: Abendrückblicke der letzten Wochen fehlen.")
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
-            if load.missingRPE > 0 {
-                Text("\(load.missingRPE) Einheit(en) ohne Angabe der Anstrengung; sie fehlen in der Summe.")
+            if let mean = load.fourWeekMean {
+                Text("Mittel der 4 Wochen davor: \(Int(mean))")
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .wraps()
@@ -273,6 +311,8 @@ struct CoachScreen: View {
 /// One building block of the day.
 struct CoachBlockCard: View {
     let block: DayBlock
+    /// Starts the guided session for this block; shown when the block has something to play.
+    var onStart: (() -> Void)?
 
     var body: some View {
         Card {
@@ -297,6 +337,13 @@ struct CoachBlockCard: View {
                     .font(Typography.caption)
                     .foregroundStyle(Palette.inkMuted)
                     .wraps()
+            }
+            if let onStart, block.kind != .mainWorkout, !block.exercises.isEmpty {
+                Button { onStart() } label: {
+                    Label("Geführt starten", systemImage: "play.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("coach.block.\(block.id).start")
             }
             if !block.exercises.isEmpty {
                 NavigationLink {

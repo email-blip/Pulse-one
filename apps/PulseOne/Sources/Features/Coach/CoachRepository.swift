@@ -11,6 +11,8 @@ struct CoachSnapshot {
     /// Week and day index of today in the program.
     let position: (week: Int, day: Int)?
     let todayReview: EveningReview?
+    /// Training sessions saved today, oldest first.
+    let doneToday: [WorkoutSummary]
 }
 
 /// Reads and writes coach data and runs the engine. The engine decides; this type only gathers inputs.
@@ -18,6 +20,17 @@ struct CoachSnapshot {
 struct CoachRepository {
     let context: ModelContext
     var calendar: Calendar = .current
+
+    /// ROOK's corrections of the day ("Ich bin krank", "nur 15 Minuten"); team 04 sets this to its store.
+    static var correctionsProvider: @MainActor (Date) -> [UserCorrection] = { day in
+        // ROOK's quick corrections of that day (team 04); "Das passt nicht" and "Warum?" do not change the plan.
+        RookMemory.corrections(on: day).compactMap { entry -> UserCorrection? in
+            switch entry.feedback {
+            case .sick, .onlyTenMinutes, .lighter: return UserCorrection(at: entry.at, text: entry.feedback.title)
+            case .doesNotFit, .why: return nil
+            }
+        }
+    }
 
     // MARK: Storage
 
@@ -29,7 +42,7 @@ struct CoachRepository {
     /// Saves preferences and starts a new 4-week program from today.
     func save(preferences: CoachPreferences, now: Date) {
         let reviews = self.reviews(since: calendar.date(byAdding: .day, value: -42, to: now) ?? now)
-        let history = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+        let history = TrainingLoad.summary(reviews, extraLoads: extraLoads(endingOn: now),
                                            endingOn: now, calendar: calendar).fourWeekMean
         let program = ProgramBuilder.build(preferences: preferences, start: now, recentWeeklyLoad: history, calendar: calendar)
         if let record = settings() {
@@ -75,12 +88,12 @@ struct CoachRepository {
     // MARK: Engine
 
     /// nil until the coach was set up. Starts the next 4-week cycle automatically when the last one ended.
-    func snapshot(now: Date, profileID: UUID?) -> CoachSnapshot? {
+    func snapshot(now: Date, profileID: UUID?, corrections: [UserCorrection]? = nil) -> CoachSnapshot? {
         guard let record = settings(), let preferences = record.preferences else { return nil }
         let reviews = self.reviews(since: calendar.date(byAdding: .day, value: -42, to: now) ?? now)
         var program = record.program
         if program?.position(of: now, calendar: calendar) == nil {
-            let history = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+            let history = TrainingLoad.summary(reviews, extraLoads: extraLoads(endingOn: now),
                                            endingOn: now, calendar: calendar).fourWeekMean
             program = ProgramBuilder.build(preferences: preferences, start: now, recentWeeklyLoad: history, calendar: calendar)
             record.update(preferences: preferences, program: program, at: now)
@@ -95,7 +108,9 @@ struct CoachRepository {
         let today = calendar.startOfDay(for: now)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
         let todayReview = reviews.first { calendar.isDate($0.day, inSameDayAs: today) }
-        let subjective = reviews.first { calendar.isDate($0.day, inSameDayAs: yesterday) }?.check
+        // The person's own words to ROOK today (team 04) count like a check: sick → rest, a region → avoided.
+        let effect = CoachCorrections.effect(of: corrections ?? Self.correctionsProvider(now), on: now, calendar: calendar)
+        let subjective = effect.merged(into: reviews.first { calendar.isDate($0.day, inSameDayAs: yesterday) }?.check)
         // HRV from one method only, never mixed: ring HRV ("hrv_ring", method not disclosed) when present,
         // otherwise Apple's SDNN. Looked up by raw value so this compiles before the ring kind lands on main.
         let ringHRV = SampleKind(rawValue: "hrv_ring").map(days) ?? []
@@ -111,14 +126,32 @@ struct CoachRepository {
         let signals = RecoveryAssessment.assess(restingHeartRate: resting, heartRateVariability: hrv,
                                                 sleep: days(.sleepDuration), subjective: subjective, today: now, calendar: calendar)
         let feedback = FeedbackAdaptation.advice(reviews, before: now, style: preferences.style, calendar: calendar)
-        let plan = DailyPlanner.plan(now: now, program: program, preferences: preferences, signals: signals, subjective: subjective,
-                                     feedback: feedback, hourlySteps: hourlySteps(reader: reader, now: now, profileID: profileID),
-                                     revisions: revisions(on: now), activationDone: activationResults(on: now),
-                                     calendar: calendar)
-        let load = TrainingLoad.summary(reviews, extraLoads: activationLoads(endingOn: now),
+        let steps = hourlySteps(reader: reader, now: now, profileID: profileID)
+        let activations = activationResults(on: now)
+        var dayRevisions = revisions(on: now)
+        func makePlan() -> DailyPlan {
+            DailyPlanner.plan(now: now, program: program, preferences: preferences, signals: signals, subjective: subjective,
+                              feedback: feedback, hourlySteps: steps, revisions: dayRevisions, activationDone: activations,
+                              calendar: calendar)
+        }
+        var plan = makePlan()
+        // "Nur 15 Minuten", "bin platt", "heute nicht": applied like confirmed changes, within the hard limits.
+        if !effect.intents.isEmpty, plan.decision != .rest, plan.decision != .seekHelp {
+            var session = plan.suggested
+            let neighbourIsHard = program.neighbourIsHard(of: plan.day, calendar: calendar)
+            for intent in effect.intents {
+                let (after, reason) = PlanAdjuster.apply(intent, to: session, preferences: preferences, decision: plan.decision,
+                                                         neighbourIsHard: neighbourIsHard)
+                dayRevisions.append(PlanRevision(day: now, intent: intent, before: session, after: after, reason: reason, createdAt: now))
+                session = after
+            }
+            plan = makePlan()
+        }
+        let load = TrainingLoad.summary(reviews, extraLoads: extraLoads(endingOn: now),
                                         endingOn: now, calendar: calendar)
         return CoachSnapshot(preferences: preferences, program: program, plan: plan, load: load,
-                             position: program.position(of: now, calendar: calendar), todayReview: todayReview)
+                             position: program.position(of: now, calendar: calendar), todayReview: todayReview,
+                             doneToday: WorkoutLog(context: context, calendar: calendar).today(now: now))
     }
 
     /// Steps per hour today (shared rule `HourlySteps`: Health and ring steps are never added twice).
@@ -127,6 +160,11 @@ struct CoachRepository {
         let samples = reader.samples([.steps], since: calendar.startOfDay(for: now), profileID: profileID)
         let hourly = HourlySteps.perHour(samples, day: now, until: now, calendar: calendar)
         return hourly.isEmpty ? nil : hourly
+    }
+
+    /// Activation sessions and saved training sessions, both counted as load (minutes × effort).
+    func extraLoads(endingOn now: Date) -> [DayValue] {
+        activationLoads(endingOn: now) + WorkoutLog(context: context, calendar: calendar).loads(endingOn: now)
     }
 
     // MARK: Begleiter activation

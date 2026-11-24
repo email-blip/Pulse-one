@@ -261,11 +261,12 @@ struct SunriseBackground: View {
         let glowRadius = radius * 2.6
         let glowRect = CGRect(x: center.x - glowRadius, y: center.y - glowRadius, width: glowRadius * 2, height: glowRadius * 2)
         canvas.fill(Path(ellipseIn: glowRect), with: .radialGradient(
-            Gradient(colors: [Palette.pulseCoral.opacity(0.35 * progress + 0.1), Palette.neuralViolet.opacity(0.12), .clear]),
+            Gradient(colors: [Palette.pulseCoral.opacity(0.22 * progress + 0.08), Palette.neuralViolet.opacity(0.10), .clear]),
             center: center, startRadius: 0, endRadius: glowRadius))
         let sunRect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
         canvas.fill(Path(ellipseIn: sunRect), with: .radialGradient(
-            Gradient(colors: [Palette.iceWhite.opacity(0.35), Palette.pulseCoral.opacity(0.45), Palette.pulseCoral.opacity(0.05)]),
+            // No bright core: buttons and text pass over the sun and must keep their contrast (audit).
+            Gradient(colors: [Palette.pulseCoral.opacity(0.30), Palette.pulseCoral.opacity(0.18), Palette.pulseCoral.opacity(0.03)]),
             center: center, startRadius: 0, endRadius: radius))
     }
 }
