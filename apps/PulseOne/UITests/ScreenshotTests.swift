@@ -7,7 +7,7 @@ final class ScreenshotTests: XCTestCase {
     static let scenarios = ["start", "scanning", "connected", "live", "failed", "reconnecting", "heart", "devices",
                             "onboarding", "today", "health", "healthDetail", "profile", "intelligence", "coach",
                             "companion", "companionWake", "companionConference", "companionActivation",
-                            "insightNormal", "insightNights", "insightGap"]
+                            "insightNormal", "insightNights", "insightGap", "designKit"]
 
     override func setUp() async throws {
         continueAfterFailure = true   // one broken cell must not hide the others
@@ -21,7 +21,7 @@ final class ScreenshotTests: XCTestCase {
         }
         capture(scenario: "live", dynamicType: "default", reduceMotion: true)
         capture(scenario: "heart", dynamicType: "default", reduceMotion: true)
-        for scenario in ["insightNormal", "insightNights", "insightGap"] {
+        for scenario in ["insightNormal", "insightNights", "insightGap", "designKit"] {
             capture(scenario: scenario, dynamicType: "default", reduceMotion: true)
         }
         // A contradicting answer revises the interpretation; the measurements above stay as they were.
