@@ -8,18 +8,19 @@ final class AccessibilityTests: XCTestCase {
     func testLiveAudit() throws { try audit(scenario: "live") }
     func testDevicesAudit() throws { try audit(scenario: "devices") }
     func testOnboardingAudit() throws { try audit(scenario: "onboarding") }
-    func testTodayAudit() throws { try audit(scenario: "today") }
-    func testHealthAudit() throws { try audit(scenario: "health") }
-    func testHealthDetailAudit() throws { try audit(scenario: "healthDetail") }
-    func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
-    /// Recovery score with its building blocks, opened from the rings on TODAY.
-    func testScoreAudit() throws {
-        try audit(scenario: "today", screen: "score") { app in
-            let ring = app.buttons["today.score.recovery"]
-            XCTAssertTrue(ring.waitForExistence(timeout: 15))
-            ring.tap()
+    func testDashboardAudit() throws { try audit(scenario: "dashboard") }
+    /// The tile editor (team 03): arrows, size menu and on/off switch per tile.
+    func testDashboardEditAudit() throws { try audit(scenario: "dashboardEdit", screen: "dashboard") }
+    func testTimelineAudit() throws { try audit(scenario: "timeline") }
+    /// ROOK's "Warum?" from the dashboard, with the numbers behind the statement.
+    func testWhyAudit() throws {
+        try audit(scenario: "dashboard", screen: "why") { app in
+            let why = app.buttons["rook.why"]
+            XCTAssertTrue(why.waitForExistence(timeout: 15))
+            why.tap()
         }
     }
+    func testIntelligenceAudit() throws { try audit(scenario: "intelligence") }
     func testCoachAudit() throws { try audit(scenario: "coach") }
     /// ROOK's two demonstration cases (team 04) and the "Warum?" sheet.
     func testRookPositiveAudit() throws { try audit(scenario: "rookPositive") }
@@ -36,6 +37,9 @@ final class AccessibilityTests: XCTestCase {
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }
     /// DesignKit component preview (team 02): tokens, tile, buttons, chips, orb states.
     func testDesignKitAudit() throws { try audit(scenario: "designKit") }
+
+    /// Scenarios whose start screen identifier differs from the scenario name.
+    private static let startScreens = ["dashboardEdit": "dashboard"]
 
     // Rebuild M1 screens (team 06). Skipped until integrated; failures once `PULSE_M1_STRICT=1`.
     func testM1DashboardAudit() throws { try auditM1(.dashboard) }
@@ -59,7 +63,8 @@ final class AccessibilityTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting", "YES", "-uiTestScenario", scenario]
         app.launch()
-        XCTAssertTrue(app.descendants(matching: .any)["screen.\(scenario)"].waitForExistence(timeout: 15))
+        let start = prepare == nil ? (screen ?? scenario) : (Self.startScreens[scenario] ?? scenario)
+        XCTAssertTrue(app.descendants(matching: .any)["screen.\(start)"].waitForExistence(timeout: 15))
         if let prepare {
             prepare(app)
             XCTAssertTrue(app.descendants(matching: .any)["screen.\(screen ?? scenario)"].waitForExistence(timeout: 15))

@@ -16,7 +16,7 @@ final class ExplorerTests: XCTestCase {
     /// Start points: each area opens on its own tab with its test data.
     // Nutrition is left out: the owner dropped that area (2026-11-22) and its forms give changing audit results
     // from run to run (header, footer, then the number fields). Its fixed screens stay in AccessibilityTests.
-    static let starts = ["today", "health", "intelligence", "coach", "companion", "profile", "devices"]
+    static let starts = ["dashboard", "timeline", "intelligence", "coach", "companion", "profile", "devices"]
     /// Total wall-clock budget. The accessibility shard has about this much room next to the slowest shard.
     static let budget: TimeInterval = 11 * 60
     /// Root screen = depth 0. Screens at maxDepth are checked and photographed, their buttons are not tapped.
@@ -29,7 +29,7 @@ final class ExplorerTests: XCTestCase {
                           "ausschalten", "poweroff", "findring", "ring finden", "disconnect", "trennen",
                           "teilen", "share", "export", "kamera", "nutrition.scan", "scan", "ring suchen", "suchen",
                           "apple health verbinden", "setup.health", "erlaub", "berechtigung", "wecker stellen",
-                          "openprofile", "testbanner"]
+                          "openprofile", "ring.status", "testbanner", "moveup", "movedown", "tilesize", "tilevisible"]
     /// Buttons that only close the current screen: used to go back, not explored.
     static let closers = ["fertig", "schließen", "abbrechen", "zurück", "back", "done", "close", "cancel", "profile.done"]
 

@@ -78,6 +78,9 @@ struct WakeUpView: View {
                 .font(Typography.body)
                 .foregroundStyle(Palette.ink)
                 .wraps()
+                // Dark backing: the sunrise brightens behind this text while it rises (contrast audit, team 03 patch).
+                .padding(Spacing.m)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.obsidian.opacity(0.75)))
             Button(action: confirm) {
                 Label("Ich bin wach", systemImage: "sun.max")
             }
