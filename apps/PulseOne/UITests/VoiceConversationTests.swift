@@ -21,6 +21,10 @@ final class VoiceConversationTests: XCTestCase {
         XCTAssertTrue(rookTurns.firstMatch.waitForExistence(timeout: 10))
         // The second utterance cuts into the answer and gets its own answer.
         XCTAssertTrue(element(containing: "Warte mal, wie ist mein Puls gerade", in: app).waitForExistence(timeout: 15))
+        // The interruption really stopped ROOK (counted when the answer was cut, independent of query timing).
+        let status = app.descendants(matching: .any)["rook.voice.status"]
+        let interrupted = expectation(for: NSPredicate(format: "value CONTAINS %@", "Unterbrochen: 1"), evaluatedWith: status)
+        wait(for: [interrupted], timeout: 10)
         // ROOK answers the new question too (text depends on ROOK's brain, so only the turn is checked).
         let second = NSPredicate(format: "count >= 2")
         expectation(for: second, evaluatedWith: rookTurns)
