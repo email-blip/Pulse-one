@@ -191,7 +191,7 @@ public enum DailyPlanner {
         if p.needsMedicalClearance {
             notes.append("Du hast bei den Gesundheitsfragen etwas mit Ja beantwortet. Bis zur ärztlichen Rücksprache plant der Coach nur leichte Einheiten.")
         }
-        if let coverage = CoachRules.coverageNote(signals) { notes.append(coverage) }
+        // No coverage note in the plan: ROOK never talks about missing data (rebuild plan §9).
 
         var avoid = p
         avoid.limitations.formUnion(subjective?.painRegions ?? [])

@@ -44,6 +44,13 @@ struct MainTabView: View {
             Tab("Mehr", systemImage: "ellipsis.circle", value: AppTab.intelligence) { IntelligenceHubView() }
         }
         .tint(Palette.bioCyan)
+        // Team 05: the guided training session opens full screen from any tab (Coach, ROOK's action).
+        .trainingSessionCover()
+        // Team 05: ROOK's "Einheit starten" (dashboard and Coach) opens today's guided session.
+        .environment(\.rookActionHandler, RookActionHandler { [sources] action in
+            guard action.kind == .startWorkout, let context = sources.modelContext else { return }
+            TrainingController.shared.openToday(context: context, profileID: sources.ownerProfileID, now: .now)
+        })
         .environment(\.openProfile) { showProfile = true }
         .sheet(isPresented: $showProfile) {
             // Sheets start a new presentation: hand over the environment explicitly.

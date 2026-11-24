@@ -48,8 +48,9 @@ struct RookConversationSection: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isThinking)
                     .accessibilityIdentifier("rook.send")
-                // 05's voice channel (microphone button, live transcript) sits here once #61 is merged; it calls
-                // RookStore.shared.talk(_:onSentence:) and shares this conversation's memory.
+                // 05's voice channel: microphone button and live transcript; answers come from
+                // RookStore.shared.talk(_:onSentence:) and share this conversation's memory.
+                RookVoicePanel()
                 Text("Red mit ROOK wie mit einem Menschen. Korrekturen wirken sofort auf dem iPhone, Antworten kommen mit deinen Tageskennzahlen von Claude, wie die automatischen Checks.")
                     .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
             }
