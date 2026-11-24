@@ -305,7 +305,6 @@ struct ScrubSurface: View {
             let width = max(proxy.size.width, 1)
             Color.clear
                 .contentShape(Rectangle())
-                .gesture(ChartPanClaim())
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .local)
                         .onChanged { value in changed(value, width: width) }
