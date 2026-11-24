@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Type scale mapped to text styles so Dynamic Type scales everything.
+/// Legacy type scale, kept until every screen uses `DKFont` (DesignKit). New code: use `DKFont`, `DKSpace`, `DKRadius`.
 enum Typography {
     static let wordmark = Font.system(.title2, design: .rounded).weight(.heavy)
     static let motto    = Font.system(.caption, design: .rounded).weight(.semibold)
@@ -48,11 +48,6 @@ struct SecondaryButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.25, bounce: 0.3), value: configuration.isPressed)
     }
-}
-
-extension View {
-    /// Wrap instead of truncating at any Dynamic Type size.
-    func wraps() -> some View { fixedSize(horizontal: false, vertical: true) }
 }
 
 /// Raised glass-like card used for every block on the connect screen.

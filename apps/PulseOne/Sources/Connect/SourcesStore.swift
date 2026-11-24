@@ -128,6 +128,29 @@ final class SourcesStore {
         }
     }
 
+    /// Stores the ring's sleep phases night by night (`SleepSegmentStore`). Each night belongs to the
+    /// person who wore the ring when it began; a changed night replaces its stored version, nights the
+    /// ring no longer sends stay stored.
+    func ingestSleep(_ segments: [SleepSegment], deviceIdentifier: String, firmware: String?) {
+        guard !isTestScenario, let context = modelContext, !segments.isEmpty else { return }
+        let device = ringDevice(deviceIdentifier)
+        let timeline = device?.timeline ?? .constant(ownerProfileID)
+        let firstStart = Dictionary(grouping: segments, by: \.sessionID).mapValues { $0.map(\.start).min() ?? .distantPast }
+        let attributed = segments.map { s in
+            SleepSegment(id: s.id, subjectID: timeline.profile(at: firstStart[s.sessionID] ?? s.start), sessionID: s.sessionID,
+                         rawCode: s.rawCode, phase: s.phase, start: s.start, end: s.end, source: s.source,
+                         deviceID: s.deviceID, firmware: s.firmware ?? firmware ?? device?.firmware)
+        }
+        do {
+            let plan = try SleepSegmentStore(context: context).ingest(attributed)
+            guard let device else { return }
+            let nights = Set(plan.inserts.map(\.sessionID)).count
+            change(device.id) { $0.log("Schlafphasen: \(nights) Nächte gespeichert, \(plan.unchangedSessions) unverändert") }
+        } catch {
+            if let device { change(device.id) { $0.log("Schlafphasen speichern fehlgeschlagen: \(error.localizedDescription)") } }
+        }
+    }
+
     private func ringDevice(_ identifier: String) -> RegisteredDevice? {
         devices.first { $0.sourceIdentifier == identifier && $0.adapterID.hasPrefix("colmi.") }
     }

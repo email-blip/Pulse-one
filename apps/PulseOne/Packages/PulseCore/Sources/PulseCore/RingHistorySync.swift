@@ -75,6 +75,8 @@ public struct RingHistorySync: Sendable {
 
     public private(set) var support: RingFeatureSupport
     public private(set) var observations: [RawObservation] = []
+    /// Sleep phases of the nights the ring sent, as real intervals (`SleepSegment`).
+    public private(set) var sleepSegments: [SleepSegment] = []
     public private(set) var report = Report()
     public private(set) var current: Step?
 
@@ -139,7 +141,9 @@ public struct RingHistorySync: Sendable {
         if current == .spo2 {
             add(mapper.spo2(ColmiHistory.parseSpO2(packet)), for: .spo2)
         } else {
-            add(mapper.sleep(ColmiHistory.parseSleep(packet)), for: .sleep)
+            let sessions = ColmiHistory.parseSleep(packet)
+            sleepSegments += mapper.sleepSegments(sessions)
+            add(mapper.sleep(sessions), for: .sleep)
         }
         return advance()
     }

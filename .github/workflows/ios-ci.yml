@@ -31,6 +31,9 @@ env:
   APP: ${{ inputs.app || 'PulseOne' }}
   XCODE_VERSION: "26.6"      # newest on GitHub macos-26 image (2026-11-20); Xcode 27 not offered yet
   XCODEGEN_VERSION: "2.48.0" # pinned
+  # Rebuild M1 (team 06): "0" = M1 tests skip screens that are not integrated yet; 00 sets "1" for the M1
+  # integration so a missing screen fails. xcodebuild hands TEST_RUNNER_* to the test runner without the prefix.
+  TEST_RUNNER_PULSE_M1_STRICT: "0"
 
 jobs:
   # Cheap Linux job first: a failing guard stops the run before any macOS minute is spent.
@@ -65,7 +68,7 @@ jobs:
             tests: >-
               -only-testing:PulseOneIntegrationTests -only-testing:PulseOneUITests
               -skip-testing:PulseOneUITests/ScreenshotTests -skip-testing:PulseOneUITests/AccessibilityTests
-              -skip-testing:PulseOneUITests/ExplorerTests
+              -skip-testing:PulseOneUITests/ExplorerTests -skip-testing:PulseOneUITests/DurchstichTests
           # Apple's accessibility audit on every screen (contrast, hit regions, Dynamic Type, labels).
           # The audits inside ActivationTests/CompanionTests run in logic-and-ui.
           # Plus the automatic walkthrough (ExplorerTests, DECISIONS.md 2026-11-22): taps every reachable button,
@@ -154,6 +157,38 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sims.outputs.id }}" \
             -derivedDataPath build/dd -resultBundlePath "build/${{ matrix.shard }}.xcresult" \
             ${{ matrix.tests }} || { [ "${{ matrix.allow_failure }}" = "true" ] && echo "::warning::${{ matrix.shard }} failed (non-blocking)"; }
+
+      # M1 walkthrough on its own while the simulator screen is recorded (team 06): video + one screenshot per step
+      # + durchstich-report.md. Runs after the other tests so the video shows only the walkthrough.
+      - name: M1 walkthrough with screen video
+        if: always() && matrix.shard == 'logic-and-ui' && steps.build.outcome == 'success'
+        run: scripts/qa/run-durchstich.sh "${{ steps.sims.outputs.id }}" "$APP" "durchstich/m1-${{ steps.sims.outputs.name }}"
+
+      - name: Walkthrough and performance in the run summary
+        if: always() && matrix.shard == 'logic-and-ui' && steps.build.outcome == 'success'
+        run: |
+          report=$(find durchstich -name durchstich-report.md | head -1)
+          if [ -n "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; else echo "Kein Durchstich-Bericht." >> "$GITHUB_STEP_SUMMARY"; fi
+          { echo; echo "## Performance (Simulator, nur berichtend)"; python3 scripts/qa/perf-summary.py "build/logic-and-ui.xcresult"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload walkthrough video (14 days)
+        if: always() && matrix.shard == 'logic-and-ui'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: durchstich-video-${{ github.run_number }}
+          path: durchstich
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Same files on ci-screenshots/<branch> (durchstich/<device>/), so cloud sessions can review the steps.
+      - name: Upload walkthrough for the publish job
+        if: always() && matrix.shard == 'logic-and-ui'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shots-${{ github.run_number }}-durchstich
+          path: durchstich
+          retention-days: 1
+          if-no-files-found: ignore
 
       - name: Export screenshots
         if: always() && matrix.screenshots

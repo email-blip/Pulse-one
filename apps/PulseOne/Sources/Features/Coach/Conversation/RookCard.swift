@@ -35,8 +35,9 @@ struct RookCard: View {
     var body: some View {
         Card {
             HStack(spacing: Spacing.m) {
-                RookOrbView(presence: store.isThinking ? .thinking : (store.current?.insight.direction.presence ?? .idle))
-                    .frame(width: 44, height: 44)
+                // 02's orb; the plain "orb" identifier stays for 06's M1 walkthrough.
+                RookOrb(presence: store.isThinking ? .thinking : (store.current?.insight.direction.presence ?? .idle), size: 44)
+                    .accessibilityIdentifier("orb")
                 Text(RookLocal.name).font(Typography.label.weight(.semibold)).foregroundStyle(Palette.ink)
                 Spacer()
                 if let statement = store.current, statement.source == .demo {
@@ -126,40 +127,5 @@ struct RookCard: View {
         default:
             actionHandler?.perform(action)
         }
-    }
-}
-
-/// ROOK's figure, drawn natively until a Rive file replaces it (plan §10). Reads only `RookPresence`.
-struct RookOrbView: View {
-    let presence: RookPresence
-    @Environment(\.reduceMotionEffective) private var reduceMotion
-    @Environment(\.freezeAnimations) private var freeze
-    @State private var breathe = false
-
-    private var color: Color {
-        switch presence {
-        case .alerting: Palette.pulseCoral
-        case .confirming: Palette.bioCyan
-        case .thinking, .listening: Palette.neuralViolet
-        case .idle, .speaking: Palette.bioCyan
-        }
-    }
-
-    var body: some View {
-        ZStack {
-            Circle().fill(RadialGradient(colors: [color.opacity(0.9), Palette.neuralViolet.opacity(0.35), .clear],
-                                         center: .center, startRadius: 2, endRadius: 24))
-            Circle().strokeBorder(color.opacity(0.8), lineWidth: 1.5)
-        }
-        .scaleEffect(breathe ? 1.06 : 0.94)
-        .onAppear {
-            guard !reduceMotion, !freeze else { return }
-            withAnimation(.easeInOut(duration: presence == .thinking ? 0.8 : 2.4).repeatForever(autoreverses: true)) {
-                breathe = true
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel("ROOK")
-        .accessibilityIdentifier("orb")
     }
 }

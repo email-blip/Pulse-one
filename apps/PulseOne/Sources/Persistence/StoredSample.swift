@@ -28,6 +28,8 @@ final class StoredSample {
     var rawDataReference: String?
     /// HealthKit app, model and device hash (`HealthOrigin`); optional so older stores migrate lightweight.
     var originDetail: String?
+    /// When the app first received the value (live readings); nil for older rows and history.
+    var receivedAt: Date?
 
     init(_ s: HealthSample) {
         dedupKey = s.deduplicationKey
@@ -49,6 +51,7 @@ final class StoredSample {
         identityRaw = s.identity.rawValue
         rawDataReference = s.rawDataReference
         originDetail = s.originDetail
+        receivedAt = s.receivedAt
     }
 
     func update(from s: HealthSample) {
@@ -63,6 +66,8 @@ final class StoredSample {
         methodRaw = s.method.rawValue
         rawDataReference = s.rawDataReference
         originDetail = s.originDetail
+        // The first receipt stays; a later sync never moves it.
+        if receivedAt == nil { receivedAt = s.receivedAt }
         // The profile is not touched here: only `reattribute` changes it, after a logged correction.
     }
 
@@ -91,7 +96,7 @@ final class StoredSample {
                             end: end, timeZoneIdentifier: timeZoneIdentifier, source: source, deviceID: deviceID,
                             originalSampleID: originalSampleID, importedAt: importedAt, quality: quality,
                             qualityReason: qualityReason, method: method, identity: identity,
-                            rawDataReference: rawDataReference, originDetail: originDetail)
+                            rawDataReference: rawDataReference, originDetail: originDetail, receivedAt: receivedAt)
     }
 }
 

@@ -50,6 +50,9 @@ struct PulseOneApp: App {
         ring.onHistory = { observations, deviceID in
             sources.ingestHistory(observations, deviceIdentifier: deviceID)
         }
+        ring.onSleep = { segments, deviceID, firmware in
+            sources.ingestSleep(segments, deviceIdentifier: deviceID, firmware: firmware)
+        }
         // After the test scenario's rows are in, so the store starts from the same data the screens show.
         let companion = CompanionStore(context: container.mainContext)
         let checkIns = CheckInService(context: container.mainContext, ring: ring, sources: sources, profile: profile,
@@ -115,7 +118,10 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if options.usesTestScenario, options.scenario == "devices" {
+            if options.usesTestScenario, options.scenario == DesignKitReferenceScreen.scenario {
+                // DesignKit component preview (team 02), the reference for teams 03–05.
+                DesignKitReferenceScreen()
+            } else if options.usesTestScenario, options.scenario == "devices" {
                 DevicesScreen(showsClose: false)
             } else if options.usesTestScenario, let scenario = options.scenario, TestScenario.ringScenarios.contains(scenario) {
                 // Ring states are captured on the ring screen itself, as before the tab app.
@@ -130,8 +136,8 @@ struct RootView: View {
             }
         }
             .environment(\.reduceMotionEffective, options.reduceMotion ?? systemReduceMotion)
-            .environment(\.freezeAnimations, options.usesTestScenario)
-            .transaction { if options.usesTestScenario { $0.disablesAnimations = true } }
+            .environment(\.freezeAnimations, options.usesTestScenario && !options.liveMotion)
+            .transaction { if options.usesTestScenario && !options.liveMotion { $0.disablesAnimations = true } }
             .onChange(of: ring.snapshot, initial: true) { _, snapshot in sources.noteRing(snapshot) }
             // Apple Health is read on launch and on every return to the foreground (throttled in the store).
             .onChange(of: scenePhase, initial: true) { _, phase in
@@ -151,14 +157,20 @@ struct RootView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if let storeProblem {
-                    Label(storeProblem, systemImage: "exclamationmark.triangle.fill")
-                        .font(Typography.caption)
-                        .foregroundStyle(Palette.obsidian)
-                        .padding(Spacing.m)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Palette.pulseCoral)
-                        .accessibilityIdentifier("storeProblem")
+                VStack(spacing: 0) {
+                    // The rebuild screens get the test banner here once, instead of each screen adding it.
+                    if options.usesTestScenario, let scenario = options.scenario, NeubauScenario.all.contains(scenario) {
+                        TestBanner().padding(.horizontal, Spacing.m)
+                    }
+                    if let storeProblem {
+                        Label(storeProblem, systemImage: "exclamationmark.triangle.fill")
+                            .font(Typography.caption)
+                            .foregroundStyle(Palette.obsidian)
+                            .padding(Spacing.m)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Palette.pulseCoral)
+                            .accessibilityIdentifier("storeProblem")
+                    }
                 }
             }
     }

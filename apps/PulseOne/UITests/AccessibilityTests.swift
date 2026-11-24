@@ -34,6 +34,25 @@ final class AccessibilityTests: XCTestCase {
     func testInsightNormalAudit() throws { try audit(scenario: "insightNormal") }
     func testInsightNightsAudit() throws { try audit(scenario: "insightNights") }
     func testInsightGapAudit() throws { try audit(scenario: "insightGap") }
+    /// DesignKit component preview (team 02): tokens, tile, buttons, chips, orb states.
+    func testDesignKitAudit() throws { try audit(scenario: "designKit") }
+
+    // Rebuild M1 screens (team 06). Skipped until integrated; failures once `PULSE_M1_STRICT=1`.
+    func testM1DashboardAudit() throws { try auditM1(.dashboard) }
+    func testM1DashboardEditAudit() throws { try auditM1(.dashboardEdit) }
+    func testM1TimelineAudit() throws { try auditM1(.timeline) }
+    func testM1HypnogramAudit() throws { try auditM1(.hypnogram) }
+    func testM1WhyAudit() throws { try auditM1(.why) }
+    func testM1WorkoutAudit() throws { try auditM1(.workout) }
+    func testM1WorkoutSummaryAudit() throws { try auditM1(.workoutSummary) }
+
+    private func auditM1(_ place: M1.Place) throws {
+        let app = M1.launch()
+        try M1.skipIfMissing { try M1.open(place, in: app) }
+        // Same settle time as the other screens: text must not be measured mid-fade.
+        Thread.sleep(forTimeInterval: 2)
+        try AuditPolicy.run(app, name: "m1-\(place.rawValue)")
+    }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
     private func audit(scenario: String, screen: String? = nil, prepare: ((XCUIApplication) -> Void)? = nil) throws {

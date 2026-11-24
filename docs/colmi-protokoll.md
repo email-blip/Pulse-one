@@ -92,3 +92,9 @@ Verlauf (Reihenfolge wie Gadgetbridge: Schritte → Puls → Stress → SpO₂ �
 | Schlaf `BC 27` | auf `DE5BF72A`: `BC 27 01 00 FF 00 FF` | Byte 6 = Anzahl Tage; je Tag `TageZurück`, `Länge`, Beginn und Ende (Minuten nach Mitternacht, uint16), dann Phasen (Typ, Minuten): 2 leicht, 3 tief, 4 REM, 5 wach |
 
 Robustheit: Antwortet der Ring auf einen Schritt 8 s lang nicht, wird der Schritt übersprungen; bleibt eine Messart schon beim ersten Mal stumm, gilt sie für diese Verbindung als „nicht unterstützt“ und ihre übrigen Tage werden nicht mehr angefragt. Fehlt der zweite Dienst (`DE5BF728`), entfallen SpO₂ und Schlaf. Stresswerte werden gelesen und gezählt, aber noch nicht gespeichert (keine vereinbarte Skala). Hauttemperatur (R09) ist als Fähigkeit angelegt, es wird aber kein Befehl gesendet, bis ein R09-Realtest einen dokumentierten Befehl bestätigt.
+
+## Schlafphasen als Intervalle (Neubau M1, Team 01, 2026-11-23)
+- `BC 27` je Nacht: Start und Ende (Minuten nach Mitternacht, uint16 LE), danach Paare (Code, Minuten). Am R03 lückenlos ab Start: Summe der Minuten = Ende − Start.
+- Gespeichert wird jede Phase als `SleepSegment` (SwiftData `StoredSleepSegment`) mit echtem Start/Ende, Rohcode, Gerät und Firmware. Unbekannte Codes bleiben `unknown` mit Rohcode, nichts wird geraten oder aus `stageSummary` zurückgerechnet.
+- Phasenstart = Nachtstart + vergangene Minuten. So stimmt eine Sommerzeitnacht (23:30–07:00 Wanduhr = 390 echte Minuten).
+- Nacht-ID: Ring + Aufwachtag. Eine geänderte Nacht ersetzt die gespeicherte vollständig; Nächte, die der Ring nicht mehr schickt, bleiben gespeichert.
