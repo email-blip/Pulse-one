@@ -303,6 +303,7 @@ struct ScrubSurface: View {
             let width = max(proxy.size.width, 1)
             Color.clear
                 .contentShape(Rectangle())
+                .gesture(ChartPanClaim())
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 0, coordinateSpace: .local)
                         .onChanged { value in changed(value, width: width) }
@@ -337,7 +338,7 @@ struct ScrubSurface: View {
     private var chartValue: String {
         let value = model.cursorRows.first.map { "\($0.title) \($0.value), \($0.time)" } ?? "Kein Zeitpunkt gewählt"
         // UI tests read the last touch from here; VoiceOver in normal use only hears the value.
-        return LaunchOptions.current.usesTestScenario ? "\(value); Eingabe: \(model.lastInput)" : value
+        return LaunchOptions.current.usesTestScenario ? "\(value); Eingabe: \(model.lastInput); \(TimelineProbe.summary)" : value
     }
 
     private func changed(_ value: DragGesture.Value, width: CGFloat) {

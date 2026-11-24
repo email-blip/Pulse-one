@@ -124,6 +124,12 @@ final class TimelineModel {
     /// received and measured just now as "landing"; synced history appears in place.
     func reload(context: ModelContext, profileID: UUID?, coachInsights: [CoachInsight],
                 trainings: (DateInterval) -> [TrainingTimelineEntry] = { _ in [] }) {
+        let signpost = TimelineProbe.signposter.beginInterval("reload")
+        let started = Date.now
+        defer {
+            TimelineProbe.signposter.endInterval("reload", signpost)
+            TimelineProbe.reloaded(milliseconds: Int(Date.now.timeIntervalSince(started) * 1000))
+        }
         let margin = max(visible.duration, 86_400)
         let wanted = DateInterval(start: max(bounds.start, visible.start.addingTimeInterval(-margin)),
                                   end: min(bounds.end, visible.end.addingTimeInterval(margin)))
@@ -258,6 +264,7 @@ final class TimelineModel {
     }
 
     func setCursor(_ time: Date?) {
+        TimelineProbe.signposter.emitEvent("cursorStep")
         guard let time else {
             cursor = nil
             selectedSegment = nil

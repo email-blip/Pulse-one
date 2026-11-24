@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Where the dashboard navigates inside its own stack.
 enum DashboardRoute: Hashable {
-    /// The Verlauf, opened from a tile with a zoom transition from `source`.
+    /// The Verlauf, opened from a tile (`source` names the tile).
     case timeline(TimelineFocus, source: String)
     case companion
     case connect
@@ -231,12 +231,10 @@ struct DashboardScreen: View {
     @ViewBuilder
     private func destination(_ route: DashboardRoute) -> some View {
         switch route {
-        case .timeline(let focus, let source):
-            if reduceMotion {
-                TimelineScreen(focus: focus)
-            } else {
-                TimelineScreen(focus: focus).navigationTransition(.zoom(sourceID: source, in: zoom))
-            }
+        case .timeline(let focus, _):
+            // A plain push: the zoom transition can be dismissed by dragging anywhere on the screen, which
+            // competed with scrubbing and panning the chart (a fast swipe closed the Verlauf).
+            TimelineScreen(focus: focus)
         case .companion:
             CompanionScreen()
         case .connect:
