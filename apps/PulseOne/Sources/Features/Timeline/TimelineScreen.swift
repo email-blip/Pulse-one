@@ -19,6 +19,8 @@ struct TimelineScreen: View {
     @State private var model = TimelineModel()
     @State private var opened = false
     @State private var showsSource = false
+    /// Saved sessions (team 05); a newly saved one reloads the window.
+    @Query(sort: \WorkoutRecord.endedAt) private var savedWorkouts: [WorkoutRecord]
 
     var body: some View {
         ScrollView {
@@ -51,17 +53,20 @@ struct TimelineScreen: View {
 
     /// New ring values, finished syncs and a return to the foreground reload the window.
     private var refreshToken: String {
-        "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(scenePhase == .active)"
+        "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(scenePhase == .active)|\(savedWorkouts.count)|\(savedWorkouts.last?.endedAt.timeIntervalSince1970 ?? 0)"
     }
 
     private func load() {
         if !opened {
             model.open(focus)
             opened = true
+        } else if !TimelineDemo.isActive {
+            model.followLive()
         }
         let insights = TimelineDemo.isActive ? [TimelineDemo.insight(now: model.now)] : coachInsights
         withAnimation(MotionEvent.measurementLands.resolvedAnimation(reduceMotion: reduceMotion, frozen: frozen)) {
-            model.reload(context: modelContext, profileID: sources.ownerProfileID, coachInsights: insights)
+            model.reload(context: modelContext, profileID: sources.ownerProfileID, coachInsights: insights,
+                         trainings: { WorkoutLog(context: modelContext, calendar: model.calendar).entries(in: $0) })
         }
         guard !model.landing.isEmpty else { return }
         Task {
@@ -136,7 +141,7 @@ struct TimelineScreen: View {
         let resolution = model.resolution
         VStack(alignment: .leading, spacing: DKSpace.m) {
             if !model.visibleSegments.isEmpty {
-                sleepSection(window: window)
+                SleepSection(model: model, window: window)
             }
             valueTracks(window: window, resolution: resolution)
             if !model.visibleEvents.isEmpty {
@@ -164,7 +169,54 @@ struct TimelineScreen: View {
         .dkMotion(.rangeChange, value: model.range)
     }
 
-    private func sleepSection(window: DateInterval) -> some View {
+    /// Pulse, HRV, SpO₂, stress and movement under one scrub surface (`timeline.chart`).
+    private func valueTracks(window: DateInterval, resolution: TimelineResolution) -> some View {
+        VStack(alignment: .leading, spacing: DKSpace.m) {
+            ForEach(TimelineModel.valueTracks, id: \.self) { track in
+                if let drawn = model.drawn(track) {
+                    let kind = drawn.kind
+                    VStack(alignment: .leading, spacing: DKSpace.xs) {
+                        TrackHeader(kind: kind, values: drawn.values, resolution: resolution)
+                        ValueTrackChart(kind: kind, values: drawn.values, gaps: drawn.gaps, window: window,
+                                        yDomain: drawn.yDomain, landing: model.landing,
+                                        showsPoints: resolution == .original && drawn.values.count <= 160)
+                            .equatable()
+                            .frame(height: kind.aggregation == .cumulative ? 56 : 84)
+                            .overlay { CursorLine(model: model) }
+                    }
+                }
+            }
+        }
+        .overlay { ScrubSurface(model: model) }
+    }
+
+    private var explanation: some View {
+        Text(model.resolution == .original
+             ? "Jeder Punkt ist eine echte Messung mit ihrer Uhrzeit. Lücken bleiben leer."
+             : "Über zwei Tage zeigt der Verlauf Mittel- oder Summenwerte je Abschnitt; die Fläche zeigt die Spanne. Zum Einzelwert hineinzoomen.")
+            .font(DKFont.caption)
+            .foregroundStyle(DKColor.textSecondary)
+            .wraps()
+    }
+
+    static func title(of range: TimelineRange) -> String {
+        switch range {
+        case .day: "Tag"
+        case .week: "Woche"
+        case .month: "Monat"
+        case .quarter: "3 Monate"
+        case .year: "Jahr"
+        }
+    }
+}
+
+/// Hypnogram, the selected phase and the lane names. Its own view: only it reads the selected segment, so
+/// picking a phase or scrubbing does not rebuild the whole Verlauf.
+private struct SleepSection: View {
+    let model: TimelineModel
+    let window: DateInterval
+
+    var body: some View {
         VStack(alignment: .leading, spacing: DKSpace.s) {
             Label("Schlafphasen", systemImage: "moon.stars")
                 .font(DKFont.label)
@@ -202,46 +254,6 @@ struct TimelineScreen: View {
         var text = "\(Hypnogram.describe(segment, calendar: model.calendar)) · \(segment.source.title)"
         if segment.phase == .unknown { text += " · Code \(segment.rawCode), vom Ring nicht zugeordnet" }
         return text
-    }
-
-    /// Pulse, HRV, SpO₂, stress and movement under one scrub surface (`timeline.chart`).
-    private func valueTracks(window: DateInterval, resolution: TimelineResolution) -> some View {
-        VStack(alignment: .leading, spacing: DKSpace.m) {
-            ForEach(TimelineModel.valueTracks, id: \.self) { track in
-                if let kind = model.kinds[track] {
-                    let values = model.values(for: track)
-                    VStack(alignment: .leading, spacing: DKSpace.xs) {
-                        TrackHeader(kind: kind, values: values, resolution: resolution)
-                        ValueTrackChart(kind: kind, values: values, gaps: TrackSeries.gaps(in: values), window: window,
-                                        yDomain: TrackSeries.yDomain(for: values, kind: kind), landing: model.landing,
-                                        showsPoints: resolution == .original && values.count <= 160)
-                            .equatable()
-                            .frame(height: kind.aggregation == .cumulative ? 56 : 84)
-                            .overlay { CursorLine(model: model) }
-                    }
-                }
-            }
-        }
-        .overlay { ScrubSurface(model: model) }
-    }
-
-    private var explanation: some View {
-        Text(model.resolution == .original
-             ? "Jeder Punkt ist eine echte Messung mit ihrer Uhrzeit. Lücken bleiben leer."
-             : "Über zwei Tage zeigt der Verlauf Mittel- oder Summenwerte je Abschnitt; die Fläche zeigt die Spanne. Zum Einzelwert hineinzoomen.")
-            .font(DKFont.caption)
-            .foregroundStyle(DKColor.textSecondary)
-            .wraps()
-    }
-
-    static func title(of range: TimelineRange) -> String {
-        switch range {
-        case .day: "Tag"
-        case .week: "Woche"
-        case .month: "Monat"
-        case .quarter: "3 Monate"
-        case .year: "Jahr"
-        }
     }
 }
 
@@ -355,6 +367,8 @@ struct ScrubSurface: View {
     private func record(_ kind: String, _ fraction: CGFloat) {
         let time = model.time(atFraction: Double(fraction))
         model.setCursor(time)
+        // The note is for UI tests only; in normal use it would wake the surface on every drag step.
+        guard LaunchOptions.current.usesTestScenario else { return }
         model.lastInput = "\(kind) \(String(format: "%.2f", Double(fraction))) → \(time.formatted(TimelineModel.clock(model.calendar)))"
     }
 
