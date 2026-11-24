@@ -37,6 +37,8 @@ final class VoiceConversation {
     private(set) var problem: Problem?
     /// True when recognition runs on the iPhone itself.
     private(set) var isOnDevice = false
+    /// How often the person cut into ROOK's answer in this conversation (shown to VoiceOver and the UI tests).
+    private(set) var interruptions = 0
 
     /// Finished utterances (for observers; ROOK's answers come from `responder`, or from `speak(_:for:)`).
     let utterances: AsyncStream<VoiceUtterance>
@@ -146,6 +148,7 @@ final class VoiceConversation {
     private func begin(at now: Date) {
         turnTaking.start(at: now)
         turns = []
+        interruptions = 0
         sync()
         clock?.cancel()
         clock = Task { [weak self] in
@@ -171,6 +174,7 @@ final class VoiceConversation {
         case .interruptRook:
             // The person speaks into the answer: ROOK stops at once (the rest of the stream too) and listens.
             dropAnswer()
+            interruptions += 1
         case .utterance(let utterance):
             turns.append(VoiceTurn(speaker: .person, text: utterance.text, at: utterance.at))
             continuation.yield(utterance)
@@ -195,11 +199,10 @@ final class VoiceConversation {
             self.speak(self.fallbackAnswer(to: utterance), for: utterance)
         }
         guard let responder else { return }
-        let holdThinking = isUITesting
+        // UI tests answer locally in no time; a short pause keeps "Ich denke nach" visible in the test video.
+        let thinkingPause: Duration = isUITesting ? .seconds(2) : .zero
         answerTask = Task { [weak self] in
-            // UI tests answer locally within milliseconds; "Ich denke nach …" stays up a moment so the M1 video
-            // and DurchstichTests can see the phase (team 06).
-            if holdThinking { try? await Task.sleep(for: .milliseconds(1500)) }
+            if thinkingPause > .zero { try? await Task.sleep(for: thinkingPause) }
             guard !Task.isCancelled else { return }
             let full = await responder(utterance.text) { sentence in self?.deliver(sentence, for: utterance) }
             guard !Task.isCancelled, let self else { return }

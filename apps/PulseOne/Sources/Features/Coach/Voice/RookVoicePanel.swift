@@ -21,6 +21,7 @@ struct RookVoicePanel: View {
                         .font(Typography.caption)
                         .foregroundStyle(voice.phase == .speaking ? Palette.bioCyan : Palette.inkMuted)
                         .wraps()
+                        .accessibilityValue(voice.interruptions > 0 ? "Unterbrochen: \(voice.interruptions)" : "")
                         .accessibilityIdentifier("rook.voice.status")
                 }
                 Spacer(minLength: 0)
