@@ -178,7 +178,7 @@ struct TimelineScreen: View {
             // The longest interval text is reserved (hidden), so picking or clearing a phase never moves the
             // tracks below.
             ZStack(alignment: .topLeading) {
-                if let longest = model.visibleSegments.map { hypnogramText($0) }.max(by: { $0.count < $1.count }) {
+                if let longest = model.visibleSegments.map({ hypnogramText($0) }).max(by: { $0.count < $1.count }) {
                     Text(longest)
                         .font(DKFont.label)
                         .wraps()
