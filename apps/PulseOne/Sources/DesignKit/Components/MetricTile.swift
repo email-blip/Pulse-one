@@ -24,17 +24,21 @@ struct MetricTile<Trend: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DKSpace.s) {
             HStack(alignment: .firstTextBaseline) {
+                // One line, never hyphenated ("Sau-er-stoff"); shrinks a little before it would break.
                 Text(name)
                     .font(DKFont.label)
                     .foregroundStyle(DKColor.textSecondary)
-                    .wraps()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .allowsTightening(true)
+                    .layoutPriority(1)
                 Spacer(minLength: DKSpace.xs)
                 Image(systemName: systemImage)
                     .font(DKFont.label)
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
             }
-            if size == .wide, !typeSize.isAccessibilitySize {
+            if size == .wide, !DKLayout.isSingleColumn(typeSize) {
                 HStack(alignment: .bottom, spacing: DKSpace.l) {
                     numberBlock
                     trendSlot.frame(maxWidth: .infinity, minHeight: 44, maxHeight: 56)
@@ -60,21 +64,24 @@ struct MetricTile<Trend: View>: View {
         .accessibilityValue(value.map { "\($0) \(unit), \(reference)" } ?? "kein Wert, \(reference)")
     }
 
+    /// Number and unit are one text: the number is never cut ("14…") or split ("Schri tte"); when both do not fit
+    /// on one line the unit wraps below the number. Digit groups keep a no-break space ("8 412").
     private var numberBlock: some View {
         VStack(alignment: .leading, spacing: DKSpace.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: DKSpace.xs) {
-                Text(value ?? "–")
-                    .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
-                    .foregroundStyle(DKColor.textPrimary)
-                    .contentTransition(.numericText())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Text(unit)
-                    .font(DKFont.unit)
-                    .foregroundStyle(DKColor.textSecondary)
-            }
+            let number = Text((value ?? "–").replacingOccurrences(of: " ", with: "\u{00A0}"))
+                .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
+                .foregroundStyle(DKColor.textPrimary)
+            let unitText = Text(unit.replacingOccurrences(of: " ", with: "\u{00A0}"))
+                .font(DKFont.unit)
+                .foregroundStyle(DKColor.textSecondary)
+            Text("\(number) \(unitText)")
+                .contentTransition(.numericText())
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .fixedSize(horizontal: false, vertical: true)
             DKReference(text: reference)
         }
+        .layoutPriority(1)
     }
 
     private var trendSlot: some View {

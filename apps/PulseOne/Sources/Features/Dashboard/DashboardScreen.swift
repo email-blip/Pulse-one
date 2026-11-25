@@ -58,7 +58,7 @@ struct DashboardScreen: View {
                 .padding(.bottom, DKSpace.xxl)
             }
             .dkPageBackground()
-            .modifier(OpaqueUnderTabBar())
+            .dkOpaqueBars()
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("screen.dashboard")
             // Out of the accessibility tree while the profile or "Mehr" sheet covers it (one "orb" per screen).
@@ -176,11 +176,11 @@ struct DashboardScreen: View {
                     .wraps()
             }
             let shown = editing ? layout.tiles : layout.visibleTiles
-            let rows = typeSize.isAccessibilitySize ? shown.map { [$0] } : DashboardGrid.rows(shown)
+            let rows = DKLayout.isSingleColumn(typeSize) ? shown.map { [$0] } : DashboardGrid.rows(shown)
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .top, spacing: DKSpace.m) {
                     ForEach(row) { tile in cell(tile) }
-                    if row.count == 1, row[0].size == .small, !typeSize.isAccessibilitySize {
+                    if row.count == 1, row[0].size == .small, !DKLayout.isSingleColumn(typeSize) {
                         Color.clear.frame(maxWidth: .infinity).accessibilityHidden(true)
                     }
                 }

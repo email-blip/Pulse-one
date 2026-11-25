@@ -26,9 +26,13 @@ Kontrast: `python3 scripts/assets/check-contrast.py` (Text ≥ 4,5:1, Grafik ≥
 | `DKPrimaryButtonStyle(fullWidth:)`, `DKSecondaryButtonStyle`, `DKPillButtonStyle`, `DKTextButtonStyle`, `TrailingIconLabelStyle` | „Meine Einheit starten ↗“, „Warum?“, „Vorlesen“, „Kacheln anordnen“ |
 | `MetricTile(kind:value:unit:reference:size:) { Sparkline(...) }` | Kachel klein/breit/groß nach `DashboardTileSize`; `value: nil` zeigt „–“ |
 | `Sparkline(values:tint:)` | Mini-Verlauf, `nil` = Lücke, wird nie überbrückt |
-| `DKCard(isCoach:)`, `DKSectionHeader(title:actionTitle:…)`, `DKChip`, `DKReference`, `FlowLayout`, `.dkPageBackground()` | Karte, Abschnittskopf, Auswahlchip, „NACHT · 07:00“, umbrechende Reihe, Seitenhintergrund |
+| `DKInfoButton(title:text:identifier:)` | „ⓘ“ mit Popover. Ersetzt Erklär- und Hinweistexte auf Bildschirmen; Warnungen bleiben sichtbar |
+| `.dkOpaqueBars()` | Kopf- und Fußleiste opak in Obsidian, harter Scroll-Rand (iOS 26): nichts scheint durch. An die Wurzel im NavigationStack |
+| `DKCard(isCoach:)`, `DKSectionHeader(title:info:actionTitle:…)`, `DKChip`, `DKReference`, `FlowLayout`, `.dkPageBackground()` | Karte, Abschnittskopf, Auswahlchip, „NACHT · 07:00“, umbrechende Reihe, Seitenhintergrund |
 
-Große Schrift: Komponenten stapeln sich selbst (`ViewThatFits`); Kachelraster bei `isAccessibilitySize` einspaltig.
+Große Schrift: Ab `.xxLarge` (nicht erst ab den Accessibility-Größen) gilt `DKLayout.isSingleColumn(typeSize)`: Kacheln einspaltig, Knöpfe volle Breite; Köpfe stapeln sich (`DKLayout.stacksHeader`). Kein `ViewThatFits` (der Audit meldet Text darin als „Dynamic Type partially unsupported“). Kachelnamen bleiben einzeilig und werden nie getrennt; Zahl und Einheit sind ein Text, die Zahl wird nie abgeschnitten, die Einheit bricht notfalls darunter um.
+
+Diagramme: `DKColor.gridLine`, `DKColor.axisLabel`, `DKFont.axis`.
 
 ## Bewegung, Haptik, Klang
 
