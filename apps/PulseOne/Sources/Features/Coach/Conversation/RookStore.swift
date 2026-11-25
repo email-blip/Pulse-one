@@ -78,7 +78,7 @@ final class RookStore {
         current = local
         shown()
 
-        guard corrections.isEmpty, local.insight.direction.severity < CoachDirection.clarify.severity,
+        guard corrections.isEmpty, !RookNow.needsAttention(local),
               blocker(modelContext: modelContext) == nil,
               engine.momentCount(since: calendar.startOfDay(for: now), modelContext: modelContext) < Self.dailyMomentCap
         else { return }

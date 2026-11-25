@@ -166,6 +166,11 @@ public struct RookMoment: Sendable, Equatable {
 /// ROOK's reading of the moment on the iPhone: interpretation, direction and one next step for the time of day,
 /// at most three short sentences. Numbers sit behind "Warum?".
 public enum RookNow {
+    /// A clear change or a warning sign (clarify, urgent): it stays the message and is not reworded by Claude.
+    public static func needsAttention(_ statement: RookStatement) -> Bool {
+        statement.insight.direction.severity >= CoachDirection.clarify.severity
+    }
+
     public static func statement(moment: RookMoment, night: Insight, subjectID: UUID, calendar: Calendar) -> RookStatement {
         let nightStatement = RookLocal.statement(from: night, subjectID: subjectID, calendar: calendar)
         // A clear change over several nights stays the message all day; the referral is not softened by a calm hour.
