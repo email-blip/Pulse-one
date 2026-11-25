@@ -19,6 +19,11 @@ Geliefert (Stufe „implementiert“, nach grünem CI-Lauf „gebaut“):
 4. Strikter Modus: 00 setzt `TEST_RUNNER_PULSE_M1_STRICT: "1"` im Integrations-PR; dann ist jeder fehlende Bildschirm rot.
 5. 60 fps nur im Simulator messbar; am iPhone Sichtprüfung durch Johannes.
 
+## Stand 2026-11-24 – Abnahme-PR
+
+- Alle M1-PRs auf main (114e0dd). Strikter Modus an (`TEST_RUNNER_PULSE_M1_STRICT: "1"`, freigegeben von 00): jeder fehlende M1-Bildschirm ist rot.
+- Neuer Schritt 16 „Sprachgespräch mit ROOK“ im Video (Wunsch von Johannes): Status Zuhören → Denken → Sprechen, beide Äußerungen im Transkript, zwei ROOK-Antworten, Unterbrechung, Gespräch beenden. Im Testmodus hält die App „Ich denke nach …“ 1,5 s, weil die lokale Testantwort sonst in Millisekunden kommt und die Phase weder im Video noch im Test zu sehen wäre (kleiner Patch an 05s `VoiceConversation`).
+
 ## Integrationslauf
 
 _Wird nach dem Integrationslauf von 00 ergänzt: Lauf-Link, Video, Schritte ✓/✗, Performance-Werte, Audit-Funde._

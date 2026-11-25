@@ -25,6 +25,7 @@ Test: `UITests/DurchstichTests.testWalkthrough`, Video `durchstich.mp4` (Artefak
 | 12 | Pause (Timer steht, keine Ansage) → Fortsetzen (Timer läuft) | 05 | Schritte 12–13 | Konzept |
 | 13 | Abschluss mit Anstrengung 1–10 | 05 | Schritt 14 | Konzept |
 | 14 | Einheit erscheint im Tagesverlauf | 03/05 | Schritt 15 | Konzept |
+| 15 | Sprachgespräch mit ROOK: Zuhören → Denken → Sprechen, Transkript, Antwort, Unterbrechung (Barge-in), Ende | 05/04 | Schritt 16 (`-uiTestVoice`, kein Mikrofon im Simulator; echte Spracherkennung nur iPhone) | implementiert |
 
 ## B. Zusatzprüfungen (Vorgaben M)
 
@@ -87,6 +88,7 @@ Bildschirm-Wurzeln tragen die Kennung immer (nicht nur im Testszenario). Quelle 
 | `workout.state` | 05 | `accessibilityValue` = `WorkoutRunState.rawValue` |
 | `workout.remaining` | 05 | Restzeit der Phase als Text |
 | `workout.exertion.1` … `.10` | 05 | Anstrengung |
+| `rook.voice.status` | 05 | Status „Ich höre zu / Ich denke nach / ROOK spricht“; `accessibilityValue` „Unterbrochen: N“ nach jedem echten Abbruch einer Antwort |
 | Tableiste „Dashboard“, „Verlauf“, „Coach“ | 03 | Tab-Beschriftungen |
 | Signpost `de.sommerlabs.pulseone` / `timeline` / `scrub` (optional) | 03 | eigene Messung des Cursor-Updates, wenn gewünscht |
 

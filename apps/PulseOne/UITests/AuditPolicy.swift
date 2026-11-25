@@ -19,6 +19,10 @@ enum AuditPolicy {
         let navFrames = app.navigationBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -56) }
         let tabFrames = app.tabBars.allElementsBoundByIndex.filter(\.exists).map { $0.frame.insetBy(dx: 0, dy: -72) }
         let barFrames = navFrames + tabFrames
+        // Content text lying under the floating tab bar (outside the bar's own items). SwiftUI keeps these covered
+        // nodes in the tree, and the audit reports some of them a second time without an element (frame 0, run 213).
+        let coveredTexts = tabFrames.isEmpty ? 0 : coveredTextCount(app, in: tabFrames)
+        var toleratedWithoutElement = 0
 
         let handler: (XCUIAccessibilityAuditIssue) throws -> Bool = { issue in
             let element = issue.element
@@ -38,6 +42,14 @@ enum AuditPolicy {
                app.navigationBars.allElementsBoundByIndex.contains(where: { $0.exists && $0.frame.intersects(frame) }) {
                 return true
             }
+            // A contrast finding without element is tolerated only while text is provably covered by the tab bar,
+            // and at most once per covered text; any further one fails. Each is reported (DECISIONS.md, run 213).
+            if issue.auditType == .contrast, element == nil, toleratedWithoutElement < coveredTexts {
+                toleratedWithoutElement += 1
+                print("::warning title=Audit geduldet (\(name))::Kontrast ohne Element, verdeckt unter der Tab-Leiste: "
+                      + "\(toleratedWithoutElement) von \(coveredTexts) verdeckten Texten")
+                return true
+            }
             // Text the audit finds only in the pixels (no element) is the content seen through the bar glass.
             if issue.auditType == .elementDetection, element == nil, !barFrames.isEmpty {
                 return true
@@ -54,7 +66,27 @@ enum AuditPolicy {
         do {
             try app.performAccessibilityAudit(for: .all, handler)
         } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
+            // The aborted first audit leaves the screen unsettled: the retry right after it reported 10:1+ text
+            // as low contrast (runs 186, 213, 217). Let the app settle before measuring again.
+            Thread.sleep(forTimeInterval: 3)
+            toleratedWithoutElement = 0
             try app.performAccessibilityAudit(for: .all, handler)
         }
+    }
+
+    /// Static texts of the content (not of the tab bar itself) whose frame lies in the tab bar region.
+    private static func coveredTextCount(_ app: XCUIApplication, in tabFrames: [CGRect]) -> Int {
+        guard let root = try? app.snapshot() else { return 0 }
+        var count = 0
+        var stack: [any XCUIElementSnapshot] = [root]
+        while let node = stack.popLast() {
+            if node.elementType == .tabBar { continue }
+            if node.elementType == .staticText, !node.frame.isEmpty,
+               tabFrames.contains(where: { $0.intersects(node.frame) }) {
+                count += 1
+            }
+            stack.append(contentsOf: node.children)
+        }
+        return count
     }
 }
