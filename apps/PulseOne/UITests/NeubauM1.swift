@@ -107,9 +107,24 @@ enum M1 {
         app.launchArguments = ["-uiTesting", "YES", "-scenario", scenario, "-AppleLanguages", "(de)", "-AppleLocale", "de_DE",
                                "-dynamicType", dynamicType, "-reduceMotion", reduceMotion ? "YES" : "NO",
                                "-liveMotion", liveMotion ? "YES" : "NO"] + extraArguments
+        app.launchEnvironment["TZ"] = eveningZone
         app.launch()
         return app
     }
+
+    /// The scenario's day and night (22:40–06:55) follow the app's local clock, and CI runs at any hour: after midnight
+    /// the night still ran into the future and the ring mapper dropped it (no sleep track, run 45514208613 at 00:22 UTC).
+    /// The app therefore runs in a fixed-offset zone where it is about 20:00 now (after the 17:00 run, before the
+    /// night), so every run sees the same kind of day. Chosen once per test process, so a relaunch (step 4) keeps it.
+    static let eveningZone: String = {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .current
+        var offset = 20 - utc.component(.hour, from: Date())
+        if offset > 14 { offset -= 24 }
+        if offset < -12 { offset += 24 }
+        // POSIX "Etc/GMT" names have the inverted sign: Etc/GMT-9 is UTC+9.
+        return offset == 0 ? "UTC" : "Etc/GMT\(offset > 0 ? "-" : "+")\(abs(offset))"
+    }()
 
     @MainActor
     static func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
