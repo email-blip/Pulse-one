@@ -64,21 +64,29 @@ struct MetricTile<Trend: View>: View {
         .accessibilityValue(value.map { "\($0) \(unit), \(reference)" } ?? "kein Wert, \(reference)")
     }
 
-    /// Number and unit are one text: the number is never cut ("14…") or split ("Schri tte"); when both do not fit
-    /// on one line the unit wraps below the number. Digit groups keep a no-break space ("8 412").
+    /// Number and unit each stay on one line and whole: the number gets the room first and shrinks to 60 % at most
+    /// instead of "14…"; at accessibility sizes the unit sits below the number instead of being squeezed ("Schri tte").
+    /// Digit groups and units keep no-break spaces ("8 412", "von 100").
     private var numberBlock: some View {
         VStack(alignment: .leading, spacing: DKSpace.xs) {
-            let number = Text((value ?? "–").replacingOccurrences(of: " ", with: "\u{00A0}"))
-                .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
-                .foregroundStyle(DKColor.textPrimary)
-            let unitText = Text(unit.replacingOccurrences(of: " ", with: "\u{00A0}"))
-                .font(DKFont.unit)
-                .foregroundStyle(DKColor.textSecondary)
-            Text("\(number) \(unitText)")
-                .contentTransition(.numericText())
-                .lineLimit(2)
-                .minimumScaleFactor(0.5)
-                .fixedSize(horizontal: false, vertical: true)
+            let stacked = typeSize.isAccessibilitySize
+            let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+                                 : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: DKSpace.xs))
+            layout {
+                Text((value ?? "–").replacingOccurrences(of: " ", with: "\u{00A0}"))
+                    .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
+                    .foregroundStyle(DKColor.textPrimary)
+                    .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .layoutPriority(2)
+                Text(unit.replacingOccurrences(of: " ", with: "\u{00A0}"))
+                    .font(DKFont.unit)
+                    .foregroundStyle(DKColor.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .layoutPriority(1)
+            }
             DKReference(text: reference)
         }
         .layoutPriority(1)
