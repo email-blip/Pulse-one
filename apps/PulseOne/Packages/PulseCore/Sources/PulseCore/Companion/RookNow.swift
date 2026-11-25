@@ -285,8 +285,10 @@ public enum RookNow {
                             action: CoachAction(kind: .moveNow, title: "Abendspaziergang",
                                                 payload: RookWorkoutRequest(minutes: 20, intensity: "easy").payload))
             }
-            return Step(sentence: "Fahr jetzt langsam runter, dann wird die Nacht besser.",
-                        action: CoachAction(kind: .rest, title: "Runterfahren", payload: "windDown"))
+            // Winding down is a short, easy unit on the training screen (stretching, slow breathing), not a dead end.
+            return Step(sentence: "Zehn ruhige Minuten Dehnen helfen dir jetzt beim Runterfahren.",
+                        action: CoachAction(kind: .moveNow, title: "10 Minuten Dehnen",
+                                            payload: RookWorkoutRequest(minutes: 10, intensity: "easy").payload))
         }
     }
 

@@ -455,7 +455,7 @@ struct RookMomentTests {
     @Test func actionFitsTheTimeOfDay() {
         let usualPulse = RookMoment.Reading(value: 60, at: at(12), usual: 58...62, n: 14)
         let cases: [(Date, CoachActionKind)] = [
-            (at(7, 30), .startWorkout), (at(12, 30), .moveNow), (at(15), .startWorkout), (at(19), .rest), (at(23, 30), .goToBed),
+            (at(7, 30), .startWorkout), (at(12, 30), .moveNow), (at(15), .startWorkout), (at(19), .moveNow), (at(23, 30), .goToBed),
         ]
         for (now, kind) in cases {
             let moment = RookMoment(now: now, heartRate: RookMoment.Reading(value: 60, at: now, usual: usualPulse.usual, n: 14))
