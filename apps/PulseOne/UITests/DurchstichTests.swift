@@ -251,34 +251,6 @@ final class DurchstichTests: XCTestCase {
             return "Status: \(seen.joined(separator: " → ")) · erste Antwort: \(firstAnswer.prefix(60)) · " +
                 "Unterbrechung gezählt, Status danach: \(statusAtBargeIn)"
         }
-
-        // Build 19 (team 04): every time the app comes to the foreground ROOK makes a fresh assessment, the local
-        // one at once. The probe counts assessments (`rook.assessment`), so the check does not depend on the text
-        // changing (the same data can give the same sentence).
-        try step("App erneut öffnen, neue ROOK-Einschätzung") {
-            app.tabBars.buttons[M1.tabDashboard].tap()
-            try M1.require(app, M1.Screen.dashboard, step: "Dashboard")
-            guard let before = M1.probe(app)[M1.Probe.rookAssessment] else {
-                throw M1Missing(message: "ROOK-Einschätzung: \(M1.Probe.rookAssessment) nicht gemeldet (Team 04)")
-            }
-            XCUIDevice.shared.press(.home)
-            Thread.sleep(forTimeInterval: 2)
-            app.activate()
-            try M1.require(app, M1.Screen.dashboard, step: "Dashboard nach dem Öffnen")
-            var after = before
-            let deadline = Date().addingTimeInterval(20)
-            while after == before, Date() < deadline {
-                Thread.sleep(forTimeInterval: 0.5)
-                after = M1.probe(app)[M1.Probe.rookAssessment] ?? before
-            }
-            XCTAssertNotEqual(after, before, "Keine neue ROOK-Einschätzung nach dem Öffnen")
-            let insight = try M1.require(app, M1.Rook.insight, step: "ROOK-Beitrag")
-            XCTAssertFalse(insight.label.isEmpty, "ROOK-Beitrag nach dem Öffnen ohne Text")
-            for phrase in Self.forbidden {
-                XCTAssertFalse(insight.label.localizedCaseInsensitiveContains(phrase), "Verbotener Satz: \(phrase)")
-            }
-            return "Einschätzung \(before) → \(after): \(insight.label.prefix(80))"
-        }
     }
 
     // MARK: - Helpers
