@@ -50,18 +50,22 @@ final class AccessibilityTests: XCTestCase {
     func testM1WhyAudit() throws { try auditM1(.why) }
     func testM1WorkoutAudit() throws { try auditM1(.workout) }
     func testM1WorkoutSummaryAudit() throws { try auditM1(.workoutSummary) }
-    /// Build 19: the owner reads with large text. The dashboard audited at accessibility3 (`xxxl`), where Build 18
-    /// broke tile titles and cut numbers; the audit's own Dynamic Type check starts from that size.
-    /// The Verlauf follows with team 03's Build 19 charts.
-    func testM1DashboardAuditAX3() throws { try auditM1(.dashboard, dynamicType: "xxxl") }
+    /// Build 19: the owner reads with large text, so the dashboard is also audited at accessibility3, where Build 18
+    /// broke tile titles and cut numbers. The size is set as the *system* text size (`UIPreferredContentSizeCategoryName`
+    /// in the launch arguments), not with `-dynamicType xxxl`: that pins a fixed size in the app (DynamicTypeOverride),
+    /// so the audit's own Dynamic Type check changed the system size, saw no change and reported every text as
+    /// "Dynamic Type font sizes are unsupported" (run on d8f589b). AuditPolicy stays unchanged.
+    func testM1DashboardAuditAX3() throws {
+        try auditM1(.dashboard, name: "m1-dashboard-ax3",
+                    extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
+    }
 
-    private func auditM1(_ place: M1.Place, dynamicType: String = "default") throws {
-        let app = M1.launch(dynamicType: dynamicType)
+    private func auditM1(_ place: M1.Place, name: String? = nil, extraArguments: [String] = []) throws {
+        let app = M1.launch(extraArguments: extraArguments)
         try M1.skipIfMissing { try M1.open(place, in: app) }
         // Same settle time as the other screens: text must not be measured mid-fade.
         Thread.sleep(forTimeInterval: 2)
-        let suffix = dynamicType == "default" ? "" : "-\(dynamicType)"
-        try AuditPolicy.run(app, name: "m1-\(place.rawValue)\(suffix)")
+        try AuditPolicy.run(app, name: name ?? "m1-\(place.rawValue)")
     }
 
     /// No Dynamic Type override here: the audit changes the text size itself to find clipping.
