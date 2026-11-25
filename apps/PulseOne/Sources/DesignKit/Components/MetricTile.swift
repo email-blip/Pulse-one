@@ -24,17 +24,21 @@ struct MetricTile<Trend: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DKSpace.s) {
             HStack(alignment: .firstTextBaseline) {
+                // One line, never hyphenated ("Sau-er-stoff"); shrinks a little before it would break.
                 Text(name)
                     .font(DKFont.label)
                     .foregroundStyle(DKColor.textSecondary)
-                    .wraps()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .allowsTightening(true)
+                    .layoutPriority(1)
                 Spacer(minLength: DKSpace.xs)
                 Image(systemName: systemImage)
                     .font(DKFont.label)
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
             }
-            if size == .wide, !typeSize.isAccessibilitySize {
+            if size == .wide, !DKLayout.isSingleColumn(typeSize) {
                 HStack(alignment: .bottom, spacing: DKSpace.l) {
                     numberBlock
                     trendSlot.frame(maxWidth: .infinity, minHeight: 44, maxHeight: 56)
@@ -60,21 +64,32 @@ struct MetricTile<Trend: View>: View {
         .accessibilityValue(value.map { "\($0) \(unit), \(reference)" } ?? "kein Wert, \(reference)")
     }
 
+    /// Number and unit each stay on one line and whole: the number gets the room first and shrinks to 60 % at most
+    /// instead of "14…"; at accessibility sizes the unit sits below the number instead of being squeezed ("Schri tte").
+    /// Digit groups and units keep no-break spaces ("8 412", "von 100").
     private var numberBlock: some View {
         VStack(alignment: .leading, spacing: DKSpace.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: DKSpace.xs) {
-                Text(value ?? "–")
+            let stacked = typeSize.isAccessibilitySize
+            let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+                                 : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: DKSpace.xs))
+            layout {
+                Text((value ?? "–").replacingOccurrences(of: " ", with: "\u{00A0}"))
                     .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
                     .foregroundStyle(DKColor.textPrimary)
                     .contentTransition(.numericText())
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text(unit)
+                    .layoutPriority(2)
+                Text(unit.replacingOccurrences(of: " ", with: "\u{00A0}"))
                     .font(DKFont.unit)
                     .foregroundStyle(DKColor.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .layoutPriority(1)
             }
             DKReference(text: reference)
         }
+        .layoutPriority(1)
     }
 
     private var trendSlot: some View {
