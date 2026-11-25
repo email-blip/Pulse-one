@@ -21,8 +21,8 @@ struct DesignKitReferenceScreen: View {
                               interpretation: "Du bist gut in deinen Rhythmus zurückgekommen. Heute passt eine kontrollierte Einheit, mit sauberer Technik statt maximalem Tempo.")
                 actions
 
-                DKSectionHeader(title: "Dein Cockpit", actionTitle: "Kacheln anordnen",
-                                actionIdentifier: "designKit.arrange", action: {})
+                DKSectionHeader(title: "Dein Cockpit", info: "Halte eine Kachel gedrückt und zieh sie an ihren Platz.",
+                                actionTitle: "Kacheln anordnen", actionIdentifier: "designKit.arrange", action: {})
                 tiles
 
                 DKSectionHeader(title: "Zeitraum")
@@ -57,12 +57,13 @@ struct DesignKitReferenceScreen: View {
             .padding(.vertical, DKSpace.l)
         }
         .dkPageBackground()
+        .dkOpaqueBars()
         .screenIdentifier(Self.scenario)
     }
 
     @ViewBuilder
     private var actions: some View {
-        if typeSize.isAccessibilitySize {
+        if DKLayout.isSingleColumn(typeSize) {
             VStack(alignment: .leading, spacing: DKSpace.m) {
                 startButton.buttonStyle(DKPrimaryButtonStyle(fullWidth: true))
                 whyButton.buttonStyle(DKSecondaryButtonStyle(fullWidth: true))
@@ -99,7 +100,7 @@ struct DesignKitReferenceScreen: View {
         let steps = MetricTile(kind: .steps, value: "8 412", unit: "Schritte", reference: "Heute · 14:20", size: .wide) {
             Sparkline(values: [0, 300, 1_800, 3_900, 5_200, 6_100, 8_412], tint: MetricStyle.of(.steps).color)
         }
-        if typeSize.isAccessibilitySize {
+        if DKLayout.isSingleColumn(typeSize) {
             VStack(spacing: DKSpace.m) { heart; hrv; oxygen; steps }
         } else {
             Grid(horizontalSpacing: DKSpace.m, verticalSpacing: DKSpace.m) {

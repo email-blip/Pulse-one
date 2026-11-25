@@ -20,6 +20,8 @@ enum DKFont {
     static let caption = Font.system(.caption, design: .default).weight(.medium)
     /// The coach's name next to the orb ("ROOK"), tracked uppercase.
     static let wordmark = Font.system(.headline, design: .default).weight(.semibold)
+    /// Chart axis values and time ticks ("03:00", "60"); tabular digits so ticks line up.
+    static let axis = Font.system(.caption, design: .default).monospacedDigit()
 
     /// Big measured numbers: SF Pro Expanded, tabular digits so values do not jump while they change.
     /// Pass a size from `@ScaledMetric(relativeTo: .largeTitle)`.
@@ -61,4 +63,15 @@ enum DKRadius {
 enum DKSize {
     static let minTouch: CGFloat = 44
     static let buttonHeight: CGFloat = 52
+}
+
+/// Layout switches for large text. Johannes reads at a large but not yet accessibility size, so two-column
+/// rows and side-by-side headers give up earlier than `isAccessibilitySize` (Build 18 feedback: "Sau-er-stoff",
+/// "14…", "Schri tte"). Explicit switches instead of ViewThatFits: the accessibility audit flags text inside
+/// ViewThatFits as "Dynamic Type partially unsupported" (run 166).
+enum DKLayout {
+    /// Tiles in one column, buttons full width.
+    static func isSingleColumn(_ size: DynamicTypeSize) -> Bool { size >= .xxLarge }
+    /// Title and trailing action stacked instead of side by side.
+    static func stacksHeader(_ size: DynamicTypeSize) -> Bool { size >= .xxLarge }
 }
