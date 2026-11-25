@@ -372,3 +372,191 @@ struct RookSpeechTests {
         #expect(body["max_tokens"] == .number(Double(RookSpeech.maxOutputTokens)))
     }
 }
+
+// MARK: - ROOK at every opening (reading of the moment)
+
+private func at(_ hour: Int, _ minute: Int = 0, daysAgo: Int = 0) -> Date {
+    let day = rookCalendar.date(byAdding: .day, value: -daysAgo, to: rookCalendar.startOfDay(for: rookNow)) ?? rookNow
+    return day.addingTimeInterval(Double(hour * 3_600 + minute * 60))
+}
+
+private func momentSample(_ kind: SampleKind, _ value: Double, _ start: Date, end: Date? = nil,
+                          source: DataSourceKind = .colmiRing) -> HealthSample {
+    HealthSample(profileID: rookProfile, kind: kind, value: value, unit: kind.canonicalUnit, start: start, end: end,
+                 timeZoneIdentifier: "Europe/Berlin", source: source, deviceID: source.rawValue,
+                 originalSampleID: UUID().uuidString, importedAt: rookNow, quality: .valid, method: .deviceHistory)
+}
+
+/// A calm night insight (first night, "learning"): direction stable, no clarification.
+private func calmNight(now: Date) -> Insight {
+    let today = rookCalendar.startOfDay(for: now)
+    let input = InsightInput(profileID: rookProfile, now: now,
+                             nights: [NightPoint(date: today, restingHeartRate: 52, hrv: 40, sleepHours: 7.3)],
+                             origin: "Ring", hrvMethod: "Ring-HRV",
+                             newestSample: today.addingTimeInterval(6 * 3_600), lastSync: nil)
+    return InsightEngine.build(input, calendar: rookCalendar)
+}
+
+@Suite("ROOK reading of the moment")
+struct RookMomentTests {
+    @Test func dayPartsFollowTheClock() {
+        #expect(RookDayPart.at(at(3), calendar: rookCalendar) == .night)
+        #expect(RookDayPart.at(at(7, 30), calendar: rookCalendar) == .morning)
+        #expect(RookDayPart.at(at(12), calendar: rookCalendar) == .midday)
+        #expect(RookDayPart.at(at(15), calendar: rookCalendar) == .afternoon)
+        #expect(RookDayPart.at(at(19), calendar: rookCalendar) == .evening)
+        #expect(RookDayPart.at(at(23), calendar: rookCalendar) == .late)
+    }
+
+    @Test func readingPositionNeedsAClearDistance() {
+        let usual: ClosedRange<Double> = 58...62
+        #expect(RookMoment.Reading(value: 60, at: rookNow, usual: usual, n: 14).position == .within)
+        #expect(RookMoment.Reading(value: 63, at: rookNow, usual: usual, n: 14).position == .within)
+        #expect(RookMoment.Reading(value: 75, at: rookNow, usual: usual, n: 14).position == .above)
+        #expect(RookMoment.Reading(value: 50, at: rookNow, usual: usual, n: 14).position == .below)
+        #expect(RookMoment.Reading(value: 75, at: rookNow, usual: nil, n: 3).position == .unknown)
+    }
+
+    @Test func buildComparesPulseAndStepsWithTheSameClockTime() {
+        let now = at(12, 30)
+        var samples: [HealthSample] = []
+        for day in 1...14 {
+            // Pulse around 12:30 on earlier days, and a high pulse at night that must not count.
+            samples.append(momentSample(.heartRate, 58 + Double(day % 5), at(12, 20, daysAgo: day)))
+            samples.append(momentSample(.heartRate, 95, at(3, 0, daysAgo: day)))
+            // 5,000 steps before 12:30, 10,000 more in the afternoon.
+            samples.append(momentSample(.steps, 5_000, at(9, 0, daysAgo: day)))
+            samples.append(momentSample(.steps, 10_000, at(16, 0, daysAgo: day)))
+        }
+        samples.append(momentSample(.heartRate, 80, at(12, 20)))
+        samples.append(momentSample(.steps, 1_000, at(9, 0)))
+        // Apple Health counts fewer steps today: the dominant source (ring) wins, nothing is added twice.
+        samples.append(momentSample(.steps, 400, at(9, 0), source: .appleHealth))
+        // A future sample is ignored.
+        samples.append(momentSample(.heartRate, 120, at(13, 0)))
+
+        let moment = RookMoment.build(samples: samples, now: now, calendar: rookCalendar)
+        #expect(moment.heartRate?.value == 80)
+        #expect(moment.heartRate?.n == 14)
+        #expect(moment.heartRate?.position == .above)
+        #expect(moment.steps?.value == 1_000)
+        #expect(moment.steps?.usual == 5_000...5_000)
+        #expect(moment.steps?.position == .below)
+        #expect(moment.hrv == nil)
+        #expect(moment.hasCurrentValues)
+    }
+
+    @Test func stalePulseIsNotCurrent() {
+        let moment = RookMoment.build(samples: [momentSample(.heartRate, 70, at(7, 0))], now: at(15), calendar: rookCalendar)
+        #expect(moment.heartRate == nil)
+        #expect(!moment.hasCurrentValues)
+    }
+
+    @Test func actionFitsTheTimeOfDay() {
+        let usualPulse = RookMoment.Reading(value: 60, at: at(12), usual: 58...62, n: 14)
+        let cases: [(Date, CoachActionKind)] = [
+            (at(7, 30), .startWorkout), (at(12, 30), .moveNow), (at(15), .startWorkout), (at(19), .rest), (at(23, 30), .goToBed),
+        ]
+        for (now, kind) in cases {
+            let moment = RookMoment(now: now, heartRate: RookMoment.Reading(value: 60, at: now, usual: usualPulse.usual, n: 14))
+            let statement = RookNow.statement(moment: moment, night: calmNight(now: now), subjectID: rookProfile, calendar: rookCalendar)
+            #expect(statement.insight.action?.kind == kind, "\(RookDayPart.at(now, calendar: rookCalendar))")
+            #expect(RookTextGuard.sentences(statement.insight.interpretation).count <= 3)
+            #expect(statement.headline.split(separator: " ").count <= 4)
+            #expect(statement.insight.interpretation.rangeOfCharacter(from: .decimalDigits) == nil)
+            #expect(RookTextGuard.violations(in: visibleText(statement)).isEmpty)
+            #expect(statement.source == .local)
+        }
+    }
+
+    @Test func highPulseAtMiddayAsksForABreath() {
+        let now = at(12, 30)
+        let moment = RookMoment(now: now, heartRate: RookMoment.Reading(value: 80, at: now, usual: 58...62, n: 14))
+        let statement = RookNow.statement(moment: moment, night: calmNight(now: now), subjectID: rookProfile, calendar: rookCalendar)
+        #expect(statement.insight.direction == .watch)
+        #expect(statement.insight.action?.kind == .rest)
+        #expect(statement.insight.action?.payload == "breathe=2")
+        #expect(statement.insight.evidence.contains { $0.label == "Puls gerade" })
+        #expect(statement.insight.isValid(at: now.addingTimeInterval(1_800)))
+        #expect(!statement.insight.isValid(at: now.addingTimeInterval(7_200)))
+    }
+
+    @Test func quietEveningSuggestsAWalk() {
+        let now = at(19)
+        let moment = RookMoment(now: now, steps: RookMoment.Reading(value: 2_000, at: now, usual: 6_000...8_000, n: 14))
+        let statement = RookNow.statement(moment: moment, night: calmNight(now: now), subjectID: rookProfile, calendar: rookCalendar)
+        #expect(statement.insight.action?.kind == .moveNow)
+        #expect(statement.insight.action?.payload == RookWorkoutRequest(minutes: 20, intensity: "easy").payload)
+        #expect(statement.insight.interpretation.contains("weniger als sonst"))
+    }
+}
+
+@Suite("ROOK reading of the moment, Claude's wording")
+struct RookNowReplyTests {
+    private func local() -> RookStatement {
+        let now = at(12, 30)
+        let moment = RookMoment(now: now, heartRate: RookMoment.Reading(value: 60, at: now, usual: 58...62, n: 14),
+                                steps: RookMoment.Reading(value: 2_000, at: now, usual: 5_000...6_000, n: 14))
+        return RookNow.statement(moment: moment, night: calmNight(now: now), subjectID: rookProfile, calendar: rookCalendar)
+    }
+
+    @Test func parsesHeadlineSentencesAndAction() {
+        let base = local()
+        var reply = RookNowReply(allowed: RookNow.allowedNumbers(
+            RookMoment(now: at(12, 30)), local: base), mode: .clinical)
+        #expect(reply.take("Ruhiger Mittag"))
+        #expect(reply.take("Dein Körper ist gerade entspannt."))
+        #expect(reply.take("Ein kurzer Gang an die Luft tut dir jetzt gut."))
+        #expect(!reply.take("AKTION: moveNow | 10 Minuten gehen"))
+        #expect(reply.headline == "Ruhiger Mittag")
+        #expect(reply.sentences.count == 2)
+        let applied = reply.applied(to: base)
+        #expect(applied?.source == .claude)
+        #expect(applied?.headline == "Ruhiger Mittag")
+        #expect(applied?.insight.direction == base.insight.direction)
+        #expect(applied?.insight.evidence == base.insight.evidence)
+        // Same kind as the local action: the local payload (minutes, intensity) stays.
+        #expect(applied?.insight.action?.kind == .moveNow)
+        #expect(applied?.insight.action?.payload == base.insight.action?.payload)
+    }
+
+    @Test func dropsInventedNumbersAndUnknownActions() {
+        var reply = RookNowReply(allowed: [80], mode: .clinical)
+        _ = reply.take("Etwas angespannt")
+        #expect(RookNowReply.numbersOK("Dein Puls liegt bei 80.", allowed: [80]))
+        #expect(!RookNowReply.numbersOK("Dein Puls liegt bei 95.", allowed: [80]))
+        #expect(RookNowReply.action(from: "AKTION: seeDoctor | Zum Arzt") == nil)
+        #expect(RookNowReply.action(from: "AKTION: rest | Kurz durchatmen")?.kind == .rest)
+        #expect(reply.applied(to: local()) == nil)
+    }
+
+    @Test func atMostThreeSentences() {
+        var reply = RookNowReply(allowed: [], mode: .clinical)
+        _ = reply.take("Läuft gut")
+        _ = reply.take("Du bist ruhig. Dein Tag läuft gut. Bleib so. Und noch etwas.")
+        #expect(reply.sentences.count == 3)
+    }
+
+    @Test func promptAsksForThreeLines() {
+        let system = RookNowPrompt.system(mode: .clinical)
+        #expect(system.contains("AKTION:"))
+        let message = RookNowPrompt.message(moment: RookMoment(now: at(12, 30)), local: local(), calendar: rookCalendar)
+        #expect(!message.isEmpty)
+    }
+}
+
+@Suite("ROOK confirms a calm action")
+struct RookCommitTests {
+    @Test func restAndBedGetAnAnswerAndTheButtonGoes() {
+        let base = demo(.positive)
+        for action in [CoachAction(kind: .rest, title: "Kurz durchatmen", payload: "breathe=2"),
+                       CoachAction(kind: .rest, title: "Runterfahren", payload: "windDown"),
+                       CoachAction(kind: .goToBed, title: "Schlafen gehen")] {
+            let committed = RookReviser.commit(action, to: base, at: rookNow)
+            #expect(committed.insight.action == nil)
+            #expect(committed.insight.interpretation != base.insight.interpretation)
+            #expect(committed.insight.revisions.count == base.insight.revisions.count + 1)
+            #expect(RookTextGuard.violations(in: visibleText(committed)).isEmpty)
+        }
+    }
+}

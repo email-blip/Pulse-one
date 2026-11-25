@@ -70,6 +70,14 @@ enum RookMemory {
         }
     }
 
+    /// The newest reading Claude worded within `interval` before `now` (opening readings and check-ins).
+    static func recentClaude(within interval: TimeInterval, at now: Date, subjectID: UUID?) -> RookStatement? {
+        load().statements.last { statement in
+            let age = now.timeIntervalSince(statement.insight.createdAt)
+            return statement.source == .claude && statement.insight.subjectID == subjectID && age >= 0 && age < interval
+        }
+    }
+
     /// The newest statement that is valid now: Claude's check-in or a corrected one beats the plain local reading.
     static func latestValid(at now: Date, subjectID: UUID?) -> RookStatement? {
         load().statements.last { $0.insight.isValid(at: now) && $0.insight.subjectID == subjectID }

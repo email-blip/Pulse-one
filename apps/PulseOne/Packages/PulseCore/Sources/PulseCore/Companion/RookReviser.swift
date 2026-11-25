@@ -54,6 +54,28 @@ public enum RookReviser {
         return revised
     }
 
+    /// The person takes up a step that needs no other screen (rest, wind down, bed): ROOK confirms it with a short
+    /// guide and the button goes away. The earlier text stays as a revision, like after a correction.
+    public static func commit(_ action: CoachAction, to statement: RookStatement, at date: Date) -> RookStatement {
+        let text: String
+        switch (action.kind, action.payload) {
+        case (.rest, "breathe=2"?):
+            text = "Gut. Atme vier Sekunden ein und sechs Sekunden aus, zwei Minuten lang. Danach schauen wir weiter."
+        case (.rest, _):
+            text = "Gut so. Bildschirm weg, Licht runter, etwas Ruhiges. Dann kommt der Schlaf leichter."
+        case (.goToBed, _):
+            text = "Gute Nacht. Morgen früh sage ich dir, was die Nacht gebracht hat."
+        default:
+            return statement
+        }
+        var revised = statement
+        revised.insight.revise(with: UserCorrection(at: date, text: action.title), newInterpretation: text,
+                               reason: "Du: \(action.title)")
+        revised.insight.action = nil
+        revised.why.events.append("Du: „\(action.title)“ (\(timeText(date)))")
+        return revised
+    }
+
     static func timeText(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "de_DE")
