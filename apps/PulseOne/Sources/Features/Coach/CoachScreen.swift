@@ -52,6 +52,7 @@ struct CoachScreen: View {
                     .padding(.bottom, Spacing.xl)
                 }
             }
+            .dkOpaqueBars()
             .navigationTitle("Coach")
             .profileToolbar()
             .task(id: "\(refresh)|\(sources.syncing.count)|\(training.isPresented)") { reload() }
