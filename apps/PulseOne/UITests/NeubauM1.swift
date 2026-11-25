@@ -92,6 +92,33 @@ enum M1 {
         static let speaking = "ROOK spricht"
     }
 
+    /// Test-only measurements (`-qaProbe YES`, Sources/QA/QAProbe.swift). The element `qa.probe` carries
+    /// `id=report;id=report`. Reports:
+    /// - `tile.title.<Name>` / `tile.value.<Name>` / `tile.unit.<Name>` = `lines:N,words:W,fits:1|0` (team 02, MetricTile)
+    /// - `timeline.axis.time` = rendered time tick labels `HH:mm|HH:mm|…` (team 03)
+    /// - `timeline.axis.value.<track rawValue>` = rendered value tick labels `50|80|110` (team 03)
+    /// - `rook.assessment` = `<generation>` counting every new assessment ROOK shows (team 04)
+    enum Probe {
+        static let element = "qa.probe"
+        static let launchArguments = ["-qaProbe", "YES"]
+        static let rookAssessment = "rook.assessment"
+        static let timeAxis = "timeline.axis.time"
+        static let valueAxisPrefix = "timeline.axis.value."
+    }
+
+    /// All probe reports of the running app (empty when the probe is off or not wired).
+    @MainActor
+    static func probe(_ app: XCUIApplication) -> [String: String] {
+        let element = app.descendants(matching: .any)[Probe.element]
+        guard element.exists, let value = element.value as? String else { return [:] }
+        var reports: [String: String] = [:]
+        for pair in value.split(separator: ";") {
+            let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            if parts.count == 2 { reports[parts[0]] = parts[1] }
+        }
+        return reports
+    }
+
     static let tabCoach = "Coach"
     static let tabTimeline = "Verlauf"
     static let tabDashboard = "Dashboard"
@@ -184,6 +211,9 @@ enum M1 {
     /// M1 screens the screenshot matrix and the audits visit (`M1.open`).
     enum Place: String, CaseIterable {
         case dashboard, dashboardEdit, timeline, hypnogram, why, workout, workoutPaused, workoutSummary
+        /// Dashboard and Verlauf scrolled down: the floating header and ROOK's buttons must not cover content
+        /// and nothing may show through the header (Build 18 finding, screenshot review).
+        case dashboardScrolled, timelineScrolled
     }
 
     /// From a fresh launch of `neubauM1`, goes to `place` through the same controls a person uses.
@@ -193,11 +223,20 @@ enum M1 {
         switch place {
         case .dashboard:
             break
+        case .dashboardScrolled:
+            app.swipeUp()
+            app.swipeUp()
         case .dashboardEdit:
             let edit = try require(app, Dashboard.edit, step: "Kacheln anordnen")
             reveal(edit, in: app)
             edit.tap()
             try require(app, Dashboard.editDone, step: "Anordnen fertig")
+        case .timelineScrolled:
+            let tile = try require(app, Dashboard.heartRateTile, step: "Puls-Kachel")
+            reveal(tile, in: app)
+            tile.tap()
+            try require(app, Timeline.chart, step: "Spuren")
+            app.swipeUp()
         case .timeline, .hypnogram:
             let tile = try require(app, Dashboard.heartRateTile, step: "Puls-Kachel")
             reveal(tile, in: app)

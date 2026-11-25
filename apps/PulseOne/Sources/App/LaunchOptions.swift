@@ -21,7 +21,12 @@ struct LaunchOptions: Sendable {
         }
         isUITesting = value("uiTesting") == "YES"
         scenario = value("uiTestScenario") ?? value("scenario")
-        dynamicTypeSize = value("dynamicType") == "xxxl" ? .accessibility3 : nil
+        // `xxxl` is accessibility3 (screenshot matrix); `ax5` is the largest size, for the large-text checks (team 06).
+        switch value("dynamicType") {
+        case "xxxl": dynamicTypeSize = .accessibility3
+        case "ax5": dynamicTypeSize = .accessibility5
+        default: dynamicTypeSize = nil
+        }
         reduceMotion = value("reduceMotion").map { $0 == "YES" }
         liveMotion = value("liveMotion") == "YES"
     }

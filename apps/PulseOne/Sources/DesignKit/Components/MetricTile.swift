@@ -28,6 +28,7 @@ struct MetricTile<Trend: View>: View {
                     .font(DKFont.label)
                     .foregroundStyle(DKColor.textSecondary)
                     .wraps()
+                    .qaTextProbe("tile.title.\(name)", text: name)
                 Spacer(minLength: DKSpace.xs)
                 Image(systemName: systemImage)
                     .font(DKFont.label)
@@ -69,9 +70,11 @@ struct MetricTile<Trend: View>: View {
                     .contentTransition(.numericText())
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    .qaTextProbe("tile.value.\(name)", text: value ?? "–", minimumScale: 0.6)
                 Text(unit)
                     .font(DKFont.unit)
                     .foregroundStyle(DKColor.textSecondary)
+                    .qaTextProbe("tile.unit.\(name)", text: unit)
             }
             DKReference(text: reference)
         }
