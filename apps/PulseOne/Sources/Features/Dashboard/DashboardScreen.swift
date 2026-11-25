@@ -29,6 +29,8 @@ struct DashboardScreen: View {
     @State private var path: [DashboardRoute] = DashboardScreen.initialPath
     @State private var speaker = BriefingSpeaker()
     @Namespace private var zoom
+    /// Sessions saved in the app (team 05); a new one refreshes the training tile.
+    @Query(sort: \WorkoutRecord.endedAt) private var savedWorkouts: [WorkoutRecord]
 
     /// Companion test scenarios open the Begleiter directly (pushed, so it sits in this stack).
     private static var initialPath: [DashboardRoute] {
@@ -87,7 +89,7 @@ struct DashboardScreen: View {
 
     private var refreshToken: String {
         let day = Calendar.current.startOfDay(for: .now).timeIntervalSince1970
-        return "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(day)|\(scenePhase == .active)|\(sources.ownerProfileID)"
+        return "\(ring.snapshot.lastHeartRate?.timestamp.timeIntervalSince1970 ?? 0)|\(ring.lastHistorySync?.timeIntervalSince1970 ?? 0)|\(sources.syncing.count)|\(day)|\(scenePhase == .active)|\(sources.ownerProfileID)|\(savedWorkouts.count)"
     }
 
     private func reload() {
@@ -162,18 +164,14 @@ struct DashboardScreen: View {
 
     private var cockpit: some View {
         VStack(alignment: .leading, spacing: DKSpace.m) {
-            DKSectionHeader(title: "Dein Cockpit", actionTitle: editing ? "Fertig" : "Kacheln anordnen",
+            DKSectionHeader(title: "Dein Cockpit",
+                            info: "Tippe auf eine Kachel, um ihren Verlauf zu öffnen. Zum Anordnen „Kacheln anordnen“ wählen, dann eine Kachel gedrückt halten und an ihren Platz ziehen oder die Pfeile nutzen. Größe und Sichtbarkeit stellst du an jeder Kachel ein.",
+                            actionTitle: editing ? "Fertig" : "Kacheln anordnen",
                             actionIdentifier: editing ? "dashboard.editDone" : "dashboard.edit") {
                 withAnimation(MotionEvent.tileSwap.resolvedAnimation(reduceMotion: reduceMotion, frozen: frozen)) {
                     editing.toggle()
                     dropTarget = nil
                 }
-            }
-            if editing {
-                Text("Halte eine Kachel gedrückt und zieh sie an ihren Platz, oder nutze die Pfeile. Größe und Sichtbarkeit stellst du an jeder Kachel ein.")
-                    .font(DKFont.caption)
-                    .foregroundStyle(DKColor.textSecondary)
-                    .wraps()
             }
             let shown = editing ? layout.tiles : layout.visibleTiles
             let rows = typeSize.isAccessibilitySize ? shown.map { [$0] } : DashboardGrid.rows(shown)
@@ -193,7 +191,9 @@ struct DashboardScreen: View {
         let visible = layout.visibleTiles
         let position = visible.firstIndex { $0.id == tile.id }
         return DashboardTileCell(
-            tile: tile, reading: model.readings[tile.id], editing: editing, isDropTarget: dropTarget == tile.id,
+            tile: tile, reading: model.readings[tile.id],
+            night: tile.id == "sleep" ? model.lastNight : nil, week: tile.id == "training" ? model.trainingWeek : nil,
+            calendar: model.calendar, editing: editing, isDropTarget: dropTarget == tile.id,
             canMoveUp: (position ?? 0) > 0, canMoveDown: position.map { $0 < visible.count - 1 } ?? false,
             onOpen: { openTile(tile) },
             onMove: { offset in change { $0.step(id: tile.id, by: offset) } },

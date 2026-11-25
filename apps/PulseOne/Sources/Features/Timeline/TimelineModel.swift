@@ -54,6 +54,8 @@ final class TimelineModel {
     /// says whether the surface saw it at all.
     var lastInput = "keine"
     private(set) var selectedSegment: SleepSegment?
+    /// Thin overlay on the value tracks: yesterday or the mean of the last seven days (day scale only).
+    private(set) var comparison: TrackComparisonMode = .off
     private(set) var bounds: DateInterval
     private(set) var now: Date
 
@@ -131,7 +133,9 @@ final class TimelineModel {
             TimelineProbe.reloaded(milliseconds: Int(Date.now.timeIntervalSince(started) * 1000))
         }
         let margin = max(visible.duration, 86_400)
-        let wanted = DateInterval(start: max(bounds.start, visible.start.addingTimeInterval(-margin)),
+        // On the day scale the seven days before are read too, so the comparison can be switched on at once.
+        let back = comparisonAvailable ? max(margin, Self.comparisonReach) : margin
+        let wanted = DateInterval(start: max(bounds.start, visible.start.addingTimeInterval(-back)),
                                   end: min(bounds.end, visible.end.addingTimeInterval(margin)))
         let kindsToRead = Set(Self.valueTracks.flatMap(\.sampleKinds) + [.trainingDuration])
         let read = (try? MeasurementPointStore(context: context).points(kinds: kindsToRead, in: wanted)) ?? []
@@ -194,7 +198,20 @@ final class TimelineModel {
     /// True when the visible window left the loaded data (after panning or zooming out).
     var needsReload: Bool {
         guard let loaded else { return true }
-        return visible.start < loaded.start || visible.end > loaded.end
+        let reach = comparisonAvailable && comparison != .off ? Self.comparisonReach : 0
+        return max(visible.start.addingTimeInterval(-reach), bounds.start) < loaded.start || visible.end > loaded.end
+    }
+
+    /// How far before the window the comparison reads (seven days plus the window's own day).
+    static let comparisonReach: TimeInterval = 8 * 86_400
+
+    /// The comparison only exists on the day scale (original points).
+    var comparisonAvailable: Bool { TrackComparison.isAvailable(for: visible) }
+
+    func setComparison(_ mode: TrackComparisonMode) {
+        guard mode != comparison else { return }
+        comparison = mode
+        drawnCache = [:]
     }
 
     func clearLanding() { landing = [] }
@@ -206,10 +223,17 @@ final class TimelineModel {
         guard let kind = kinds[track] else { return nil }
         let window = visible
         let version = dataVersion
-        if let cached = drawnCache[track], cached.window == window, cached.version == version { return cached }
+        let mode = comparisonAvailable ? comparison : .off
+        if let cached = drawnCache[track], cached.window == window, cached.version == version, cached.mode == mode {
+            return cached
+        }
         let values = self.values(for: track)
+        let compared = mode == .off ? [] : TrackComparison.profile(points[track] ?? [], kind: kind, window: window,
+                                                                   mode: mode, calendar: calendar)
         let result = DrawnTrack(kind: kind, window: window, version: version, resolution: resolution, values: values,
-                                gaps: TrackSeries.gaps(in: values), yDomain: TrackSeries.yDomain(for: values, kind: kind))
+                                gaps: TrackSeries.gaps(in: values),
+                                yDomain: TrackSeries.yDomain(for: values + compared, kind: kind),
+                                mode: mode, comparison: compared)
         drawnCache[track] = result
         return result
     }
@@ -296,35 +320,47 @@ final class TimelineModel {
 
     /// Read-out of every visible track at the cursor. A cursor in a gap shows "keine Messung", never a value.
     var cursorRows: [CursorRow] {
-        guard let cursor else { return [] }
+        guard cursor != nil else { return [] }
+        return Self.valueTracks.compactMap { cursorRow(for: $0) }
+    }
+
+    /// The read-out of one track at the cursor (also the small label at the cursor line of that track).
+    func cursorRow(for track: TimelineTrack) -> CursorRow? {
+        guard let cursor else { return nil }
         let clock = Self.clock(calendar)
-        return Self.valueTracks.compactMap { track in
-            guard let kind = kinds[track], let all = points[track] else { return nil }
-            let title = MetricStyleName.name(kind)
-            if resolution == .original {
-                guard let point = TrackSeries.pick(at: cursor, in: nearby(all, cursor, kind), kind: kind) else {
-                    return CursorRow(track: track, title: title, value: "–", time: cursor.formatted(clock),
-                                     note: "keine Messung an dieser Stelle", source: nil)
-                }
-                let time = point.isInterval
-                    ? "\(point.measuredAt.formatted(clock))–\(point.measuredUntil.formatted(clock))"
-                    : point.measuredAt.formatted(clock)
-                let source = "\(point.source.title) · \(Self.methodText(point.method)) · empfangen \(point.receivedAt.formatted(clock)) · Qualität \(point.quality.label)"
-                return CursorRow(track: track, title: title, value: "\(kind.display(point.value)) \(kind.displayUnit)",
-                                 time: time, note: nil, source: source)
+        guard let kind = kinds[track], let all = points[track] else { return nil }
+        let title = MetricStyleName.name(kind)
+        if resolution == .original {
+            guard let point = TrackSeries.pick(at: cursor, in: nearby(all, cursor, kind), kind: kind) else {
+                return CursorRow(track: track, title: title, value: "–", time: cursor.formatted(clock),
+                                 note: "keine Messung an dieser Stelle", source: nil)
             }
-            guard let bucket = Self.bucket(at: cursor, in: drawn(track)?.values ?? []) else {
-                return CursorRow(track: track, title: title, value: "–", time: cursor.formatted(Self.dayClock(calendar)),
-                                 note: "keine Messung in diesem Abschnitt", source: nil)
-            }
-            let span = resolution == .daily
-                ? bucket.start.formatted(Self.dayOnly(calendar))
-                : "\(bucket.start.formatted(Self.dayClock(calendar)))–\(bucket.end.formatted(clock))"
-            let what = kind.aggregation == .cumulative ? "Summe aus \(bucket.count) Werten"
-                : "Mittel aus \(bucket.count) Werten (\(kind.display(bucket.low))–\(kind.display(bucket.high)))"
-            return CursorRow(track: track, title: title, value: "\(kind.display(bucket.value)) \(kind.displayUnit)",
-                             time: span, note: what, source: nil)
+            let time = point.isInterval
+                ? "\(point.measuredAt.formatted(clock))–\(point.measuredUntil.formatted(clock))"
+                : point.measuredAt.formatted(clock)
+            let source = "\(point.source.title) · \(Self.methodText(point.method)) · empfangen \(point.receivedAt.formatted(clock)) · Qualität \(point.quality.label)"
+            return CursorRow(track: track, title: title, value: "\(kind.display(point.value)) \(kind.displayUnit)",
+                             time: time, note: nil, source: source)
         }
+        guard let bucket = Self.bucket(at: cursor, in: drawn(track)?.values ?? []) else {
+            return CursorRow(track: track, title: title, value: "–", time: cursor.formatted(Self.dayClock(calendar)),
+                             note: "keine Messung in diesem Abschnitt", source: nil)
+        }
+        let span = resolution == .daily
+            ? bucket.start.formatted(Self.dayOnly(calendar))
+            : "\(bucket.start.formatted(Self.dayClock(calendar)))–\(bucket.end.formatted(clock))"
+        let what = kind.aggregation == .cumulative ? "Summe aus \(bucket.count) Werten"
+            : "Mittel aus \(bucket.count) Werten (\(kind.display(bucket.low))–\(kind.display(bucket.high)))"
+        return CursorRow(track: track, title: title, value: "\(kind.display(bucket.value)) \(kind.displayUnit)",
+                         time: span, note: what, source: nil)
+    }
+
+    /// The comparison value under the cursor ("gestern 68 bpm"), on the day scale only.
+    func comparisonText(for track: TimelineTrack) -> String? {
+        guard let cursor, comparisonAvailable, comparison != .off, let drawn = drawn(track) else { return nil }
+        guard let value = drawn.comparison.first(where: { $0.start <= cursor && cursor < $0.end }) else { return nil }
+        let label = comparison == .yesterday ? "gestern" : "7-Tage-Mittel"
+        return "\(label) \(drawn.kind.display(value.value)) \(drawn.kind.displayUnit)"
     }
 
     /// The aggregated bucket under the cursor; binary search over the sorted, non-overlapping buckets.
@@ -437,6 +473,9 @@ struct DrawnTrack: Equatable {
     let values: [TrackValue]
     let gaps: [DateInterval]
     let yDomain: ClosedRange<Double>
+    var mode: TrackComparisonMode = .off
+    /// Comparison overlay (slot values of the days before), empty when off.
+    var comparison: [TrackValue] = []
 }
 
 /// Short track names (same as the DesignKit tile names).
