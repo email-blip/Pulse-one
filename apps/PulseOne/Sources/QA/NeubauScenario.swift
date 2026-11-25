@@ -6,9 +6,9 @@ import SwiftData
 /// performance test (`neubauM1Year`). Owner: team 06 (QA). Only reachable in UI tests: the store is
 /// in memory, every screen shows the "Testansicht" banner, nothing is ever written to the real store.
 ///
-/// Values are deterministic (no random numbers) and anchored to the start of the current day, so the
-/// dashboard shows "today" and "last night" whenever the test runs. Team 01 adds the stored sleep
-/// segments of the night (22:40–06:55) from `TimelineScenarios.sleepNight`; its edge cases (gap, unknown
+/// Values are deterministic (no random numbers) and anchored to the newest day whose night is over (today from
+/// 07:00, yesterday before), so the dashboard shows a finished "last night" whenever the test runs. Team 01 adds
+/// the stored sleep segments of the night (22:40–06:55) from `TimelineScenarios.sleepNight`; its edge cases (gap, unknown
 /// phase code, double sync, DST) are covered by `TimelineScenarios` in the PulseCore tests.
 enum NeubauScenario {
     /// One day plus the night before, 5-minute heart rate like the R03 history, one visible gap.
@@ -25,10 +25,15 @@ enum NeubauScenario {
         guard all.contains(name) else { return }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
+        // Before 07:00 tonight's sleep is not over yet (22:40–06:55), so the newest scenario day is yesterday and
+        // "last night" is always a finished night. Run 45514208613 started the hypnogram at 00:22 and found no sleep track.
+        let nightOver = now >= today.addingTimeInterval(7 * 3600)
+        let newest = nightOver ? today : (calendar.date(byAdding: .day, value: -1, to: today) ?? today)
+        let sleepAnchor = nightOver ? now : (calendar.date(byAdding: .day, value: -1, to: now) ?? now)
         let days = name == year ? 365 : 1
         let writer = Writer(context: context, now: now, timeZone: calendar.timeZone.identifier)
         for offset in 0...days {
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: newest) else { continue }
             writer.day(day, index: offset)
             // Save in chunks so the year scenario does not hold 100 000 unsaved objects at once.
             if offset % 30 == 29 { try? context.save() }
@@ -36,7 +41,7 @@ enum NeubauScenario {
         try? context.save()
         // Last night's sleep phases through the real BC 27 parser (team 01): 22:40 to 06:55.
         _ = try? SleepSegmentStore(context: context).ingest(
-            TimelineScenarios.sleepNight(startMinute: 22 * 60 + 40, endMinute: 6 * 60 + 55, now: now, calendar: calendar),
+            TimelineScenarios.sleepNight(startMinute: 22 * 60 + 40, endMinute: 6 * 60 + 55, now: sleepAnchor, calendar: calendar),
             now: now)
     }
 
