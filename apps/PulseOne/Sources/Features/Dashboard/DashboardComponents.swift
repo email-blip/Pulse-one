@@ -247,26 +247,3 @@ struct MiniHypnogram: View {
         .accessibilityHidden(true)
     }
 }
-
-/// iOS 26: the tab bar floats as glass over the content, and text scrolled under it shows through, bent by
-/// the lens (tile numbers as broken-up "55" and "43 ms" in the screenshots; the contrast audit reads them as
-/// text without an element, and a hard scroll edge did not stop it). An opaque page-coloured strip behind
-/// the bar hides the content there; the bar itself stays glass. Earlier systems draw a solid bar anyway.
-/// The strip reaches a little above the bar: the lens also samples content just outside its edge, and with
-/// only a few points of margin the HRV tile's "43 ms" sometimes still showed up bent (flaky dashboard audits).
-struct OpaqueUnderTabBar: ViewModifier {
-    func body(content: Content) -> some View {
-        content.overlay {
-            GeometryReader { proxy in
-                let inset = proxy.safeAreaInsets.bottom
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    DKColor.background.frame(height: inset > 0 ? inset + DKSpace.xxl : 0)
-                }
-                .ignoresSafeArea(edges: .bottom)
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
-    }
-}
