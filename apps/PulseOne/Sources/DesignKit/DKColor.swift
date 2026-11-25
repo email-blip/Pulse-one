@@ -43,6 +43,12 @@ enum DKColor {
     /// Warnings and "abklären lassen". Never the only signal: always with symbol and words.
     static let alert   = pulseCoral
 
+    // MARK: Charts
+    /// Grid lines in charts (decoration only).
+    static let gridLine  = hairline
+    /// Axis values and time ticks (10.6:1 on `surface`).
+    static let axisLabel = textSecondary
+
     /// Page background with the soft cyan/violet glow behind the coach header (3×3 mesh, row by row).
     static let backgroundMesh: [Color] = [
         0x070D19, 0x0A1426, 0x070D19,

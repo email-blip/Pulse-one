@@ -17,7 +17,7 @@ struct RookHeader: View {
     // An explicit switch instead of ViewThatFits: the accessibility audit reported text inside ViewThatFits
     // as "Dynamic Type partially unsupported" (run 166).
     var body: some View {
-        if typeSize.isAccessibilitySize {
+        if DKLayout.stacksHeader(typeSize) {
             VStack(alignment: .leading, spacing: DKSpace.m) {
                 identity
                 readButton

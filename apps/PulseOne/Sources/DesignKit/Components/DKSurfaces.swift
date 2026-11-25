@@ -10,6 +10,52 @@ extension View {
     }
 }
 
+extension View {
+    /// Navigation and tab bar opaque in Obsidian: scrolled content never shows through the bar or slides
+    /// visibly under the floating buttons (Build 18 feedback). Put it on the root view inside the NavigationStack.
+    func dkOpaqueBars() -> some View { modifier(DKOpaqueBars()) }
+}
+
+struct DKOpaqueBars: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .toolbarBackground(DKColor.background, for: .navigationBar)
+            .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+            .toolbarBackground(DKColor.background, for: .tabBar)
+            .toolbarBackgroundVisibility(.visible, for: .tabBar)
+            .modifier(HardScrollEdges())
+            .overlay { OpaqueBottomStrip() }
+    }
+}
+
+/// iOS 26 blurs content into the bars ("scroll edge effect"); the hard style cuts it off at the bar instead.
+private struct HardScrollEdges: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectStyle(.hard, for: [.top, .bottom])
+        } else {
+            content
+        }
+    }
+}
+
+/// The floating tab bar of iOS 26 has no bar background of its own: an Obsidian strip behind it keeps
+/// tiles from running visibly underneath.
+private struct OpaqueBottomStrip: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let inset = proxy.safeAreaInsets.bottom
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                DKColor.background.frame(height: inset > 0 ? inset + DKSpace.xxl : 0)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 struct DKPageBackground: View {
     var body: some View {
         MeshGradient(width: 3, height: 3,
@@ -40,35 +86,43 @@ struct DKCard<Content: View>: View {
     }
 }
 
-/// Section head ("Dein Cockpit") with an optional trailing action ("Kacheln anordnen").
+/// Section head ("Dein Cockpit") with an optional ⓘ explanation and an optional trailing action
+/// ("Kacheln anordnen").
 struct DKSectionHeader: View {
     let title: String
+    /// Explanation behind an ⓘ next to the title instead of a hint text on the screen.
+    var info: String?
     var actionTitle: String?
     var actionIdentifier: String?
     var action: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        if typeSize.isAccessibilitySize {
+        if DKLayout.stacksHeader(typeSize) {
             VStack(alignment: .leading, spacing: DKSpace.xs) {
-                titleText
+                titleRow
                 actionButton
             }
         } else {
             HStack(alignment: .firstTextBaseline) {
-                titleText
+                titleRow
                 Spacer(minLength: DKSpace.s)
                 actionButton
             }
         }
     }
 
-    private var titleText: some View {
-        Text(title)
-            .font(DKFont.section)
-            .foregroundStyle(DKColor.textPrimary)
-            .wraps()
-            .accessibilityAddTraits(.isHeader)
+    private var titleRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: DKSpace.xs) {
+            Text(title)
+                .font(DKFont.section)
+                .foregroundStyle(DKColor.textPrimary)
+                .wraps()
+                .accessibilityAddTraits(.isHeader)
+            if let info {
+                DKInfoButton(title: title, text: info)
+            }
+        }
     }
 
     @ViewBuilder
