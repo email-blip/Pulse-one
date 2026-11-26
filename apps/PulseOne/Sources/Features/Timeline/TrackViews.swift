@@ -175,6 +175,9 @@ struct ValueTrackChart: View, Equatable {
                 .foregroundStyle(DKColor.textSecondary)
         }
         .monospacedDigit()
+        .padding(.horizontal, 3)
+        // On its own opaque plate: the label never sits on the line or a point with too little contrast.
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(DKColor.surface))
         .fixedSize()
     }
 }
@@ -248,7 +251,9 @@ struct CursorBadge: View {
         .lineLimit(1)
         .padding(.horizontal, 5)
         .padding(.vertical, 2)
-        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(DKColor.surfaceRaised.opacity(0.95)))
+        // Fully opaque: a value label under it showed through as ghost text ("96 %" behind "keine Messung"),
+        // which the contrast audit reports on the track title above.
+        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(DKColor.surfaceRaised))
         .fixedSize()
     }
 }
