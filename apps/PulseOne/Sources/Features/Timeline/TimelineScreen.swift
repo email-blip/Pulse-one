@@ -186,11 +186,18 @@ struct TimelineScreen: View {
     private var tracks: some View {
         let window = model.visible
         let resolution = model.resolution
+        // Opened for sleep (sleep tile, "Letzte Nacht"): phases first. Otherwise the value tracks come first,
+        // so the scrub area starts high on the screen and a tap in its middle never lands under the tab bar.
+        let options = LaunchOptions.current
+        let sleepFirst = focus?.track == .sleepPhases || (options.usesTestScenario && options.scenario == "timelineHypnogram")
         VStack(alignment: .leading, spacing: DKSpace.m) {
-            if !model.visibleSegments.isEmpty {
+            if sleepFirst, !model.visibleSegments.isEmpty {
                 SleepSection(model: model, window: window, axisWidth: axisWidth)
             }
             valueTracks(window: window, resolution: resolution)
+            if !sleepFirst, !model.visibleSegments.isEmpty {
+                SleepSection(model: model, window: window, axisWidth: axisWidth)
+            }
             if !model.visibleEvents.isEmpty {
                 VStack(alignment: .leading, spacing: DKSpace.xs) {
                     Label("Training und ROOK", systemImage: "figure.run")
