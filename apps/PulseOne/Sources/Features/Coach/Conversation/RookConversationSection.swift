@@ -51,8 +51,13 @@ struct RookConversationSection: View {
                 // 05's voice channel: microphone button and live transcript; answers come from
                 // RookStore.shared.talk(_:onSentence:) and share this conversation's memory.
                 RookVoicePanel()
-                Text("Red mit ROOK wie mit einem Menschen. Korrekturen wirken sofort auf dem iPhone, Antworten kommen mit deinen Tageskennzahlen von Claude, wie die automatischen Checks.")
-                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
+                // The explanation sits behind ⓘ (02's rule for Build 19): the screen shows the conversation.
+                HStack {
+                    Spacer(minLength: 0)
+                    DKInfoButton(title: "Gespräch mit ROOK",
+                                 text: "Red mit ROOK wie mit einem Menschen. Korrekturen wirken sofort auf dem iPhone, Antworten kommen mit deinen Tageskennzahlen von Claude, wie die automatischen Checks.",
+                                 identifier: "rook.talk.info")
+                }
             }
         }
         .task { store.configure(modelContext: modelContext, owner: sources.ownerProfileID, profile: profile.profile) }
