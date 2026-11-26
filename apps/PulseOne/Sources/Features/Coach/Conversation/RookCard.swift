@@ -31,6 +31,8 @@ struct RookCard: View {
     @State private var store = RookStore.shared
     @State private var showCorrections = false
     @State private var why: RookStatement?
+    /// Set when the app went to the background; the next `.active` reads afresh (see `onChange(of: scenePhase)`).
+    @State private var wasInBackground = false
     /// Called for "Wie geht's dir?"-type actions; the Coach tab focuses its input field.
     var onAsk: (() -> Void)?
 
@@ -64,9 +66,15 @@ struct RookCard: View {
         .task { await refresh() }
         // A fresh reading every time the app comes back to the front (owner, 2026-11-25). Only after the background:
         // inactive → active also happens at launch (where `.task` already reads) and under system overlays and
-        // accessibility audits, and must not swap the card while it is being checked.
-        .onChange(of: scenePhase) { old, phase in
-            if phase == .active, old == .background { Task { await refresh() } }
+        // accessibility audits, and must not swap the card while it is being checked. Coming back from the background
+        // runs background → inactive → active, so the background is remembered instead of compared with `old`.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                wasInBackground = true
+            } else if phase == .active, wasInBackground {
+                wasInBackground = false
+                Task { await refresh() }
+            }
         }
         .sheet(item: $why) { statement in
             RookWhyView(statement: statement) { why = nil }
