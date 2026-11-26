@@ -18,14 +18,15 @@ extension EnvironmentValues {
     @Entry var openTimeline: RookTimelineHandler? = nil
 }
 
-/// ROOK's statement: orb, headline and two to three sentences, one primary action, "Warum?" and the quick
-/// corrections. Used on the dashboard (03) and at the top of the Coach tab. Identifiers for the M1 walkthrough
+/// ROOK's reading of the moment, fresh at every opening: orb, headline and at most three short sentences, one
+/// action for the time of day, "Warum?" and the quick corrections. Used on the dashboard (03) and at the top of the Coach tab. Identifiers for the M1 walkthrough
 /// (PRUEFLISTE): `orb`, `rook.insight`, `rook.action`, `rook.why`, `rook.correct`, `correction.<id>`.
 struct RookCard: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SourcesStore.self) private var sources
     @Environment(ProfileStore.self) private var profile
     @Environment(\.rookActionHandler) private var actionHandler
+    @Environment(\.scenePhase) private var scenePhase
     @State private var store = RookStore.shared
     @State private var showCorrections = false
     @State private var why: RookStatement?
@@ -36,9 +37,16 @@ struct RookCard: View {
         Card {
             HStack(spacing: Spacing.m) {
                 // 02's orb; the plain "orb" identifier stays for 06's M1 walkthrough.
-                RookOrb(presence: store.isThinking ? .thinking : (store.current?.insight.direction.presence ?? .idle), size: 44)
+                RookOrb(presence: store.isThinking || store.isUpdating ? .thinking
+                            : (store.current?.insight.direction.presence ?? .idle), size: 32)
                     .accessibilityIdentifier("orb")
                 Text(RookLocal.name).font(Typography.label.weight(.semibold)).foregroundStyle(Palette.ink)
+                // When the reading was made: ROOK looks again at every opening.
+                if let statement = store.current, statement.source != .demo {
+                    Text("Stand \(statement.insight.createdAt.formatted(date: .omitted, time: .shortened))")
+                        .font(Typography.caption).foregroundStyle(Palette.ink)
+                        .accessibilityIdentifier("rook.stamp")
+                }
                 Spacer()
                 if let statement = store.current, statement.source == .demo {
                     Text("Testansicht").font(Typography.caption).foregroundStyle(Palette.inkMuted)
@@ -52,9 +60,10 @@ struct RookCard: View {
                     .font(Typography.body).foregroundStyle(Palette.ink).wraps()
             }
         }
-        .task {
-            store.load(modelContext: modelContext, owner: sources.ownerProfileID)
-            store.configure(modelContext: modelContext, owner: sources.ownerProfileID, profile: profile.profile)
+        .task { await refresh() }
+        // A fresh reading every time the app comes back to the front (owner, 2026-11-25).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await refresh() } }
         }
         .sheet(item: $why) { statement in
             RookWhyView(statement: statement) { why = nil }
@@ -85,13 +94,15 @@ struct RookCard: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .accessibilityIdentifier("rook.action")
         }
-        HStack(spacing: Spacing.m) {
+        // Compact text buttons: the card should not fill the first screen.
+        HStack(spacing: Spacing.l) {
             Button("Warum?") { why = statement }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(RookLinkButtonStyle())
                 .accessibilityIdentifier("rook.why")
             Button(showCorrections ? "Fertig" : "Passt nicht?") { showCorrections.toggle() }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(RookLinkButtonStyle())
                 .accessibilityIdentifier("rook.correct")
+            Spacer(minLength: 0)
         }
         if showCorrections {
             VStack(alignment: .leading, spacing: Spacing.s) {
@@ -124,8 +135,29 @@ struct RookCard: View {
             }
         case .askUser:
             if let onAsk { onAsk() } else { showCorrections = true }
+        case .moveNow:
+            // A short easy unit: the training screen opens with ROOK's minutes and intensity in the payload.
+            actionHandler?.perform(CoachAction(kind: .startWorkout, title: action.title, payload: action.payload))
+        case .rest, .goToBed:
+            store.commit(action)
         default:
             actionHandler?.perform(action)
         }
+    }
+
+    private func refresh() async {
+        await store.refresh(modelContext: modelContext, owner: sources.ownerProfileID, profile: profile.profile)
+    }
+}
+
+/// "Warum?" and "Passt nicht?" as text buttons with a full touch target.
+struct RookLinkButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Typography.label.weight(.semibold))
+            .foregroundStyle(Palette.bioCyan)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }

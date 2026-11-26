@@ -3,7 +3,7 @@ import Observation
 import PulseCore
 import SwiftData
 
-/// The one ROOK of the app: today's statement and the conversation, shared by the dashboard card (03) and the
+/// The one ROOK of the app: the reading of the moment (fresh at every opening) and the conversation, shared by the dashboard card (03) and the
 /// Coach tab, so a correction made in one place shows in the other. Corrections are applied locally and at
 /// once; what the person says or types goes to Claude as a free conversation (standing permission of the check-ins,
 /// same budget and checks, decided by 00 and the owner on 2026-11-23).
@@ -25,30 +25,101 @@ final class RookStore {
     /// stored on the real day; with the fixed time ROOK found no last night there and showed no evidence.
     var now: Date { TimelineClock.now }
 
-    /// Builds today's statement: a demo case in its test scenario, otherwise the newest valid stored statement
-    /// (Claude's check-in or a corrected one) or ROOK's local reading of the stored nights.
-    func load(modelContext: ModelContext, owner: UUID) {
+    /// True while Claude's wording of the moment streams in (the orb thinks, the card stays usable).
+    private(set) var isUpdating = false
+    /// Raised by every correction, so a reading still streaming in never overwrites it.
+    @ObservationIgnored private var revision = 0
+    @ObservationIgnored private var lastRefresh: Date?
+    /// Counts every new assessment shown (local or Claude's), also when the text happens to be the same; the
+    /// walkthrough (06, step 17) checks that reopening the app raises it.
+    private(set) var generation = 0
+
+    /// Claude words the moment at most every ten minutes and at most twelve times a day (about 1 $ a month with Sonnet).
+    static let momentInterval: TimeInterval = 600
+    static let dailyMomentCap = 12
+
+    /// ROOK at every opening of the app (owner, 2026-11-25): a fresh reading of how it is going right now, from the
+    /// current values. The local reading shows at once; Claude's wording streams in after it when the last one is
+    /// older than ten minutes. Corrections made today ("Ich bin krank") stay applied. Demo scenarios show their case.
+    func refresh(modelContext: ModelContext, owner: UUID, profile: UserProfile) async {
+        configure(modelContext: modelContext, owner: owner, profile: profile)
         let now = now
+        // Dashboard and Coach tab ask together when the app opens; one reading is enough. Wall time, not the app
+        // clock: the clock stands still in test scenarios, and a reopening two seconds later must look again.
+        let wall = Date()
+        if let lastRefresh, current != nil, abs(wall.timeIntervalSince(lastRefresh)) < 1.5 { return }
+        guard !isUpdating else { return }
+        lastRefresh = wall
         if LaunchOptions.current.usesTestScenario, let scenario = LaunchOptions.current.scenario,
            let demo = RookDemo.Case(rawValue: scenario) {
             if current?.source != .demo {
                 current = RookDemo.statement(demo, now: now, profileID: owner, calendar: calendar)
             }
+            shown()
             return
         }
-        let snapshot = RookMemory.load()
-        turns = snapshot.turns
-        if let stored = RookMemory.latestValid(at: now, subjectID: owner) {
-            current = stored
-            return
-        }
+        turns = RookMemory.load().turns
+
+        let since = now.addingTimeInterval(-Double(RookMoment.historyDays) * 86_400)
+        let samples = SampleReader(context: modelContext).samples(RookMoment.sampleKinds, since: since, profileID: owner)
+        let moment = RookMoment.build(samples: samples, now: now, calendar: calendar)
         let input = InsightInputBuilder.make(context: modelContext, owner: owner, now: now, calendar: calendar)
-        current = RookLocal.statement(from: InsightEngine.build(input, calendar: calendar), subjectID: owner, calendar: calendar)
+        var local = RookNow.statement(moment: moment, night: InsightEngine.build(input, calendar: calendar),
+                                      subjectID: owner, calendar: calendar)
+        let corrections = RookMemory.corrections(on: now, calendar: calendar)
+        if let last = corrections.last {
+            local = RookReviser.apply(last.feedback, to: local, at: last.at)
+        }
+        if corrections.isEmpty, let recent = RookMemory.recentClaude(within: Self.momentInterval, at: now, subjectID: owner) {
+            current = recent
+            shown()
+            return
+        }
+        current = local
+        shown()
+
+        guard corrections.isEmpty, !RookNow.needsAttention(local),
+              blocker(modelContext: modelContext) == nil,
+              engine.momentCount(since: calendar.startOfDay(for: now), modelContext: modelContext) < Self.dailyMomentCap
+        else { return }
+        let started = revision
+        isUpdating = true
+        let answer = await engine.streamRookMoment(moment: moment, local: local, modelContext: modelContext) { statement in
+            if revision == started { current = statement }
+        }
+        isUpdating = false
+        guard revision == started else { return }
+        if let answer {
+            current = answer
+            RookMemory.record(answer)
+            shown()
+        }
+    }
+
+    /// A new assessment is on screen.
+    private func shown() {
+        generation += 1
+        // TODO(06, PR #72): QAProbe.note("rook.assessment", "\(generation)") once QAProbe is on main.
+    }
+
+    /// The person takes up a step that needs no other screen (breathe, wind down, bed); ROOK confirms it.
+    func commit(_ action: CoachAction) {
+        guard let statement = current else { return }
+        revision += 1
+        let at = now
+        let confirmed = RookReviser.commit(action, to: statement, at: at)
+        current = confirmed
+        let exchange = [RookTurn(at: at, role: .person, text: action.title),
+                        RookTurn(at: at, role: .rook, text: confirmed.insight.interpretation, statement: confirmed)]
+        turns.append(contentsOf: exchange)
+        RookMemory.record(confirmed)
+        RookMemory.append(exchange)
     }
 
     /// A quick answer below the statement. Local, immediate, no network; the old text stays as a revision.
     func apply(_ feedback: RookFeedback) {
         guard let statement = current, feedback != .why else { return }
+        revision += 1
         let at = now
         let revised = RookReviser.apply(feedback, to: statement, at: at)
         current = revised
@@ -97,6 +168,7 @@ final class RookStore {
 
         var revised: RookStatement?
         if let feedback = RookFeedback.match(message), feedback != .why, let statement = current {
+            revision += 1
             let updated = RookReviser.apply(feedback, to: statement, at: at)
             current = updated
             RookMemory.record(updated)
