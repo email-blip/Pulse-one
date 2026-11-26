@@ -26,7 +26,7 @@ Test: `UITests/DurchstichTests.testWalkthrough`, Video `durchstich.mp4` (Artefak
 | 13 | Abschluss mit Anstrengung 1–10 | 05 | Schritt 14 | Konzept |
 | 14 | Einheit erscheint im Tagesverlauf | 03/05 | Schritt 15 | Konzept |
 | 15 | Sprachgespräch mit ROOK: Zuhören → Denken → Sprechen, Transkript, Antwort, Unterbrechung (Barge-in), Ende | 05/04 | Schritt 16 (`-uiTestVoice`, kein Mikrofon im Simulator; echte Spracherkennung nur iPhone) | implementiert |
-| 16 | App erneut öffnen (Home, zurück), ROOK macht eine neue Einschätzung, lokal sofort | 04 | Schritt 17 (Zähler `rook.assessment` der Testmessung steigt in ≤ 20 s, Beitrag nicht leer, keine verbotenen Sätze) | Teil 2, nach 04 (#73) |
+| 16 | App erneut öffnen (Home, zurück), ROOK macht eine neue Einschätzung, lokal sofort | 04 | Schritt 17 (Zähler `rook.assessment` der Testmessung steigt in ≤ 20 s, Beitrag nicht leer, keine verbotenen Sätze) | implementiert (Test) |
 
 ## B. Zusatzprüfungen (Vorgaben M)
 
@@ -56,10 +56,10 @@ Johannes nutzt große Schrift. Test `UITests/LargeTextTests` (Shard logic-and-ui
 |---|---|---|---|
 | Silbentrennung im Kacheltitel („Sau-er-stoff“, „An-span-nung“) | `testTileTextAtLargeSizes`: Titel hat nicht mehr Zeilen als Wörter und passt (`tile.title.*`) | 02 | implementiert (Test) |
 | Abgeschnittene Zahl („14…“) | dieselbe Prüfung: Zahl und Einheit einzeilig und vollständig; Verkleinern bis 60 % (`minimumScaleFactor`) erlaubt, „…“ nicht (`tile.value.*`, `tile.unit.*`) | 02 | implementiert (Test) |
-| Achsen ohne Beschriftung | `testTimelineAxesLabelled` bei default, xxxl, ax5: mind. 2 Uhrzeiten auf der Zeitachse, je Werteachse mind. 2 Zahlen | 03 | Teil 2, nach 03 |
-| Erklärtexte statt ⓘ | `testNoExplanationTexts`: kein Text mit 9 oder mehr Wörtern, außer ROOK-Beitrag, „Warum?“, Testbanner und Cursor-Anzeige | 02/03 | Dashboard implementiert, Verlauf Teil 2 nach 03 |
+| Achsen ohne Beschriftung | `testTimelineAxesLabelled` bei default, xxxl, ax5: mind. 2 Uhrzeiten auf der Zeitachse, je Werteachse mind. 2 Zahlen | 03 | implementiert (Test) |
+| Erklärtexte statt ⓘ | `testNoExplanationTexts`: kein Text mit 9 oder mehr Fließtextwörtern (nur Buchstaben, mind. 3, keine Einheit; Datenzeilen zählen nicht), außer ROOK-Beitrag, „Warum?“, Testbanner und Cursor-Anzeige | 02/03 | implementiert (Test), Dashboard und Verlauf |
 | Kopfleiste verdeckt Inhalt | `testHeaderCoversNothingAtRest` bei default, xxxl, ax5: in Ruhe beginnt kein Inhalt unter der Navigationsleiste; gescrollt per Screenshot `m1-dashboardScrolled`, `m1-timelineScrolled` (Sichtprüfung: nichts scheint durch) | 02 | implementiert (Test) |
-| Audits bei großer Schrift | `AccessibilityTests.testM1DashboardAuditAX3`; `testM1TimelineAuditAX3` in Teil 2 nach 03 | alle | Dashboard implementiert |
+| Audits bei großer Schrift | `AccessibilityTests.testM1DashboardAuditAX3`, `testM1TimelineAuditAX3` (Systemgröße per `UIPreferredContentSizeCategoryName`, nicht `-dynamicType`, sonst meldet der Audit jeden Text als nicht skalierend) | alle | implementiert (Test) |
 | Screenshots bei größter Schrift | `m1-dashboard`, `m1-dashboardScrolled`, `m1-timeline` je `__ax5`, dazu alle Orte `__xxxl` | alle | implementiert (Test) |
 
 Grenzen: Die Silbentrennungsprüfung erkennt einen getrennten Titel sicher, wenn er mehr Zeilen als Wörter hat (alle heutigen Titel sind ein oder zwei Wörter). Ob etwas *durch* die Kopfleiste scheint, kann XCUITest nicht sehen, das bleibt Sichtprüfung der gescrollten Screenshots.
@@ -97,6 +97,7 @@ Bildschirm-Wurzeln tragen die Kennung immer (nicht nur im Testszenario). Quelle 
 | `timeline.chart` | 03 | ziehbare Spurenfläche (ein Element über alle Spuren) |
 | `timeline.selection` | 03 | Cursor-Anzeige: Wert, Einheit, Original-Messzeit „HH:mm“ |
 | `timeline.track.sleep` | 03 | Hypnogramm-Spur |
+| `timeline.info`, `timeline.compare.off/.yesterday/.week` | 03 | ⓘ-Erklärung (Popover) und Vergleich (Build 19, #75); `timeline.selection` erscheint erst mit gesetztem Cursor, unter den Spuren |
 | `hypnogram.segment.<n>` | 03 | jeder Schlafabschnitt als eigenes Element (Phase + Uhrzeit); der Test tippt den ersten |
 | `hypnogram.selection` | 03 | gewählter Schlafabschnitt: Phase + „HH:mm–HH:mm“ |
 | `timeline.event.workout` | 03/05 | abgeschlossene Einheit im Verlauf |

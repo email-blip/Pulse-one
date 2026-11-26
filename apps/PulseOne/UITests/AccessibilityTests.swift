@@ -50,13 +50,18 @@ final class AccessibilityTests: XCTestCase {
     func testM1WhyAudit() throws { try auditM1(.why) }
     func testM1WorkoutAudit() throws { try auditM1(.workout) }
     func testM1WorkoutSummaryAudit() throws { try auditM1(.workoutSummary) }
-    /// Build 19: the owner reads with large text, so the dashboard is also audited at accessibility3, where Build 18
+    /// Build 19: the owner reads with large text, so dashboard and Verlauf are also audited at accessibility3, where Build 18
     /// broke tile titles and cut numbers. The size is set as the *system* text size (`UIPreferredContentSizeCategoryName`
     /// in the launch arguments), not with `-dynamicType xxxl`: that pins a fixed size in the app (DynamicTypeOverride),
     /// so the audit's own Dynamic Type check changed the system size, saw no change and reported every text as
     /// "Dynamic Type font sizes are unsupported" (run on d8f589b). AuditPolicy stays unchanged.
     func testM1DashboardAuditAX3() throws {
         try auditM1(.dashboard, name: "m1-dashboard-ax3",
+                    extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
+    }
+    /// The Verlauf at accessibility3 (team 03's Build 19 charts with axes), set the same way.
+    func testM1TimelineAuditAX3() throws {
+        try auditM1(.timeline, name: "m1-timeline-ax3",
                     extraArguments: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
     }
 
