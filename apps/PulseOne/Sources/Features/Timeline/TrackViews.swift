@@ -273,13 +273,19 @@ struct TrackHeader: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: DKSpace.s))
         layout {
-            Label(style.name, systemImage: style.systemImage)
-                .font(DKFont.label)
-                .foregroundStyle(DKColor.textPrimary)
-                .labelStyle(TintedIconLabel(tint: style.color))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .layoutPriority(1)
+            // Symbol and name as separate pieces: the name is a text element of its own, so the contrast audit
+            // measures white on the page and not the coloured symbol next to it (cyan lungs, hypnogram audit).
+            HStack(spacing: DKSpace.xs) {
+                Image(systemName: style.systemImage)
+                    .foregroundStyle(style.color)
+                    .accessibilityHidden(true)
+                Text(style.name)
+                    .foregroundStyle(DKColor.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .font(DKFont.label)
+            .layoutPriority(1)
             if !DKLayout.stacksHeader(typeSize) { Spacer(minLength: DKSpace.xs) }
             if let range = rangeText {
                 Text(range)
@@ -288,7 +294,7 @@ struct TrackHeader: View {
                     .monospacedDigit()
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         if let label = resolution.trackLabel(cumulative: kind.aggregation == .cumulative) {
             DKReference(text: label)
         }
