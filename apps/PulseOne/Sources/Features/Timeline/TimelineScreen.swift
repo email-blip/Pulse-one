@@ -493,7 +493,8 @@ struct CursorReadout: View {
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(label(rows))
-                    .accessibilityIdentifier("timeline.selection")
+                    // Only a set cursor is "timeline.selection"; the resting card (newest values) is "timeline.latest".
+                    .accessibilityIdentifier(atCursor ? "timeline.selection" : "timeline.latest")
                     pointButtons(hasSource: atCursor && rows.contains(where: { $0.source != nil }))
                 }
             }
