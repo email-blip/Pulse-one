@@ -37,13 +37,14 @@ struct ValueTrackChart: View, Equatable {
         let cumulative = kind.aggregation == .cumulative
         let labelled = showsPoints && !cumulative && values.count <= Self.labelledLimit
         let lonely = Self.lonelyIDs(values)
+        let named = labelled ? Self.namedIDs(values, window: window) : []
         Chart {
             grid
             comparisonMarks(cumulative: cumulative)
             if cumulative {
                 bars(tint: tint)
             } else {
-                lines(tint: tint, labelled: labelled, lonely: lonely)
+                lines(tint: tint, labelled: labelled, named: named, lonely: lonely)
             }
         }
         .chartXScale(domain: window.start...window.end, range: .plotDimension(padding: 0))
@@ -101,7 +102,7 @@ struct ValueTrackChart: View, Equatable {
     }
 
     @ChartContentBuilder
-    private func lines(tint: Color, labelled: Bool, lonely: Set<String>) -> some ChartContent {
+    private func lines(tint: Color, labelled: Bool, named: Set<String>, lonely: Set<String>) -> some ChartContent {
         ForEach(values) { value in
             if value.isAggregated {
                 // Range of the bucket (min–max) behind its mean: aggregation stays visible.
@@ -115,20 +116,41 @@ struct ValueTrackChart: View, Equatable {
                 .foregroundStyle(tint)
                 .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                 .interpolationMethod(.monotone)
-            if labelled {
-                // Few values (SpO₂, stress): clear points with value and time instead of a lost dot.
+            if labelled, named.contains(value.id) {
+                // Few values (SpO₂, stress): clear points with value and time instead of a lost dot. The label
+                // stays inside the plot, so it never runs into the track title above.
                 PointMark(x: .value("Zeit", value.at), y: .value(kind.title, kind.displayNumber(value.value)))
                     .symbolSize(landing.contains(value.id) ? 140 : 70)
                     .foregroundStyle(landing.contains(value.id) ? DKColor.pulseCoral : tint)
-                    .annotation(position: isHigh(value) ? .bottom : .top, spacing: 3) {
+                    .annotation(position: isHigh(value) ? .bottom : .top, spacing: 3,
+                                overflowResolution: .init(x: .fit(to: .plot), y: .fit(to: .plot))) {
                         pointLabel(value)
                     }
+            } else if labelled {
+                // Too close to a labelled neighbour: the point without text (the cursor reads it out).
+                PointMark(x: .value("Zeit", value.at), y: .value(kind.title, kind.displayNumber(value.value)))
+                    .symbolSize(landing.contains(value.id) ? 140 : 70)
+                    .foregroundStyle(landing.contains(value.id) ? DKColor.pulseCoral : tint)
             } else if showsPoints || landing.contains(value.id) || lonely.contains(value.id) {
                 PointMark(x: .value("Zeit", value.at), y: .value(kind.title, kind.displayNumber(value.value)))
                     .symbolSize(landing.contains(value.id) ? 140 : (lonely.contains(value.id) ? 40 : 14))
                     .foregroundStyle(landing.contains(value.id) ? DKColor.pulseCoral : tint)
             }
         }
+    }
+
+    /// Points that get a value label: from the newest backwards, each at least a sixth of the window away from
+    /// the last labelled one, so labels never stack on top of each other ("9898 %" in Build 19 screenshots).
+    static func namedIDs(_ values: [TrackValue], window: DateInterval) -> Set<String> {
+        let gap = window.duration / 6
+        var result: Set<String> = []
+        var last: Date?
+        for value in values.sorted(by: { $0.at > $1.at }) {
+            if let last, last.timeIntervalSince(value.at) < gap { continue }
+            result.insert(value.id)
+            last = value.at
+        }
+        return result
     }
 
     /// Values that stand alone in their run (a single measurement between gaps) get a visible point.
