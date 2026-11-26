@@ -473,60 +473,69 @@ struct CursorReadout: View {
     let model: TimelineModel
     @Binding var showsSource: Bool
 
+    /// Always the same rows (one line per track) and the same buttons, so setting or moving the cursor never
+    /// changes the card's height and never moves the tracks below. Without a cursor it shows each track's newest
+    /// value. Only "Quelle", asked for by the person, adds lines.
     var body: some View {
         let _ = TimelineProbe.body("Anzeige")
-        let rows = model.cursorRows
-        if !rows.isEmpty || model.selectedSegment != nil {
+        let atCursor = model.cursor != nil
+        let rows = atCursor ? model.cursorRows : model.latestRows
+        if !rows.isEmpty {
             DKCard {
-                reading(rows, event: model.cursorEvent.map { "Training · \($0.detail)" }, sources: showsSource)
+                VStack(alignment: .leading, spacing: DKSpace.m) {
+                    VStack(alignment: .leading, spacing: DKSpace.s) {
+                        Text(heading(atCursor: atCursor))
+                            .font(DKFont.caption)
+                            .foregroundStyle(DKColor.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        ForEach(rows) { row in line(row, sources: atCursor && showsSource) }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(label(rows))
+                    .accessibilityIdentifier("timeline.selection")
+                    pointButtons(hasSource: atCursor && rows.contains(where: { $0.source != nil }))
+                }
             }
-        } else {
-            // Without a cursor only the step buttons (the accessible way to start), no empty card.
-            pointButtons(hasSource: false)
         }
         // No spring and no selection haptic per cursor step: a drag sends dozens of steps (suspected in the
         // long busy time after a scrub, see TimelineProbe). The haptic for a newly picked original point
         // stays on the scrub surface.
     }
 
-    /// Rows, the training line and the point buttons.
-    private func reading(_ rows: [CursorRow], event: String?, sources: Bool) -> some View {
-        VStack(alignment: .leading, spacing: DKSpace.m) {
-            VStack(alignment: .leading, spacing: DKSpace.s) {
-                ForEach(rows) { row in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
-                            Text(row.title)
-                                .font(DKFont.label)
-                                .foregroundStyle(DKColor.textSecondary)
-                            Spacer(minLength: DKSpace.xs)
-                            Text(row.value)
-                                .font(DKFont.bodyEmphasis)
-                                .foregroundStyle(DKColor.textPrimary)
-                                .monospacedDigit()
-                            Text(row.time)
-                                .font(DKFont.label)
-                                .foregroundStyle(DKColor.textSecondary)
-                                .monospacedDigit()
-                        }
-                        if let note = row.note {
-                            Text(note).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                        }
-                        if sources, let source = row.source {
-                            Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                        }
-                    }
-                }
-                if let event {
-                    Text(event)
-                        .font(DKFont.label)
-                        .foregroundStyle(DKColor.textPrimary)
-                }
+    /// "AM CURSOR · TRAINING · 45 MIN" or "ZULETZT GEMESSEN"; one line.
+    private func heading(atCursor: Bool) -> String {
+        guard atCursor else { return "ZULETZT GEMESSEN" }
+        if let event = model.cursorEvent { return "AM CURSOR · TRAINING · \(event.detail.uppercased())" }
+        return "AM CURSOR"
+    }
+
+    /// One line per track: name, value, and the measuring time (or "keine Messung" in a gap).
+    private func line(_ row: CursorRow, sources: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
+                Text(row.title)
+                    .font(DKFont.label)
+                    .foregroundStyle(DKColor.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: DKSpace.xs)
+                Text(row.value)
+                    .font(DKFont.bodyEmphasis)
+                    .foregroundStyle(DKColor.textPrimary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(row.value == "–" ? "keine Messung" : row.time)
+                    .font(DKFont.label)
+                    .foregroundStyle(DKColor.textSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(label(rows))
-            .accessibilityIdentifier("timeline.selection")
-            pointButtons(hasSource: rows.contains(where: { $0.source != nil }))
+            if sources, let source = row.source {
+                Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
+            }
         }
     }
 
@@ -538,10 +547,16 @@ struct CursorReadout: View {
             Button("Nächster Punkt") { model.stepCursor(forward: true) }
                 .buttonStyle(DKPillButtonStyle())
                 .accessibilityIdentifier("timeline.nextPoint")
+            // Its place is always kept (hidden without a source), so the row never rewraps when the cursor moves.
             if hasSource {
                 Button(showsSource ? "Quelle aus" : "Quelle") { showsSource.toggle() }
                     .buttonStyle(DKTextButtonStyle())
                     .accessibilityIdentifier("timeline.source")
+            } else {
+                Button("Quelle aus") {}
+                    .buttonStyle(DKTextButtonStyle())
+                    .hidden()
+                    .accessibilityHidden(true)
             }
         }
     }

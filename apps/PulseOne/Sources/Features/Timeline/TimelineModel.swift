@@ -355,6 +355,23 @@ final class TimelineModel {
                          time: span, note: what, source: nil)
     }
 
+    /// Without a cursor: the newest measurement of every track, so the read-out keeps its rows (and its height).
+    var latestRows: [CursorRow] {
+        let clock = Self.clock(calendar)
+        let dayClock = Self.dayClock(calendar)
+        // The same tracks as `cursorRows`, so the card keeps its height when the cursor is set.
+        return Self.valueTracks.compactMap { track in
+            guard let kind = kinds[track], let all = points[track] else { return nil }
+            let title = MetricStyleName.name(kind)
+            guard let last = all.last(where: { $0.measuredAt <= now }) else {
+                return CursorRow(track: track, title: title, value: "–", time: "–", note: "noch keine Messung", source: nil)
+            }
+            let style = calendar.isDate(last.measuredAt, inSameDayAs: now) ? clock : dayClock
+            return CursorRow(track: track, title: title, value: "\(kind.display(last.value)) \(kind.displayUnit)",
+                             time: "zuletzt \(last.measuredAt.formatted(style))", note: "neuester Wert", source: nil)
+        }
+    }
+
     /// The comparison value under the cursor ("gestern 68 bpm"), on the day scale only.
     func comparisonText(for track: TimelineTrack) -> String? {
         guard let cursor, comparisonAvailable, comparison != .off, let drawn = drawn(track) else { return nil }
