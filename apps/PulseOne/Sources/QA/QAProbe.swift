@@ -66,9 +66,13 @@ private struct QATextProbe: ViewModifier {
                         .background {
                             GeometryReader { ideal in
                                 Color.clear
-                                    .onAppear { report(shown: shown.size, ideal: ideal.size) }
-                                    .onChange(of: shown.size) { _, size in report(shown: size, ideal: ideal.size) }
-                                    .onChange(of: ideal.size) { _, size in report(shown: shown.size, ideal: size) }
+                                    .onAppear { report(shown: shown.size, ideal: ideal.size, frame: shown.frame(in: .global)) }
+                                    .onChange(of: shown.size) { _, size in
+                                        report(shown: size, ideal: ideal.size, frame: shown.frame(in: .global))
+                                    }
+                                    .onChange(of: ideal.size) { _, size in
+                                        report(shown: shown.size, ideal: size, frame: shown.frame(in: .global))
+                                    }
                             }
                         }
                 }
@@ -78,10 +82,14 @@ private struct QATextProbe: ViewModifier {
         }
     }
 
-    private func report(shown: CGSize, ideal: CGSize) {
+    private func report(shown: CGSize, ideal: CGSize, frame: CGRect) {
         guard ideal.height > 0, shown.width > 0 else { return }
         let lines = max(1, Int((shown.height / ideal.height).rounded()))
         let fits = ideal.width * max(minimumScale, 0.01) <= CGFloat(lines) * shown.width + 1
-        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0)")
+        // Diagnosis only (the tests read lines, words, fits): shown/ideal size and the text's frame on screen, in points.
+        let size = "w:\(Int(shown.width.rounded()))/\(Int(ideal.width.rounded()))"
+            + ",h:\(Int(shown.height.rounded()))/\(Int(ideal.height.rounded()))"
+        let place = "frame:\(Int(frame.minX))/\(Int(frame.minY))/\(Int(frame.width))x\(Int(frame.height))"
+        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0),\(size),\(place)")
     }
 }

@@ -65,6 +65,8 @@ final class LargeTextTests: XCTestCase {
             }
         }
         attachText(lines.joined(separator: "\n"), name: "largeText__\(dynamicType)__tiles.txt")
+        // Also in the job log: the result bundle is not always reachable.
+        print("LARGETEXT[\(dynamicType)] " + lines.joined(separator: " ; "))
     }
 
     // MARK: Axes
