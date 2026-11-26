@@ -51,15 +51,18 @@ struct DayCloseoutCard: View {
 
     var body: some View {
         Card {
-            SectionHeader(title: "Tagesabschluss")
+            HStack(alignment: .firstTextBaseline, spacing: DKSpace.xs) {
+                SectionHeader(title: "Tagesabschluss").fixedSize(horizontal: true, vertical: false)
+                DKInfoButton(title: "Tagesabschluss", text: "Wie war dein Tag? Bewegung, Stimmung und ein Satz, getippt oder diktiert. Daraus plant der Coach morgen.",
+                             identifier: "eveningNote.info")
+                Spacer(minLength: 0)
+            }
             if let summary {
                 Text(summary).font(Typography.body).foregroundStyle(Palette.ink).wraps()
                 Button("Tagesabschluss ändern") { editing = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("eveningNote.open")
             } else {
-                Text("Wie war dein Tag? Bewegung, Stimmung und ein Satz, getippt oder diktiert. Daraus plant der Coach morgen.")
-                    .font(Typography.caption).foregroundStyle(Palette.inkMuted).wraps()
                 Button("Tag abschließen") { editing = true }
                     .buttonStyle(SecondaryButtonStyle())
                     .accessibilityIdentifier("eveningNote.open")
@@ -158,9 +161,11 @@ struct DayCloseoutSheet: View {
                         .accessibilityIdentifier("eveningNote.tag.\(tag.rawValue)")
                     }
                 } header: {
-                    Text("Stichworte")
-                } footer: {
-                    Text("Tippe an, was stimmt. Nur diese Stichworte können in Analysen einfließen, nie dein Text.")
+                    HStack(spacing: DKSpace.xs) {
+                        Text("Stichworte")
+                        DKInfoButton(title: "Stichworte", text: "Tippe an, was stimmt. Nur diese Stichworte können in Analysen einfließen, nie dein Text.",
+                                     identifier: "eveningNote.tags.info")
+                    }
                 }
             }
             .scrollContentBackground(.hidden)

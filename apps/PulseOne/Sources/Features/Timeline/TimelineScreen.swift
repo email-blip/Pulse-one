@@ -19,6 +19,10 @@ struct TimelineScreen: View {
     @State private var model = TimelineModel()
     @State private var opened = false
     @State private var showsSource = false
+    /// Gutter for the y-axis values; every row (hypnogram, events, rulers) keeps it, so the time axis lines up.
+    @ScaledMetric(relativeTo: .caption) private var scaledAxisWidth: CGFloat = 32
+    /// Capped so the tracks keep most of the width at the largest text sizes (labels shrink a little).
+    private var axisWidth: CGFloat { min(scaledAxisWidth, 56) }
     /// Saved sessions (team 05); a newly saved one reloads the window.
     @Query(sort: \WorkoutRecord.endedAt) private var savedWorkouts: [WorkoutRecord]
 
@@ -29,9 +33,11 @@ struct TimelineScreen: View {
                 if showsOwnBanner { TestBanner() }
                 rangePicker
                 windowBar
+                // Above the tracks, so it is on screen when the cursor moves (opened from a tile the cursor is
+                // already set). Without a cursor only the step buttons: no empty box.
                 CursorReadout(model: model, showsSource: $showsSource)
                 tracks
-                explanation
+                if model.comparisonAvailable { comparisonPicker }
             }
             .padding(.horizontal, DKSpace.page)
             .padding(.bottom, DKSpace.xxl)
@@ -83,6 +89,46 @@ struct TimelineScreen: View {
     private var rangePicker: some View {
         // Wraps instead of scrolling sideways: every range stays fully on screen (a half-visible chip failed
         // the contrast audit) and nothing hides at large text sizes.
+        HStack(alignment: .top, spacing: DKSpace.s) {
+            ranges
+            Spacer(minLength: 0)
+            DKInfoButton(title: "Verlauf", text: infoText, identifier: "timeline.info")
+        }
+    }
+
+    /// What the Verlauf shows, behind the ⓘ (no hint texts on the screen).
+    private var infoText: String {
+        model.resolution == .original
+            ? "Tippe auf die Spuren oder halte und ziehe: Die Linie zeigt in jeder Spur Wert und Uhrzeit. Mit zwei Fingern zoomen, mit einem wischen. Jeder Punkt ist eine echte Messung mit ihrer Uhrzeit, Lücken bleiben leer."
+            : "Über zwei Tage zeigt der Verlauf Mittel- oder Summenwerte je Abschnitt; die Fläche zeigt die Spanne. Zum Einzelwert hineinzoomen."
+    }
+
+    /// Thin overlay of yesterday or the mean of the last seven days (day scale only).
+    private var comparisonPicker: some View {
+        FlowLayout(spacing: DKSpace.s) {
+            Text("Vergleich")
+                .font(DKFont.label)
+                .foregroundStyle(DKColor.textSecondary)
+                .frame(minHeight: DKSize.minTouch)
+            ForEach(TrackComparisonMode.allCases, id: \.self) { mode in
+                DKChip(title: Self.title(of: mode), isSelected: model.comparison == mode) {
+                    model.setComparison(mode)
+                }
+                .accessibilityIdentifier("timeline.compare.\(mode.rawValue)")
+            }
+        }
+        .sensoryFeedback(.selection, trigger: model.comparison)
+    }
+
+    static func title(of mode: TrackComparisonMode) -> String {
+        switch mode {
+        case .off: "Aus"
+        case .yesterday: "Gestern"
+        case .week: "7-Tage-Mittel"
+        }
+    }
+
+    private var ranges: some View {
         FlowLayout(spacing: DKSpace.s) {
             ForEach(TimelineRange.allCases, id: \.self) { range in
                 DKChip(title: Self.title(of: range), isSelected: model.range == range) {
@@ -140,27 +186,38 @@ struct TimelineScreen: View {
     private var tracks: some View {
         let window = model.visible
         let resolution = model.resolution
+        // Opened for sleep (sleep tile, "Letzte Nacht"): phases first. Otherwise the value tracks come first,
+        // so the scrub area starts high on the screen and a tap in its middle never lands under the tab bar.
+        let options = LaunchOptions.current
+        let sleepFirst = focus?.track == .sleepPhases || (options.usesTestScenario && options.scenario == "timelineHypnogram")
         VStack(alignment: .leading, spacing: DKSpace.m) {
-            if !model.visibleSegments.isEmpty {
-                SleepSection(model: model, window: window)
+            if sleepFirst, !model.visibleSegments.isEmpty {
+                SleepSection(model: model, window: window, axisWidth: axisWidth)
             }
             valueTracks(window: window, resolution: resolution)
+            if !sleepFirst, !model.visibleSegments.isEmpty {
+                SleepSection(model: model, window: window, axisWidth: axisWidth)
+            }
             if !model.visibleEvents.isEmpty {
                 VStack(alignment: .leading, spacing: DKSpace.xs) {
                     Label("Training und ROOK", systemImage: "figure.run")
                         .font(DKFont.label)
                         .foregroundStyle(DKColor.textPrimary)
                         .labelStyle(TintedIconLabel(tint: MetricStyle.of(.trainingDuration).color))
-                    EventTrack(events: model.visibleEvents, window: window, calendar: model.calendar) { event in
-                        model.setCursor(event.interval.start.addingTimeInterval(event.interval.duration / 2))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    axisRow {
+                        EventTrack(events: model.visibleEvents, window: window, calendar: model.calendar) { event in
+                            model.setCursor(event.interval.start.addingTimeInterval(event.interval.duration / 2))
+                        }
+                        .overlay { CursorLine(model: model) }
                     }
-                    .overlay { CursorLine(model: model) }
+                    axisRow { TimeRuler(window: window, calendar: model.calendar) }
                 }
             }
-            TimeRuler(window: window, calendar: model.calendar)
             if model.hasLoaded, model.tracks.isEmpty {
                 DKCard {
-                    Text("Hier erscheinen deine Werte mit Uhrzeit, sobald der Ring oder Apple Health sie geliefert haben.")
+                    Text("Noch keine Werte vom Ring oder aus Apple Health.")
                         .font(DKFont.body)
                         .foregroundStyle(DKColor.textSecondary)
                         .wraps()
@@ -170,34 +227,44 @@ struct TimelineScreen: View {
         .dkMotion(.rangeChange, value: model.range)
     }
 
+    /// A row on the shared time axis: the y-axis gutter first, then the content.
+    private func axisRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: axisWidth).accessibilityHidden(true)
+            content()
+        }
+    }
+
     /// Pulse, HRV, SpO₂, stress and movement under one scrub surface (`timeline.chart`).
     private func valueTracks(window: DateInterval, resolution: TimelineResolution) -> some View {
-        VStack(alignment: .leading, spacing: DKSpace.m) {
+        let timeTicks = TimeTicks.ticks(for: window, calendar: model.calendar).map(\.date)
+        return VStack(alignment: .leading, spacing: DKSpace.m) {
             ForEach(TimelineModel.valueTracks, id: \.self) { track in
                 if let drawn = model.drawn(track) {
                     let kind = drawn.kind
+                    let yTicks = AxisTicks.values(in: drawn.yDomain)
                     VStack(alignment: .leading, spacing: DKSpace.xs) {
                         TrackHeader(kind: kind, values: drawn.values, resolution: resolution)
-                        ValueTrackChart(kind: kind, values: drawn.values, gaps: drawn.gaps, window: window,
-                                        yDomain: drawn.yDomain, landing: model.landing,
-                                        showsPoints: resolution == .original && drawn.values.count <= 160)
-                            .equatable()
-                            .frame(height: kind.aggregation == .cumulative ? 56 : 84)
-                            .overlay { CursorLine(model: model) }
+                        HStack(spacing: 0) {
+                            YAxisLabels(ticks: yTicks, domain: drawn.yDomain, probeID: "timeline.axis.value.\(track.rawValue)")
+                                .frame(width: axisWidth)
+                            ValueTrackChart(kind: kind, values: drawn.values, gaps: drawn.gaps, window: window,
+                                            yDomain: drawn.yDomain, landing: model.landing,
+                                            showsPoints: resolution == .original && drawn.values.count <= 160,
+                                            comparison: drawn.comparison, yTicks: yTicks, timeTicks: timeTicks,
+                                            calendar: model.calendar)
+                                .equatable()
+                                .overlay { CursorLine(model: model) }
+                                .overlay { CursorBadge(model: model, track: track) }
+                        }
+                        .frame(height: kind.aggregation == .cumulative ? 56 : 84)
                     }
                 }
             }
+            // One row of clock times under the value tracks; every track has the dashed grid at the same ticks.
+            axisRow { TimeRuler(window: window, calendar: model.calendar, probeID: "timeline.axis.time") }
         }
-        .overlay { ScrubSurface(model: model) }
-    }
-
-    private var explanation: some View {
-        Text(model.resolution == .original
-             ? "Jeder Punkt ist eine echte Messung mit ihrer Uhrzeit. Lücken bleiben leer."
-             : "Über zwei Tage zeigt der Verlauf Mittel- oder Summenwerte je Abschnitt; die Fläche zeigt die Spanne. Zum Einzelwert hineinzoomen.")
-            .font(DKFont.caption)
-            .foregroundStyle(DKColor.textSecondary)
-            .wraps()
+        .overlay { ScrubSurface(model: model, leading: axisWidth) }
     }
 
     static func title(of range: TimelineRange) -> String {
@@ -216,6 +283,7 @@ struct TimelineScreen: View {
 private struct SleepSection: View {
     let model: TimelineModel
     let window: DateInterval
+    let axisWidth: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: DKSpace.s) {
@@ -223,11 +291,17 @@ private struct SleepSection: View {
                 .font(DKFont.label)
                 .foregroundStyle(DKColor.textPrimary)
                 .labelStyle(TintedIconLabel(tint: MetricStyle.of(.sleepDuration).color))
-            HypnogramTrack(segments: model.visibleSegments, window: window, selected: model.selectedSegment,
-                           calendar: model.calendar) { segment in
-                model.select(segment)
+            HStack(spacing: 0) {
+                Color.clear.frame(width: axisWidth).accessibilityHidden(true)
+                VStack(spacing: 2) {
+                    HypnogramTrack(segments: model.visibleSegments, window: window, selected: model.selectedSegment,
+                                   calendar: model.calendar) { segment in
+                        model.select(segment)
+                    }
+                    .overlay { CursorLine(model: model) }
+                    TimeRuler(window: window, calendar: model.calendar)
+                }
             }
-            .overlay { CursorLine(model: model) }
             // The longest interval text is reserved (hidden), so picking or clearing a phase never moves the
             // tracks below.
             ZStack(alignment: .topLeading) {
@@ -284,6 +358,8 @@ struct CursorLine: View {
 /// after the first sometimes never reached the tap handler (UI test: the cursor stayed on the first point).
 struct ScrubSurface: View {
     let model: TimelineModel
+    /// Width of the y-axis gutter: the time axis starts after it.
+    var leading: CGFloat = 0
     @State private var touch: Touch?
     @State private var zoomStart: DateInterval?
 
@@ -302,7 +378,7 @@ struct ScrubSurface: View {
     var body: some View {
         let _ = TimelineProbe.body("Fläche")
         GeometryReader { proxy in
-            let width = max(proxy.size.width, 1)
+            let width = max(proxy.size.width - leading, 1)
             Color.clear
                 .contentShape(Rectangle())
                 .simultaneousGesture(
@@ -316,7 +392,7 @@ struct ScrubSurface: View {
                             let start = zoomStart ?? model.visible
                             zoomStart = start
                             model.zoom(from: start, factor: Double(value.magnification),
-                                       anchor: Double(value.startLocation.x / width))
+                                       anchor: Double((value.startLocation.x - leading) / width))
                         }
                         .onEnded { _ in zoomStart = nil }
                 )
@@ -356,7 +432,7 @@ struct ScrubSurface: View {
         }
         switch current.mode {
         case .scrub:
-            record("Halten", value.location.x / width)
+            record("Halten", (value.location.x - leading) / width)
         case .pan:
             model.pan(from: current.window, by: -Double(dx / width) * current.window.duration)
         case .undecided, .scroll:
@@ -380,12 +456,12 @@ struct ScrubSurface: View {
         defer { touch = nil }
         guard let current = touch else {
             // Down and up in one event: a tap.
-            record("Tippen", value.location.x / width)
+            record("Tippen", (value.location.x - leading) / width)
             return
         }
         let still = max(abs(value.translation.width), abs(value.translation.height)) < Self.moveSlop
         if current.mode == .undecided, still {
-            record("Tippen", value.location.x / width)
+            record("Tippen", (value.location.x - leading) / width)
         } else {
             model.lastInput = "\(current.mode)"
         }
@@ -397,24 +473,29 @@ struct CursorReadout: View {
     let model: TimelineModel
     @Binding var showsSource: Bool
 
+    /// Always the same rows (one line per track) and the same buttons, so setting or moving the cursor never
+    /// changes the card's height and never moves the tracks below. Without a cursor it shows each track's newest
+    /// value. Only "Quelle", asked for by the person, adds lines.
     var body: some View {
         let _ = TimelineProbe.body("Anzeige")
-        let rows = model.cursorRows
-        DKCard {
-            // A hidden copy with a row (and note) for every track holds the card at its tallest, so the tracks
-            // below never move when a tap fills the read-out (it grew from 2 to 5 rows and pushed the chart
-            // about 120 pt down). Only "Quelle", asked for by the person, may still make it taller.
-            ZStack(alignment: .topLeading) {
-                reading(placeholderRows, event: "Training", sources: false)
-                    .hidden()
-                    .accessibilityHidden(true)
-                if rows.isEmpty, model.selectedSegment == nil {
-                    Text("Tippe auf die Spuren oder halte und ziehe, um jeden Messpunkt mit Uhrzeit zu sehen.")
-                        .font(DKFont.body)
-                        .foregroundStyle(DKColor.textSecondary)
-                        .wraps()
-                } else {
-                    reading(rows, event: model.cursorEvent.map { "Training · \($0.detail)" }, sources: showsSource)
+        let atCursor = model.cursor != nil
+        let rows = atCursor ? model.cursorRows : model.latestRows
+        if !rows.isEmpty {
+            DKCard {
+                VStack(alignment: .leading, spacing: DKSpace.m) {
+                    VStack(alignment: .leading, spacing: DKSpace.s) {
+                        Text(heading(atCursor: atCursor))
+                            .font(DKFont.caption)
+                            .foregroundStyle(DKColor.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        ForEach(rows) { row in line(row, sources: atCursor && showsSource) }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(label(rows))
+                    // Only a set cursor is "timeline.selection"; the resting card (newest values) is "timeline.latest".
+                    .accessibilityIdentifier(atCursor ? "timeline.selection" : "timeline.latest")
+                    pointButtons(hasSource: atCursor && rows.contains(where: { $0.source != nil }))
                 }
             }
         }
@@ -423,65 +504,61 @@ struct CursorReadout: View {
         // stays on the scrub surface.
     }
 
-    /// Rows, the training line and the point buttons; the same layout for the reading and its placeholder.
-    private func reading(_ rows: [CursorRow], event: String?, sources: Bool) -> some View {
-        VStack(alignment: .leading, spacing: DKSpace.m) {
-            VStack(alignment: .leading, spacing: DKSpace.s) {
-                ForEach(rows) { row in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
-                            Text(row.title)
-                                .font(DKFont.label)
-                                .foregroundStyle(DKColor.textSecondary)
-                            Spacer(minLength: DKSpace.xs)
-                            Text(row.value)
-                                .font(DKFont.bodyEmphasis)
-                                .foregroundStyle(DKColor.textPrimary)
-                                .monospacedDigit()
-                            Text(row.time)
-                                .font(DKFont.label)
-                                .foregroundStyle(DKColor.textSecondary)
-                                .monospacedDigit()
-                        }
-                        if let note = row.note {
-                            Text(note).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                        }
-                        if sources, let source = row.source {
-                            Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
-                        }
-                    }
-                }
-                if let event {
-                    Text(event)
-                        .font(DKFont.label)
-                        .foregroundStyle(DKColor.textPrimary)
-                }
+    /// "AM CURSOR · TRAINING · 45 MIN" or "ZULETZT GEMESSEN"; one line.
+    private func heading(atCursor: Bool) -> String {
+        guard atCursor else { return "ZULETZT GEMESSEN" }
+        if let event = model.cursorEvent { return "AM CURSOR · TRAINING · \(event.detail.uppercased())" }
+        return "AM CURSOR"
+    }
+
+    /// One line per track: name, value, and the measuring time (or "keine Messung" in a gap).
+    private func line(_ row: CursorRow, sources: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: DKSpace.s) {
+                Text(row.title)
+                    .font(DKFont.label)
+                    .foregroundStyle(DKColor.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: DKSpace.xs)
+                Text(row.value)
+                    .font(DKFont.bodyEmphasis)
+                    .foregroundStyle(DKColor.textPrimary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(row.value == "–" ? "keine Messung" : row.time)
+                    .font(DKFont.label)
+                    .foregroundStyle(DKColor.textSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(label(rows))
-            .accessibilityIdentifier("timeline.selection")
-            FlowLayout(spacing: DKSpace.s) {
-                Button("Voriger Punkt") { model.stepCursor(forward: false) }
-                    .buttonStyle(DKPillButtonStyle())
-                    .accessibilityIdentifier("timeline.previousPoint")
-                Button("Nächster Punkt") { model.stepCursor(forward: true) }
-                    .buttonStyle(DKPillButtonStyle())
-                    .accessibilityIdentifier("timeline.nextPoint")
-                if rows.contains(where: { $0.source != nil }) {
-                    Button(showsSource ? "Quelle aus" : "Quelle") { showsSource.toggle() }
-                        .buttonStyle(DKTextButtonStyle())
-                        .accessibilityIdentifier("timeline.source")
-                }
+            if sources, let source = row.source {
+                Text(source).font(DKFont.caption).foregroundStyle(DKColor.textTertiary).wraps()
             }
         }
     }
 
-    /// The tallest reading this window can show: every track it draws, each with a note line.
-    private var placeholderRows: [CursorRow] {
-        TimelineModel.valueTracks.compactMap { track in
-            guard let kind = model.kinds[track] else { return nil }
-            return CursorRow(track: track, title: MetricStyleName.name(kind), value: "000 \(kind.displayUnit)",
-                             time: "00:00–00:00", note: "keine Messung an dieser Stelle", source: "Quelle")
+    private func pointButtons(hasSource: Bool) -> some View {
+        FlowLayout(spacing: DKSpace.s) {
+            Button("Voriger Punkt") { model.stepCursor(forward: false) }
+                .buttonStyle(DKPillButtonStyle())
+                .accessibilityIdentifier("timeline.previousPoint")
+            Button("Nächster Punkt") { model.stepCursor(forward: true) }
+                .buttonStyle(DKPillButtonStyle())
+                .accessibilityIdentifier("timeline.nextPoint")
+            // Its place is always kept (hidden without a source), so the row never rewraps when the cursor moves.
+            if hasSource {
+                Button(showsSource ? "Quelle aus" : "Quelle") { showsSource.toggle() }
+                    .buttonStyle(DKTextButtonStyle())
+                    .accessibilityIdentifier("timeline.source")
+            } else {
+                Button("Quelle aus") {}
+                    .buttonStyle(DKTextButtonStyle())
+                    .hidden()
+                    .accessibilityHidden(true)
+            }
         }
     }
 

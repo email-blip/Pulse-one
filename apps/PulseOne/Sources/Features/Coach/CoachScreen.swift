@@ -180,6 +180,8 @@ struct CoachScreen: View {
                     .font(Typography.motto)
                     .tracking(1)
                     .foregroundStyle(Palette.inkMuted)
+                DKInfoButton(title: "Warum", text: "Ich vergleiche mit deinen eigenen Werten der letzten 30 Tage und passe nur an, wenn ein Wert deutlich außerhalb deines üblichen Bereichs liegt.",
+                             identifier: "coach.why.info")
                 Spacer()
                 StatementBadge(kind: .computed)
             }
@@ -212,10 +214,6 @@ struct CoachScreen: View {
                     .foregroundStyle(Palette.ink)
                     .wraps()
             }
-            Text("Ich vergleiche mit deinen eigenen Werten der letzten 30 Tage und passe nur an, wenn ein Wert deutlich außerhalb deines üblichen Bereichs liegt.")
-                .font(Typography.caption)
-                .foregroundStyle(Palette.inkMuted)
-                .wraps()
         }
         .accessibilityIdentifier("coach.signals")
     }
