@@ -80,6 +80,8 @@ struct PulseOneApp: App {
                 // Cinematic dark is the PULSE ONE base; "Clinical Light" arrives with the design profiles.
                 .preferredColorScheme(.dark)
                 .modifier(DynamicTypeOverride(size: options.dynamicTypeSize))
+                // Test-only measurements (`-qaProbe YES`, team 06); nothing in normal use.
+                .overlay(alignment: .topLeading) { QAProbeReport() }
         }
     }
 

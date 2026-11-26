@@ -34,7 +34,7 @@ final class DurchstichTests: XCTestCase {
     }
 
     func testWalkthrough() throws {
-        app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments)
+        app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments + M1.Probe.launchArguments)
 
         try step("App öffnen, ROOK-Beitrag sichtbar") {
             try M1.require(app, M1.Screen.dashboard, step: "Dashboard")
@@ -76,7 +76,7 @@ final class DurchstichTests: XCTestCase {
 
         try step("Neustart, Reihenfolge bleibt") {
             app.terminate()
-            app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments)
+            app = M1.launch(liveMotion: true, extraArguments: M1.Voice.launchArguments + M1.Probe.launchArguments)
             try M1.require(app, M1.Screen.dashboard, step: "Dashboard nach Neustart")
             let firstTile = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier BEGINSWITH %@", M1.Dashboard.tilePrefix)).firstMatch
