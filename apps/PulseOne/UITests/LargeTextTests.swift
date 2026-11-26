@@ -102,8 +102,21 @@ final class LargeTextTests: XCTestCase {
 
     /// Ids whose text is ROOK's own statement or a read-out the person asked for, not an explanation.
     static let explanationAllowed = ["testBanner", "rook.", "why.", "timeline.selection", "hypnogram.selection"]
-    /// A sentence of this many words is an explanation; titles, values and short hints are shorter.
+    /// A text with this many words of running text (`proseWords`) is an explanation; titles, values, data lines and
+    /// short hints have fewer.
     static let explanationWords = 9
+    /// Unit and label abbreviations that appear in data lines, not in sentences.
+    static let unitWords: Set<String> = ["min", "bpm", "kcal", "std", "rem", "hrv", "spo", "km", "ms"]
+
+    /// Words of running text: letters only, at least 3 of them, no unit. A data line such as
+    /// "8 h Schlaf · 22:40–06:55 · Tief 2 h 10 min · REM 1 h 40 min" has 2, the old hint
+    /// "Tippe auf die Spuren oder halte und ziehe, um jeden Messpunkt mit Uhrzeit zu sehen." has 13.
+    static func proseWords(_ text: String) -> Int {
+        text.split(whereSeparator: { $0.isWhitespace || $0 == "·" }).filter { token in
+            let word = token.trimmingCharacters(in: .punctuationCharacters.union(.symbols))
+            return word.count >= 3 && word.allSatisfy(\.isLetter) && !unitWords.contains(word.lowercased())
+        }.count
+    }
 
     private func explanationTexts(in app: XCUIApplication, screen: String) -> [String] {
         let root = M1.element(app, screen)
@@ -119,8 +132,7 @@ final class LargeTextTests: XCTestCase {
         }
         walk(snapshot)
         return texts.compactMap { text in
-            let words = text.label.split(whereSeparator: \.isWhitespace).count
-            guard words >= Self.explanationWords else { return nil }
+            guard Self.proseWords(text.label) >= Self.explanationWords else { return nil }
             if Self.explanationAllowed.contains(where: { text.id.hasPrefix($0) }) { return nil }
             // Texts inside the ROOK card or a read-out (no own id).
             if allowedFrames.contains(where: { $0.insetBy(dx: -1, dy: -1).contains(text.frame) }) { return nil }
