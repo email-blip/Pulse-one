@@ -33,9 +33,11 @@ struct CoachSetupView: View {
                     }
                     Toggle("Weitere Module zeigen (z. B. Reiten)", isOn: $showMoreModules)
                 } header: {
-                    Text("Was machst du gern?")
-                } footer: {
-                    Text("Ohne Auswahl plant der Coach Alltagsbewegung, Beweglichkeit und Erholung.")
+                    HStack(spacing: DKSpace.xs) {
+                        Text("Was machst du gern?")
+                        DKInfoButton(title: "Was machst du gern?", text: "Ohne Auswahl plant der Coach Alltagsbewegung, Beweglichkeit und Erholung.",
+                                     identifier: "coachSetup.sports.info")
+                    }
                 }
                 Section("Zeit") {
                     Stepper("Trainingstage pro Woche: \(p.trainingDaysPerWeek)", value: $p.trainingDaysPerWeek, in: 0...6)
@@ -59,9 +61,11 @@ struct CoachSetupView: View {
                         Toggle(region.title, isOn: setBinding(\.limitations, region))
                     }
                 } header: {
-                    Text("Einschränkungen")
-                } footer: {
-                    Text("Übungen, die diese Bereiche belasten, plant der Coach nicht ein.")
+                    HStack(spacing: DKSpace.xs) {
+                        Text("Einschränkungen")
+                        DKInfoButton(title: "Einschränkungen", text: "Übungen, die diese Bereiche belasten, plant der Coach nicht ein.",
+                                     identifier: "coachSetup.limits.info")
+                    }
                 }
                 Section("Bausteine deines Tages") {
                     ForEach(DayBlockKind.allCases) { kind in
