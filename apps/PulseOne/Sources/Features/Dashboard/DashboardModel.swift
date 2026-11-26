@@ -10,6 +10,8 @@ import SwiftData
 final class DashboardModel {
     private(set) var readings: [String: TileReading] = [:]
     private(set) var lastNight: SleepNight?
+    /// The training tile's week (today, this week, last session, minutes per day).
+    private(set) var trainingWeek: TrainingWeek?
     private(set) var insight: CoachInsight?
     private(set) var hasAnyValue = false
     private(set) var loaded = false
@@ -43,7 +45,10 @@ final class DashboardModel {
         let nights = (try? SleepSegmentStore(context: context).nights(in: DateInterval(start: since, end: now), subjectID: profileID)) ?? []
         lastNight = nights.last { ($0.inBed?.end ?? .distantPast) <= now.addingTimeInterval(60) }
         if let sleep = sleepReading(nights: nights, points: points, now: now) { result["sleep"] = sleep }
-        if let training = trainingReading(points: points, now: now) { result["training"] = training }
+        let week = makeTrainingWeek(points: points, sessions: WorkoutLog(context: context, calendar: calendar).entries(in: window),
+                                now: now)
+        trainingWeek = week.last == nil ? nil : week
+        if let training = trainingReading(week, now: now) { result["training"] = training }
         readings = result
         hasAnyValue = !points.isEmpty || lastNight != nil
         insight = TimelineDemo.isActive ? TimelineDemo.insight(now: now, calendar: calendar) : nil
@@ -86,16 +91,23 @@ final class DashboardModel {
                            isOld: now.timeIntervalSince(last.measuredUntil) > 86_400)
     }
 
-    /// Training time of the newest day with a workout.
-    private func trainingReading(points: [MeasurementPoint], now: Date) -> TileReading? {
-        let workouts = points.filter { $0.kind == .trainingDuration }.sorted { $0.measuredAt < $1.measuredAt }
-        guard let last = workouts.last else { return nil }
-        let day = calendar.startOfDay(for: last.measuredAt)
-        let total = workouts.filter { calendar.isDate($0.measuredAt, inSameDayAs: day) }.reduce(0) { $0 + $1.value }
-        let minutes = Int((total / 60).rounded())
-        return TileReading(value: total, text: "\(minutes)", unit: "min",
-                           reference: TileSummary.reference(for: last.measuredUntil, now: now, calendar: calendar),
-                           at: last.measuredAt, spark: [], isOld: now.timeIntervalSince(last.measuredUntil) > 86_400)
+    /// Apple Health workouts (training-duration points) and sessions saved in the app (team 05), as on the
+    /// Verlauf's training track.
+    private func makeTrainingWeek(points: [MeasurementPoint], sessions: [TrainingTimelineEntry], now: Date) -> TrainingWeek {
+        let imported = points.filter { $0.kind == .trainingDuration }.map { point in
+            TrainingSession(start: point.measuredAt,
+                            end: point.measuredUntil > point.measuredAt ? point.measuredUntil : point.measuredAt.addingTimeInterval(point.value),
+                            title: "Training")
+        }
+        let saved = sessions.map { TrainingSession(start: $0.interval.start, end: $0.interval.end, title: $0.title) }
+        return TrainingWeek(sessions: imported + saved, now: now, calendar: calendar)
+    }
+
+    /// Today's training time; without a session today the week so far and the last session.
+    private func trainingReading(_ week: TrainingWeek, now: Date) -> TileReading? {
+        guard let reading = week.reading(now: now, calendar: calendar) else { return nil }
+        return TileReading(value: week.todayCount > 0 ? week.todayMinutes : week.weekMinutes, text: reading.text,
+                           unit: reading.unit, reference: reading.reference, at: reading.at, spark: [], isOld: false)
     }
 
     /// "7:12"

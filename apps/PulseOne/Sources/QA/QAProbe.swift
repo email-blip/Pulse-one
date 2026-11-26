@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Test-only measurements for the UI tests (team 06). Active only with `-uiTesting YES -qaProbe YES`; otherwise every
 /// call is a no-op and nothing is added to the view or accessibility tree.
@@ -66,9 +67,17 @@ private struct QATextProbe: ViewModifier {
                         .background {
                             GeometryReader { ideal in
                                 Color.clear
-                                    .onAppear { report(shown: shown.size, ideal: ideal.size) }
-                                    .onChange(of: shown.size) { _, size in report(shown: size, ideal: ideal.size) }
-                                    .onChange(of: ideal.size) { _, size in report(shown: shown.size, ideal: size) }
+                                    .onAppear { report(shown: shown.size, ideal: ideal.size, frame: shown.frame(in: .global)) }
+                                    .onChange(of: shown.size) { _, size in
+                                        report(shown: size, ideal: ideal.size, frame: shown.frame(in: .global))
+                                    }
+                                    .onChange(of: ideal.size) { _, size in
+                                        report(shown: shown.size, ideal: size, frame: shown.frame(in: .global))
+                                    }
+                                    // A text first laid out off screen (a transition) reports again once it is in place.
+                                    .onChange(of: shown.frame(in: .global).minX) { _, _ in
+                                        report(shown: shown.size, ideal: ideal.size, frame: shown.frame(in: .global))
+                                    }
                             }
                         }
                 }
@@ -78,10 +87,27 @@ private struct QATextProbe: ViewModifier {
         }
     }
 
-    private func report(shown: CGSize, ideal: CGSize) {
+    private func report(shown: CGSize, ideal: CGSize, frame: CGRect) {
         guard ideal.height > 0, shown.width > 0 else { return }
         let lines = max(1, Int((shown.height / ideal.height).rounded()))
         let fits = ideal.width * max(minimumScale, 0.01) <= CGFloat(lines) * shown.width + 1
-        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0)")
+        // Diagnosis only (the tests read lines, words, fits): shown/ideal size and the text's frame on screen, in points.
+        let size = "w:\(Int(shown.width.rounded()))/\(Int(ideal.width.rounded()))"
+            + ",h:\(Int(shown.height.rounded()))/\(Int(ideal.height.rounded()))"
+        let place = "frame:\(Int(frame.minX))/\(Int(frame.minY))/\(Int(frame.width))x\(Int(frame.height))"
+        let report = "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0),\(size),\(place)"
+        // Only a text that lies horizontally on the screen counts. SwiftUI also lays out an invisible, narrower copy
+        // of the dashboard off screen (x < 0, run on 58cf1b0); its reports must not overwrite the visible tile's.
+        // They stay visible for diagnosis under "offscreen.<id>". Vertical position does not matter (scrolling).
+        if frame.minX >= -1, frame.maxX <= Self.screenWidth + 1 {
+            QAProbe.note(id, report)
+        } else {
+            QAProbe.note("offscreen.\(id)", report)
+        }
+    }
+
+    private static var screenWidth: CGFloat {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first?.screen.bounds.width ?? .greatestFiniteMagnitude
     }
 }

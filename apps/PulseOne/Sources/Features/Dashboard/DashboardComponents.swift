@@ -7,6 +7,11 @@ import SwiftUI
 struct DashboardTileCell: View {
     let tile: DashboardTile
     let reading: TileReading?
+    /// Sleep tile: last night's phases as a small hypnogram instead of a line.
+    var night: SleepNight?
+    /// Training tile: minutes per day of the last seven days.
+    var week: TrainingWeek?
+    var calendar: Calendar = .current
     let editing: Bool
     let isDropTarget: Bool
     let canMoveUp: Bool
@@ -45,9 +50,13 @@ struct DashboardTileCell: View {
         let tint = style?.color ?? (tile.id == "sleep" ? MetricStyle.of(.sleepDuration).color : MetricStyle.of(.trainingDuration).color)
         return MetricTile(name: style?.name ?? tile.title, systemImage: style?.systemImage ?? tile.systemImage, tint: tint,
                           value: reading?.text, unit: reading?.unit ?? kind?.displayUnit ?? "",
-                          reference: reading?.reference ?? (tile.id == "training" ? "Heute noch keine Einheit" : "noch kein Wert"),
+                          reference: reading?.reference ?? (tile.id == "training" ? "Noch keine Einheit erfasst" : "noch kein Wert"),
                           size: tile.size) {
-            if let spark = reading?.spark, spark.count > 1 {
+            if let night, let bed = night.inBed {
+                TileHypnogram(segments: night.segments, window: bed, calendar: calendar)
+            } else if let week {
+                WeekBars(days: week.days, tint: tint)
+            } else if let spark = reading?.spark, spark.count > 1 {
                 Sparkline(values: Self.sparkValues(spark), tint: tint)
             }
         }
@@ -133,8 +142,11 @@ struct SleepPreview: View {
                     .foregroundStyle(DKColor.textSecondary)
                     .wraps()
                 if let bed = night.inBed {
-                    MiniHypnogram(segments: night.segments, window: bed)
-                        .frame(height: 56)
+                    VStack(spacing: 2) {
+                        MiniHypnogram(segments: night.segments, window: bed)
+                            .frame(height: 56)
+                        TimeRuler(window: bed, calendar: calendar)
+                    }
                 }
                 SleepPhaseLegend(phases: phases)
             }
@@ -164,6 +176,54 @@ struct SleepPreview: View {
     }
 }
 
+/// The sleep tile's trend: the night's phases with bedtime and wake time under them.
+struct TileHypnogram: View {
+    let segments: [SleepSegment]
+    let window: DateInterval
+    let calendar: Calendar
+
+    var body: some View {
+        let clock = TimelineModel.clock(calendar)
+        VStack(spacing: 2) {
+            MiniHypnogram(segments: segments, window: window)
+            HStack {
+                Text(window.start.formatted(clock))
+                Spacer(minLength: DKSpace.xs)
+                Text(window.end.formatted(clock))
+            }
+            .font(.caption2)
+            .foregroundStyle(DKColor.textSecondary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// The training tile's trend: minutes per day of the last seven days, today last and full colour.
+struct WeekBars: View {
+    let days: [Double]
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let high = max(days.max() ?? 0, 1)
+            let gap: CGFloat = 4
+            let width = max((proxy.size.width - gap * CGFloat(max(days.count - 1, 0))) / CGFloat(max(days.count, 1)), 1)
+            HStack(alignment: .bottom, spacing: gap) {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, minutes in
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(index == days.count - 1 ? tint : tint.opacity(0.55))
+                        .frame(width: width, height: minutes > 0 ? max(CGFloat(minutes / high) * proxy.size.height, 3) : 2)
+                        .opacity(minutes > 0 ? 1 : 0.35)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 /// Non-interactive hypnogram for the preview (the interactive one lives in the Verlauf).
 struct MiniHypnogram: View {
     let segments: [SleepSegment]
@@ -185,28 +245,5 @@ struct MiniHypnogram: View {
             }
         }
         .accessibilityHidden(true)
-    }
-}
-
-/// iOS 26: the tab bar floats as glass over the content, and text scrolled under it shows through, bent by
-/// the lens (tile numbers as broken-up "55" and "43 ms" in the screenshots; the contrast audit reads them as
-/// text without an element, and a hard scroll edge did not stop it). An opaque page-coloured strip behind
-/// the bar hides the content there; the bar itself stays glass. Earlier systems draw a solid bar anyway.
-/// The strip reaches a little above the bar: the lens also samples content just outside its edge, and with
-/// only a few points of margin the HRV tile's "43 ms" sometimes still showed up bent (flaky dashboard audits).
-struct OpaqueUnderTabBar: ViewModifier {
-    func body(content: Content) -> some View {
-        content.overlay {
-            GeometryReader { proxy in
-                let inset = proxy.safeAreaInsets.bottom
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    DKColor.background.frame(height: inset > 0 ? inset + DKSpace.xxl : 0)
-                }
-                .ignoresSafeArea(edges: .bottom)
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
     }
 }
