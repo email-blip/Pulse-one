@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Test-only measurements for the UI tests (team 06). Active only with `-uiTesting YES -qaProbe YES`; otherwise every
 /// call is a no-op and nothing is added to the view or accessibility tree.
@@ -73,6 +74,10 @@ private struct QATextProbe: ViewModifier {
                                     .onChange(of: ideal.size) { _, size in
                                         report(shown: shown.size, ideal: size, frame: shown.frame(in: .global))
                                     }
+                                    // A text first laid out off screen (a transition) reports again once it is in place.
+                                    .onChange(of: shown.frame(in: .global).minX) { _, _ in
+                                        report(shown: shown.size, ideal: ideal.size, frame: shown.frame(in: .global))
+                                    }
                             }
                         }
                 }
@@ -90,6 +95,19 @@ private struct QATextProbe: ViewModifier {
         let size = "w:\(Int(shown.width.rounded()))/\(Int(ideal.width.rounded()))"
             + ",h:\(Int(shown.height.rounded()))/\(Int(ideal.height.rounded()))"
         let place = "frame:\(Int(frame.minX))/\(Int(frame.minY))/\(Int(frame.width))x\(Int(frame.height))"
-        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0),\(size),\(place)")
+        let report = "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0),\(size),\(place)"
+        // Only a text that lies horizontally on the screen counts. SwiftUI also lays out an invisible, narrower copy
+        // of the dashboard off screen (x < 0, run on 58cf1b0); its reports must not overwrite the visible tile's.
+        // They stay visible for diagnosis under "offscreen.<id>". Vertical position does not matter (scrolling).
+        if frame.minX >= -1, frame.maxX <= Self.screenWidth + 1 {
+            QAProbe.note(id, report)
+        } else {
+            QAProbe.note("offscreen.\(id)", report)
+        }
+    }
+
+    private static var screenWidth: CGFloat {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first?.screen.bounds.width ?? .greatestFiniteMagnitude
     }
 }
