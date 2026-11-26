@@ -557,6 +557,77 @@ final class IntelligenceEngine {
         }
     }
 
+    /// ROOK at the opening of the app: Claude words the iPhone's reading of the moment, streamed. Every finished,
+    /// checked line updates the card through `onUpdate`. Runs under the check-ins' standing permission and is
+    /// recorded like a check-in (history with its cost, money budget, not the count of manual sends).
+    func streamRookMoment(moment: RookMoment, local: RookStatement, modelContext: ModelContext,
+                          onUpdate: (RookStatement) -> Void) async -> RookStatement? {
+        let model = settings.model == .haiku ? ClaudeModel.haiku : ClaudeModel.sonnet
+        let mode = settings.safetyMode
+        let message = RookNowPrompt.message(moment: moment, local: local, calendar: .current)
+        let record = StoredAnalysis(kind: Self.checkInKind, title: Self.momentTitle, model: model, contextJSON: message)
+        record.promptVersion = RookNowPrompt.version
+        modelContext.insert(record)
+        var usage = TokenUsage()
+        var responder = model.id
+        var buffer = RookSentenceBuffer()
+        var reply = RookNowReply(allowed: RookNow.allowedNumbers(moment, local: local), mode: mode)
+        do {
+            guard let key = services.secrets.read(), !key.isEmpty else { throw AnthropicError.missingKey }
+            let request = AnthropicAPI.body(model: model, system: RookNowPrompt.system(mode: mode),
+                                            messages: [AnthropicAPI.userText(message)], schema: nil, effort: "low")
+            let body = AnthropicAPI.streaming(request, maxTokens: RookNowPrompt.maxOutputTokens)
+            var stopReason: String?
+            for try await event in services.transport.stream(body, apiKey: key) {
+                switch event {
+                case .started(let id, let start):
+                    if !id.isEmpty { responder = id }
+                    usage = usage + start
+                case .text(let delta):
+                    for piece in buffer.append(delta) {
+                        let changed = reply.take(piece)
+                        if changed, let statement = reply.applied(to: local) { onUpdate(statement) }
+                    }
+                case .finished(let reason, let outputTokens):
+                    stopReason = reason
+                    if outputTokens > 0 { usage.outputTokens = outputTokens }
+                case .failed(let text):
+                    throw SpeechError.failed(text)
+                }
+            }
+            if let rest = buffer.finish() { _ = reply.take(rest) }
+            if stopReason == "refusal" { throw AnthropicError.refusal }
+            guard let statement = reply.applied(to: local) else { throw SpeechError.failed("Keine prüfbare Antwort") }
+            onUpdate(statement)
+            record.apply(usage, responder: responder, model: model)
+            record.resultJSON = Self.json(["headline": statement.headline, "interpretation": statement.insight.interpretation])
+            try? modelContext.save()
+            return statement
+        } catch {
+            record.apply(usage, responder: responder, model: model)
+            record.statusRaw = "failed"
+            if let speech = error as? SpeechError, case .failed(let text) = speech {
+                record.errorMessage = text
+            } else {
+                record.errorMessage = Self.message(for: error)
+            }
+            try? modelContext.save()
+            return nil
+        }
+    }
+
+    /// Title of the opening readings in the history; also how they are counted for the daily cap.
+    nonisolated static let momentTitle = "ROOK beim Öffnen"
+
+    /// Opening readings sent to Claude today.
+    func momentCount(since start: Date, modelContext: ModelContext) -> Int {
+        let kind = Self.checkInKind
+        let title = Self.momentTitle
+        let descriptor = FetchDescriptor<StoredAnalysis>(
+            predicate: #Predicate { $0.createdAt >= start && $0.kindRaw == kind && $0.title == title })
+        return (try? modelContext.fetchCount(descriptor)) ?? 0
+    }
+
     enum SpeechError: Error {
         case failed(String)
     }

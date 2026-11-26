@@ -75,6 +75,8 @@ final class ScreenshotTests: XCTestCase {
             for type in ["default", "xxxl"] { cells.append((place, type, false)) }
         }
         for place in [M1.Place.dashboard, .timeline, .workout] { cells.append((place, "default", true)) }
+        // Build 19: the largest text size on the screens the owner reads most.
+        for place in [M1.Place.dashboard, .dashboardScrolled, .timeline] { cells.append((place, "ax5", false)) }
         for (place, type, reduced) in cells {
             let app = M1.launch(dynamicType: type, reduceMotion: reduced)
             do {
