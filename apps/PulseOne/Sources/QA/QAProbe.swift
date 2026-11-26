@@ -81,7 +81,10 @@ private struct QATextProbe: ViewModifier {
     private func report(shown: CGSize, ideal: CGSize) {
         guard ideal.height > 0, shown.width > 0 else { return }
         let lines = max(1, Int((shown.height / ideal.height).rounded()))
-        let fits = ideal.width * max(minimumScale, 0.01) <= CGFloat(lines) * shown.width + 1
-        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0)")
+        let need = ideal.width * max(minimumScale, 0.01)
+        let have = CGFloat(lines) * shown.width
+        let fits = need <= have + 1
+        // need/have (points) only explain a failure in the log; the tests read lines, words and fits.
+        QAProbe.note(id, "lines:\(lines),words:\(words),fits:\(fits ? 1 : 0),need:\(Int(need.rounded())),have:\(Int(have.rounded()))")
     }
 }

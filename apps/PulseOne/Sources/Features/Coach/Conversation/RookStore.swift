@@ -99,7 +99,7 @@ final class RookStore {
     /// A new assessment is on screen.
     private func shown() {
         generation += 1
-        // TODO(06, PR #72): QAProbe.note("rook.assessment", "\(generation)") once QAProbe is on main.
+        QAProbe.note("rook.assessment", "\(generation)")   // UI tests only (-qaProbe YES), Durchstich step 17
     }
 
     /// The person takes up a step that needs no other screen (breathe, wind down, bed); ROOK confirms it.

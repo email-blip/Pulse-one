@@ -2,6 +2,7 @@ import XCTest
 
 /// Build 19 checks for the owner's Build 18 findings with large text (team 06). Each test catches one fault class:
 /// - tile titles broken inside a word ("Sau-er-stoff", "An-span-nung") and numbers or units cut off ("14…"),
+/// - charts without time or value axis labels,
 /// - explanation sentences on the screen (replaced by ⓘ popovers, team 02),
 /// - content under the header bar while the screen rests at the top.
 /// Tiles speak as one element, so their text layout comes from the test-only probe (`-qaProbe YES`, `M1.Probe`).
@@ -65,16 +66,49 @@ final class LargeTextTests: XCTestCase {
             }
         }
         attachText(lines.joined(separator: "\n"), name: "largeText__\(dynamicType)__tiles.txt")
+        // Also in the job log: the result bundle is not always reachable.
+        print("LARGETEXT[\(dynamicType)] " + lines.joined(separator: " ; "))
     }
 
     // MARK: Axes
-    // `testTimelineAxesLabelled` follows with team 03's axis reports (part 2, after Build 19 charts).
+
+    func testTimelineAxesLabelled() throws {
+        for size in ["default"] + Self.largeSizes {
+            let app = M1.launch(dynamicType: size, extraArguments: M1.Probe.launchArguments)
+            defer { app.terminate() }
+            try M1.skipIfMissing {
+                try M1.require(app, M1.Screen.dashboard, step: "Dashboard", timeout: 30)
+                let tile = try M1.require(app, M1.Dashboard.heartRateTile, step: "Puls-Kachel")
+                M1.reveal(tile, in: app)
+                tile.tap()
+                try M1.require(app, M1.Timeline.chart, step: "Spuren")
+            }
+            Thread.sleep(forTimeInterval: 1.5)
+            M1.attachScreenshot(self, name: "largeText__\(size)__timeline")
+            // Lower tracks report once laid out.
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 0.5)
+            let reports = M1.probe(app)
+
+            guard let time = reports[M1.Probe.timeAxis] else {
+                missingProbe("Zeitachse (\(size))", detail: "\(M1.Probe.timeAxis) nicht gemeldet (Team 03)"); continue
+            }
+            let ticks = time.split(separator: "|").map(String.init)
+            XCTAssertGreaterThanOrEqual(ticks.filter(containsClockTime).count, 2,
+                                        "\(size): Zeitachse mit zu wenigen Uhrzeiten: \(time)")
+            let valueAxes = reports.filter { $0.key.hasPrefix(M1.Probe.valueAxisPrefix) }
+            XCTAssertFalse(valueAxes.isEmpty, "\(size): keine Werteachse gemeldet")
+            for (id, labels) in valueAxes {
+                let numbers = labels.split(separator: "|").filter { $0.rangeOfCharacter(from: .decimalDigits) != nil }
+                XCTAssertGreaterThanOrEqual(numbers.count, 2, "\(size): \(id) mit zu wenigen Werten: \(labels)")
+            }
+        }
+    }
 
     // MARK: No explanation texts
 
     func testNoExplanationTexts() throws {
-        // The Verlauf joins in part 2 with team 03's Build 19 charts (its old hint sentence goes then).
-        for place in [M1.Place.dashboard] {
+        for place in [M1.Place.dashboard, .timeline] {
             let app = M1.launch()
             defer { app.terminate() }
             try M1.skipIfMissing {
