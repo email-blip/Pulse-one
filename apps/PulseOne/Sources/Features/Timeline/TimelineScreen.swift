@@ -33,11 +33,11 @@ struct TimelineScreen: View {
                 if showsOwnBanner { TestBanner() }
                 rangePicker
                 windowBar
-                if model.comparisonAvailable { comparisonPicker }
-                tracks
-                // Below the tracks: it grows when a cursor is set and never moves the tracks. Without a cursor
-                // there is nothing here (no empty box); the labels at the cursor line show the values too.
+                // Above the tracks, so it is on screen when the cursor moves (opened from a tile the cursor is
+                // already set). Without a cursor only the step buttons: no empty box.
                 CursorReadout(model: model, showsSource: $showsSource)
+                tracks
+                if model.comparisonAvailable { comparisonPicker }
             }
             .padding(.horizontal, DKSpace.page)
             .padding(.bottom, DKSpace.xxl)
@@ -250,11 +250,12 @@ struct TimelineScreen: View {
                                 .overlay { CursorLine(model: model) }
                                 .overlay { CursorBadge(model: model, track: track) }
                         }
-                        .frame(height: kind.aggregation == .cumulative ? 64 : 92)
-                        axisRow { TimeRuler(window: window, calendar: model.calendar, probeID: "timeline.axis.time") }
+                        .frame(height: kind.aggregation == .cumulative ? 56 : 84)
                     }
                 }
             }
+            // One row of clock times under the value tracks; every track has the dashed grid at the same ticks.
+            axisRow { TimeRuler(window: window, calendar: model.calendar, probeID: "timeline.axis.time") }
         }
         .overlay { ScrubSurface(model: model, leading: axisWidth) }
     }
