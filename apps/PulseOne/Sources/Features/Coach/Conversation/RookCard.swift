@@ -27,6 +27,7 @@ struct RookCard: View {
     @Environment(ProfileStore.self) private var profile
     @Environment(\.rookActionHandler) private var actionHandler
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.freezeAnimations) private var frozen
     @State private var store = RookStore.shared
     @State private var showCorrections = false
     @State private var why: RookStatement?
@@ -61,9 +62,11 @@ struct RookCard: View {
             }
         }
         .task { await refresh() }
-        // A fresh reading every time the app comes back to the front (owner, 2026-11-25).
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await refresh() } }
+        // A fresh reading every time the app comes back to the front (owner, 2026-11-25). Only after the background:
+        // inactive → active also happens at launch (where `.task` already reads) and under system overlays and
+        // accessibility audits, and must not swap the card while it is being checked.
+        .onChange(of: scenePhase) { old, phase in
+            if phase == .active, old == .background { Task { await refresh() } }
         }
         .sheet(item: $why) { statement in
             RookWhyView(statement: statement) { why = nil }
@@ -83,8 +86,9 @@ struct RookCard: View {
                 .foregroundStyle(Palette.ink)
                 .wraps()
         }
-        .contentTransition(.opacity)
-        .animation(.easeOut(duration: 0.25), value: statement.insight.interpretation)
+        // No fade in test scenarios (frozen animations): an audit must never meet half-transparent text.
+        .contentTransition(frozen ? .identity : .opacity)
+        .animation(frozen ? nil : .easeOut(duration: 0.25), value: statement.insight.interpretation)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(statement.headline + ". " + statement.insight.interpretation)
         .accessibilityIdentifier("rook.insight")

@@ -71,12 +71,10 @@ final class RookStore {
             local = RookReviser.apply(last.feedback, to: local, at: last.at)
         }
         if corrections.isEmpty, let recent = RookMemory.recentClaude(within: Self.momentInterval, at: now, subjectID: owner) {
-            current = recent
-            shown()
+            show(recent)
             return
         }
-        current = local
-        shown()
+        show(local)
 
         guard corrections.isEmpty, !RookNow.needsAttention(local),
               blocker(modelContext: modelContext) == nil,
@@ -99,7 +97,21 @@ final class RookStore {
     /// A new assessment is on screen.
     private func shown() {
         generation += 1
-        QAProbe.note("rook.assessment", "\(generation)")   // UI tests only (-qaProbe YES), Durchstich step 17
+        QAProbe.note("rook.assessment", "\(generation)")
+    }
+
+    /// Shows a new assessment. When it reads exactly like the one on screen (same words, action and stamp minute),
+    /// the card keeps its statement so nothing on screen is rebuilt; it still counts as a new look.
+    private func show(_ statement: RookStatement) {
+        if let current, current.source == statement.source, current.headline == statement.headline,
+           current.insight.interpretation == statement.insight.interpretation,
+           current.insight.action == statement.insight.action,
+           calendar.isDate(current.insight.createdAt, equalTo: statement.insight.createdAt, toGranularity: .minute) {
+            shown()
+            return
+        }
+        current = statement
+        shown()
     }
 
     /// The person takes up a step that needs no other screen (breathe, wind down, bed); ROOK confirms it.
