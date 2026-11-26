@@ -97,15 +97,21 @@ struct DesignKitReferenceScreen: View {
         let oxygen = MetricTile(kind: .oxygenSaturation, value: "97", unit: "%", reference: "Messung · 06:30") {
             Sparkline(values: [96, 97, 97, 96, 98, 97], tint: MetricStyle.of(.oxygenSaturation).color)
         }
-        let steps = MetricTile(kind: .steps, value: "8 412", unit: "Schritte", reference: "Heute · 14:20", size: .wide) {
+        // Long values on purpose: six digits in a wide tile and five in a large one must stay whole at every
+        // Dynamic Type size (DesignKitLargeTextTests).
+        let steps = MetricTile(kind: .steps, value: "123.456", unit: "Schritte", reference: "Heute · 14:20", size: .wide) {
             Sparkline(values: [0, 300, 1_800, 3_900, 5_200, 6_100, 8_412], tint: MetricStyle.of(.steps).color)
         }
+        let energy = MetricTile(kind: .activeEnergy, value: "12.345", unit: "kcal", reference: "Woche · bis 14:20", size: .large) {
+            Sparkline(values: [800, 1_900, 3_400, 5_100, 7_600, 9_800, 12_345], tint: MetricStyle.of(.activeEnergy).color)
+        }
         if DKLayout.isSingleColumn(typeSize) {
-            VStack(spacing: DKSpace.m) { heart; hrv; oxygen; steps }
+            VStack(spacing: DKSpace.m) { heart; hrv; oxygen; steps; energy }
         } else {
             Grid(horizontalSpacing: DKSpace.m, verticalSpacing: DKSpace.m) {
                 GridRow { heart; hrv }
                 GridRow { steps.gridCellColumns(2) }
+                GridRow { energy.gridCellColumns(2) }
                 GridRow {
                     oxygen
                     MetricTile(kind: .ringStress, value: nil, unit: "", reference: "Noch keine Messung heute") { EmptyView() }

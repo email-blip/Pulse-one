@@ -75,7 +75,7 @@ struct MetricTile<Trend: View>: View {
                                  : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: DKSpace.xs))
             layout {
                 Text((value ?? "–").replacingOccurrences(of: " ", with: "\u{00A0}"))
-                    .font(DKFont.number(size: size == .large ? largeNumber : smallNumber))
+                    .font(DKFont.number(size: numberSize))
                     .foregroundStyle(DKColor.textPrimary)
                     .contentTransition(.numericText())
                     .lineLimit(1)
@@ -94,6 +94,16 @@ struct MetricTile<Trend: View>: View {
         }
         .layoutPriority(1)
     }
+
+    /// Big numbers grow with Dynamic Type, but only up to a size at which a six-digit value ("123.456") still fits a
+    /// one-column tile on the smallest iPhone without shrinking below the 60 % floor. Above that, larger numbers would
+    /// only be cut ("14…", Build 19 run on #75); labels and units keep growing.
+    private var numberSize: CGFloat {
+        size == .large ? min(largeNumber, Self.maxLargeNumber) : min(smallNumber, Self.maxSmallNumber)
+    }
+
+    static var maxSmallNumber: CGFloat { 56 }
+    static var maxLargeNumber: CGFloat { 64 }
 
     private var trendSlot: some View {
         trend.accessibilityHidden(true)

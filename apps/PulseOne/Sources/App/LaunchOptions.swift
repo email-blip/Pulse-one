@@ -23,6 +23,8 @@ struct LaunchOptions: Sendable {
         scenario = value("uiTestScenario") ?? value("scenario")
         // `xxxl` is accessibility3 (screenshot matrix); `ax5` is the largest size, for the large-text checks (team 06).
         switch value("dynamicType") {
+        // `large3` is the largest size below the accessibility sizes, where the owner reads (Build 18, team 02).
+        case "large3": dynamicTypeSize = .xxxLarge
         case "xxxl": dynamicTypeSize = .accessibility3
         case "ax5": dynamicTypeSize = .accessibility5
         default: dynamicTypeSize = nil
